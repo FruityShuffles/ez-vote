@@ -36,6 +36,9 @@ migrate_working_dir/
 # Environment
 .env
 
+# Claude Code
+.claude/
+
 # Supabase
 supabase/.branches
 supabase/.temp
