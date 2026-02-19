@@ -1,0 +1,252 @@
+Ballot Condense Instructions
+
+Below is a handoff-style spec you can paste to Claude Code. It assumes **single-winner** elections and only the three methods: **IRV**, **STAR (0–5 scores)**, **Approval**.
+
+---
+
+## Goal
+
+Replace the current “three separate ballot sections” UI with **one streamlined ballot section** that can collect the minimum information needed for the selected method set **without making silent assumptions**.
+
+Key principles:
+
+1. **No arbitrary inference.** If a conversion needs extra info (approval cutoff, tie-breaking), the UI must collect it explicitly.
+2. **Preference consistency enforced.** Users cannot submit ballots that contradict themselves (e.g., STAR=5 but ranked last).
+3. **Template per method-combination.** Each unique combination of methods gets a specific UI template that collects exactly what’s needed.
+
+---
+
+## Definitions
+
+* **IRV requires**: an **ordered ranking** of candidates (ties not allowed in the final IRV order unless you implement a tied-ranking IRV variant—assume you are not).
+* **STAR requires**: an **integer score** per candidate, range **0..5**, ties allowed.
+* **Approval requires**: a **set of approved candidates**.
+
+---
+
+**Important:** When a method is included, the corresponding data must be present *either directly* or *derivable with explicit settings*.
+
+---
+
+## Conversion Rules (no assumptions)
+
+### 1) STAR → IRV (only if IRV is selected too)
+
+* Default derivation: sort candidates by `score` descending.
+* If any scores tie, **do not guess** tie order:
+
+  * Require user to provide a **tie-break order within each tied score group** that affects IRV ranking.
+* Final IRV `ranking` is the score order + user tie-breaks.
+
+### 2) STAR → Approval (only if Approval is selected too)
+
+* Require explicit setting: `approvalFromScores.cutoff` and `inclusive` rule.
+* Derived approvals:
+
+  * If inclusive: approve `score >= cutoff`
+  * Else: approve `score > cutoff`
+* UI must show the derived approval set live.
+
+### 3) IRV → Approval (only if Approval is selected too, and STAR is not present)
+
+* Require explicit setting: approve **Top K** (or divider between ranks).
+* Derived approvals: first `K` candidates in the ranking.
+
+### 4) IRV ↔ STAR consistency (when both selected)
+
+To avoid contradictions, enforce one of these approaches:
+
+**Recommended (least ambiguous): “Scores are source-of-truth.”**
+
+* User enters scores for STAR.
+* IRV ranking is derived from scores (plus explicit tie-break ordering).
+* The user cannot drag arbitrary ranks that would conflict with scores; they must change scores instead.
+
+This avoids needing a “what does it mean to rank lower but score higher?” policy.
+
+---
+
+## Consistency Requirements (UI should enforce before submit)
+
+### If STAR + IRV:
+
+* For all candidates A, B:
+
+  * If `ranking` places A above B, then `scores[A] >= scores[B]`.
+* Users may only reorder **within tied-score groups** (where `scores[A] == scores[B]`) via tie-break UI.
+
+### If STAR + Approval:
+
+* Approvals are **derived** from cutoff (no manual checkbox overrides), so consistency is guaranteed by construction.
+
+### If IRV + Approval (no STAR):
+
+* Approvals are **derived** from Top-K (no manual checkbox overrides), so consistency is guaranteed by construction.
+
+---
+
+## Ballot UI Templates by Method Combination
+
+There are 7 combinations; you only need 6 templates because `IRV+STAR+Approval` can reuse the `STAR+IRV` template with an extra “approval cutoff” control.
+
+### A) IRV only
+
+**UI:**
+
+* Candidate list with drag handles (strict order).
+* Optional: “Rank all” requirement vs “Allow truncation” (if truncation is allowed, make it explicit and define behavior).
+
+**Validation:**
+
+* Must produce `ranking` with no duplicates.
+
+---
+
+### B) STAR only
+
+**UI:**
+
+* Candidate list with per-candidate score selector (0..5), ties allowed.
+
+**Validation:**
+
+* Every candidate has a score.
+
+---
+
+### C) Approval only
+
+**UI:**
+
+* Candidate list with checkboxes.
+
+**Validation:**
+
+* `approvals` set can be empty or any size.
+
+---
+
+### D) IRV + Approval (no STAR)
+
+**UI (streamlined, no extra assumptions):**
+
+* Ranking list (drag/drop).
+* “Approval cutoff” control expressed as **Top-K** (or a divider line between ranks).
+
+  * Example: a draggable horizontal divider between ranked rows, or a “Approve top: [ 0..N ]” stepper.
+* Show derived approvals live (highlight approved rows).
+
+**Validation:**
+
+* Ranking complete and consistent.
+* Top-K chosen explicitly (even if 0 or N).
+
+---
+
+### E) STAR + Approval (no IRV)
+
+**UI:**
+
+* STAR scores per candidate.
+* Approval cutoff control:
+
+  * `cutoff` selector (0..5) + inclusive toggle (>= vs >), or bake one rule into the UI and require only cutoff.
+* Show derived approvals live (e.g., “Approved” badge next to rows meeting cutoff).
+
+**Validation:**
+
+* All scores present.
+* Cutoff explicitly set.
+
+---
+
+### F) STAR + IRV (no Approval)
+
+**UI (recommended approach):**
+
+* STAR scores per candidate.
+* Auto-generated “IRV order preview” (read-only) sorted by score desc.
+* If ties exist:
+
+  * Render a “Resolve ties for IRV” UI section listing each tied group:
+
+    * “You gave these candidates a score of 4. Put them in IRV tie-break order:” (drag only within the group)
+  * Alternatively, inline within the candidate list: group candidates by score and allow ordering within each score group.
+
+**Validation:**
+
+* All scores present.
+* If any tied-score group has size > 1, tie-break order must be provided for that group before submit.
+* Derived ranking must be strict.
+
+---
+
+### G) STAR + IRV + Approval
+
+**UI:** same as F, plus:
+
+* Approval cutoff control (as in E).
+* Show both:
+
+  * Derived IRV ranking
+  * Derived approval set
+
+**Validation:**
+
+* All from F + cutoff explicitly set.
+
+---
+
+## Submit Rules
+
+* Disable “Submit” until:
+
+  * Required inputs are complete (scores, ranking, etc.)
+  * Required conversion settings are present (cutoff, tie-breaks)
+  * Consistency rules pass
+
+When invalid:
+
+* Show *specific* blocking messages:
+
+  * “IRV needs a strict order. Resolve the tie among candidates scored 4.”
+  * “Approval needs a cutoff. Choose which scores count as approval.”
+
+---
+
+## UX Suggestions (for intuitiveness)
+
+1. **Single candidate list, multi-output badges**
+
+   * One list of candidates.
+   * Row contains:
+
+     * Candidate name
+     * Score selector (only if STAR present)
+     * Derived “Approved” badge (only if Approval present)
+     * Optional “IRV position” indicator (only if IRV present)
+   * This keeps the ballot feeling like “one action per candidate.”
+
+2. **Tie-resolution as a focused step**
+
+   * Only appears if needed.
+   * Keep it small and explicit: “Resolve ties to produce IRV ranking.”
+
+3. **Conversion Settings panel**
+
+   * A small collapsible area:
+
+     * “Approval cutoff” (when Approval derived)
+     * “Tie-break ordering needed” (when IRV derived)
+
+---
+
+## Implementation Notes
+
+* Treat conversions as pure functions:
+
+  * `deriveRanking(scores, tieBreaks) -> ranking`
+  * `deriveApprovalsFromScores(scores, cutoff, inclusive) -> approvals`
+  * `deriveApprovalsFromRanking(ranking, topK) -> approvals`
+* Keep a single validator that returns a list of blocking errors with IDs so the UI can highlight the right controls.
+* Prefer “scores are source-of-truth” whenever STAR+IRV is selected; it removes ambiguity and prevents inconsistent ballots by construction.

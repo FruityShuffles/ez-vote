@@ -1,0 +1,506 @@
+Below is a **copy/paste handoff** you can give to **Claude Code** to start building the Flutter + Supabase version. It’s written like an “agent brief”: clear deliverables, repo structure, SQL, and an implementation plan.
+
+---
+
+## Claude Code Handoff: Flutter + Supabase Voting App (MVP)
+
+You are Claude Code working in a local repo. Create a Flutter + Supabase app that lets users create invite-only elections, accept invites, submit ballots asynchronously, close elections, and view results (including running multiple voting algorithms per election). Optimize for correctness, clean architecture, and iterative expansion.
+
+### Tech choices (hard requirements)
+
+* **Flutter** (latest stable)
+* **Dart** (latest stable)
+* **Supabase** (Auth + Postgres + Storage optional)
+* Use **Row Level Security** policies (RLS) for data access control.
+* Use **Supabase Dart/Flutter SDK** for auth and database access.
+* Prefer clean architecture / feature modules, but keep it practical for an MVP.
+
+### MVP scope
+
+#### Auth
+
+* Email + password sign up / sign in.
+* Persist session.
+* Sign out.
+
+#### Core features
+
+1. **Create election** (owner)
+
+   * Title, description, list of candidates (names)
+   * Choose which algorithms apply (one or multiple): `approval`, `irv`, `star`
+   * Status: `draft` → `open` → `closed`
+2. **Invite voters** (owner)
+
+   * Owner enters email addresses
+   * System creates an `invite_token` per email
+   * Invited user can “accept invite” after logging in (match email)
+3. **Submit ballot** (invited user)
+
+   * If election is `open`, invited users can submit **one ballot** (enforce single ballot per user per election for MVP)
+   * Ballot format depends on election algorithms, but store a canonical JSON payload that can support all:
+
+     * approval: list of candidate ids
+     * irv: ranked list of candidate ids
+     * star: per-candidate 0–5 score map
+4. **Close election** (owner)
+
+   * Owner closes the election
+   * Results are computed for each selected algorithm and stored in DB
+5. **View results** (anyone who is invited or owner, and optionally “public results” later)
+
+   * Show winner and details per algorithm
+
+### UI screens (MVP)
+
+* Login / Signup
+* Home: list elections you own or are invited to (tabs)
+* Election detail:
+
+  * status, candidates, algorithms selected
+  * ballot UI (if open + invited)
+  * results view (if closed)
+* Create election flow
+* Invite voters screen
+* Accept invite screen (optional — could be integrated into election detail)
+
+### Architecture requirements (Flutter)
+
+* Use a state management approach that’s standard and maintainable (pick one):
+
+  * Riverpod preferred, or Bloc if you like it.
+* Separate layers:
+
+  * `data` (Supabase queries)
+  * `domain` (models + algorithm interfaces)
+  * `presentation` (screens/widgets)
+* Use typed models with `json_serializable` if helpful.
+* Handle loading/error states cleanly.
+
+---
+
+## Database schema (Supabase Postgres)
+
+Create migration SQL to set up tables, enums, constraints, RLS, and policies.
+
+### Tables needed
+
+* `profiles` (optional, but helpful): ties Supabase auth user to display info
+* `elections`
+* `candidates`
+* `election_invites`
+* `ballots`
+* `results`
+
+### Enums
+
+* election_status: `draft`, `open`, `closed`
+* algorithm_name: `approval`, `irv`, `star`
+
+### Canonical ballot JSON
+
+Store as `jsonb` in `ballots.raw_ballot`:
+
+```json
+{
+  "approval": ["candidate_uuid", "..."],
+  "irv": ["candidate_uuid", "..."],
+  "star": { "candidate_uuid": 5, "candidate_uuid2": 3 }
+}
+```
+
+Any key may be omitted if not used.
+
+### Migration SQL (include this in repo)
+
+```sql
+-- enums
+create type election_status as enum ('draft', 'open', 'closed');
+create type algorithm_name as enum ('approval', 'irv', 'star');
+
+-- profiles (optional)
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text unique,
+  display_name text,
+  created_at timestamptz not null default now()
+);
+
+-- elections
+create table if not exists public.elections (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  description text,
+  status election_status not null default 'draft',
+  algorithms algorithm_name[] not null default '{}'::algorithm_name[],
+  created_at timestamptz not null default now(),
+  opened_at timestamptz,
+  closed_at timestamptz
+);
+
+-- candidates
+create table if not exists public.candidates (
+  id uuid primary key default gen_random_uuid(),
+  election_id uuid not null references public.elections(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now(),
+  unique (election_id, name)
+);
+
+-- election invites
+create table if not exists public.election_invites (
+  id uuid primary key default gen_random_uuid(),
+  election_id uuid not null references public.elections(id) on delete cascade,
+  invited_email text not null,
+  invite_token text not null unique,
+  invited_by uuid not null references auth.users(id) on delete cascade,
+  accepted_by uuid references auth.users(id) on delete set null,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(election_id, invited_email)
+);
+
+-- ballots (one per user per election for MVP)
+create table if not exists public.ballots (
+  id uuid primary key default gen_random_uuid(),
+  election_id uuid not null references public.elections(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  raw_ballot jsonb not null,
+  submitted_at timestamptz not null default now(),
+  unique (election_id, user_id)
+);
+
+-- results: one row per election per algorithm
+create table if not exists public.results (
+  id uuid primary key default gen_random_uuid(),
+  election_id uuid not null references public.elections(id) on delete cascade,
+  algorithm algorithm_name not null,
+  computed_at timestamptz not null default now(),
+  result_json jsonb not null,
+  unique (election_id, algorithm)
+);
+
+-- helpful indexes
+create index if not exists idx_candidates_election_id on public.candidates(election_id);
+create index if not exists idx_invites_election_id on public.election_invites(election_id);
+create index if not exists idx_ballots_election_id on public.ballots(election_id);
+create index if not exists idx_results_election_id on public.results(election_id);
+```
+
+---
+
+## RLS policies (MVP-friendly)
+
+Enable RLS and implement policies so:
+
+* Owners can CRUD their elections, candidates, invites, close election, view ballots/results.
+* Invited users can view election + candidates + results (if closed), and submit their own ballot.
+* Invites can be read by owner; invited user can read their own invite (by matching email) after auth.
+
+Add this SQL (policies can be refined later):
+
+```sql
+alter table public.elections enable row level security;
+alter table public.candidates enable row level security;
+alter table public.election_invites enable row level security;
+alter table public.ballots enable row level security;
+alter table public.results enable row level security;
+alter table public.profiles enable row level security;
+
+-- profiles: user can read/write self
+create policy "profiles_select_self" on public.profiles
+for select using (auth.uid() = id);
+
+create policy "profiles_upsert_self" on public.profiles
+for insert with check (auth.uid() = id);
+
+create policy "profiles_update_self" on public.profiles
+for update using (auth.uid() = id);
+
+-- elections: owner full access; invited can select
+create policy "elections_owner_all" on public.elections
+for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+create policy "elections_invited_select" on public.elections
+for select using (
+  exists (
+    select 1 from public.election_invites i
+    where i.election_id = elections.id
+      and i.accepted_by = auth.uid()
+  )
+);
+
+-- candidates: owner full; invited select
+create policy "candidates_owner_all" on public.candidates
+for all using (
+  exists (select 1 from public.elections e where e.id = candidates.election_id and e.owner_id = auth.uid())
+)
+with check (
+  exists (select 1 from public.elections e where e.id = candidates.election_id and e.owner_id = auth.uid())
+);
+
+create policy "candidates_invited_select" on public.candidates
+for select using (
+  exists (
+    select 1 from public.election_invites i
+    where i.election_id = candidates.election_id
+      and i.accepted_by = auth.uid()
+  )
+);
+
+-- invites: owner all; invited select own accepted invites
+create policy "invites_owner_all" on public.election_invites
+for all using (
+  exists (select 1 from public.elections e where e.id = election_invites.election_id and e.owner_id = auth.uid())
+)
+with check (
+  exists (select 1 from public.elections e where e.id = election_invites.election_id and e.owner_id = auth.uid())
+);
+
+create policy "invites_invited_select" on public.election_invites
+for select using (accepted_by = auth.uid());
+
+-- ballots: owner can select; invited can insert/select/update their own
+create policy "ballots_owner_select" on public.ballots
+for select using (
+  exists (select 1 from public.elections e where e.id = ballots.election_id and e.owner_id = auth.uid())
+);
+
+create policy "ballots_user_crud_self" on public.ballots
+for all using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+-- results: owner + invited can select; owner can upsert
+create policy "results_owner_all" on public.results
+for all using (
+  exists (select 1 from public.elections e where e.id = results.election_id and e.owner_id = auth.uid())
+)
+with check (
+  exists (select 1 from public.elections e where e.id = results.election_id and e.owner_id = auth.uid())
+);
+
+create policy "results_invited_select" on public.results
+for select using (
+  exists (
+    select 1 from public.election_invites i
+    where i.election_id = results.election_id
+      and i.accepted_by = auth.uid()
+  )
+);
+```
+
+**Note:** Accepting invites requires setting `accepted_by` and `accepted_at`. For MVP, implement that via an RPC function or a secure update path where user can only accept invites that match their email.
+
+---
+
+## RPC functions (recommended for MVP correctness)
+
+### 1) Accept invite by token (secure)
+
+Create a Postgres function that:
+
+* Finds invite by `invite_token`
+* Verifies `invited_email` matches the authenticated user’s email
+* Sets `accepted_by`, `accepted_at`
+  Return the `election_id`.
+
+```sql
+create or replace function public.accept_invite(p_token text)
+returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  v_election_id uuid;
+  v_email text;
+begin
+  select email into v_email from auth.users where id = auth.uid();
+  if v_email is null then
+    raise exception 'No email for user';
+  end if;
+
+  update public.election_invites
+  set accepted_by = auth.uid(),
+      accepted_at = now()
+  where invite_token = p_token
+    and lower(invited_email) = lower(v_email)
+    and accepted_by is null
+  returning election_id into v_election_id;
+
+  if v_election_id is null then
+    raise exception 'Invalid token or email mismatch or already accepted';
+  end if;
+
+  return v_election_id;
+end;
+$$;
+
+revoke all on function public.accept_invite(text) from public;
+grant execute on function public.accept_invite(text) to authenticated;
+```
+
+### 2) Close election + compute results (two options)
+
+**Option A (fastest MVP):** compute results in Flutter client when owner closes, then upsert results into `results`.
+
+* Pro: simplest, no server code
+* Con: less trustworthy (client can lie)
+
+**Option B (better):** implement as a Supabase Edge Function (TypeScript) that:
+
+* Verifies caller is owner
+* Fetches ballots + candidates
+* Computes per algorithm
+* Writes `results` rows
+* Sets election status to closed
+
+For MVP, implement **Option B**.
+
+---
+
+## Result computation requirements
+
+Implement algorithms:
+
+* **Approval**: count approvals, highest wins; include full counts; tie -> include tie list.
+* **IRV** (instant-runoff): eliminate lowest iteratively; include per-round counts and eliminations; tie handling deterministic.
+* **STAR**: sum scores to find top two; then runoff by comparing scores on each ballot between top two; include score totals and runoff counts.
+
+Return `result_json` with:
+
+* `winnerCandidateId`
+* `winners` (list for ties)
+* `details` (counts, rounds, etc.)
+
+Example shape:
+
+```json
+{
+  "algorithm": "irv",
+  "winnerCandidateId": "uuid",
+  "winners": ["uuid"],
+  "details": {
+    "rounds": [
+      {"tallies": {"uuid": 10, "uuid2": 7}, "eliminated": ["uuid2"]}
+    ]
+  }
+}
+```
+
+---
+
+## Flutter implementation plan (do these in order)
+
+### Repo init
+
+1. Create Flutter app.
+2. Add dependencies:
+
+   * `supabase_flutter`
+   * state management (Riverpod recommended)
+   * `go_router` for routing
+   * `freezed` + `json_serializable` (optional but recommended)
+3. Add `.env` or `--dart-define` config for Supabase URL + anon key.
+
+### Data layer
+
+* `SupabaseAuthRepository`
+* `ElectionRepository` (CRUD + queries)
+* `InviteRepository` (create invites, accept invite via RPC)
+* `BallotRepository` (upsert ballot)
+* `ResultsRepository` (read results)
+
+### Domain models
+
+* `Election`, `Candidate`, `Invite`, `Ballot`, `Result`
+* typed converters from Supabase JSON
+
+### Presentation
+
+* Auth gate / session listener
+* screens:
+
+  * Login
+  * Home
+  * Create election
+  * Election detail
+  * Invite voters
+  * Results display
+* Basic UI polish (Material 3 ok)
+
+### Edge Function
+
+* Create `supabase/functions/compute_results/index.ts`
+* Use supabase service role key on server side only
+* Endpoint: `POST /compute_results` with `election_id`
+* It sets election to `closed`, writes results.
+
+### Tests
+
+* Dart unit tests for algorithm logic (optional if algorithms done in TS on edge)
+* If TS edge implements algorithms, write TS tests or at least ensure deterministic output.
+
+---
+
+## Queries needed in app (examples)
+
+* Elections user owns:
+
+  * `select * from elections where owner_id = auth.uid() order by created_at desc`
+* Elections user invited to:
+
+  * `select elections.* from elections join election_invites on election_invites.election_id = elections.id where election_invites.accepted_by = auth.uid()`
+* Candidates for election:
+
+  * `select * from candidates where election_id = :id order by created_at asc`
+* Existing ballot:
+
+  * `select * from ballots where election_id = :id and user_id = auth.uid() limit 1`
+* Results:
+
+  * `select * from results where election_id = :id`
+
+---
+
+## Deliverables (what to produce in this repo)
+
+1. Working Flutter app:
+
+   * can log in/out
+   * create election w/ candidates + algorithms
+   * invite by email (token generated)
+   * accept invite via token
+   * submit ballot
+   * owner can close election (calls edge function)
+   * show results per algorithm
+2. Supabase SQL migration files for schema + RLS + RPC
+3. Supabase edge function for computing results
+4. README with:
+
+   * setup steps (Supabase project, env vars)
+   * how to run locally
+   * how to deploy edge function
+   * any assumptions / TODOs
+
+---
+
+## Important constraints / decisions
+
+* Ballot submission limited to **one ballot per user per election** (enforced by unique constraint).
+* Election participants are **invite-only** (public elections can be a future enhancement).
+* Realtime updates not required for MVP (poll or refresh is fine).
+* Tie-breaking must be deterministic and documented (e.g., stable sort by candidate UUID when needed).
+
+---
+
+## Acceptance criteria checklist
+
+* [ ] Can create/open/close elections
+* [ ] Invites cannot be accepted by wrong email
+* [ ] Only owner can close election
+* [ ] Only invited users can submit ballots
+* [ ] Results generated for each chosen algorithm
+* [ ] App shows historical elections list and results
+
+---

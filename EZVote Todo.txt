@@ -1,0 +1,10 @@
+TODO: 
+Sending emails for other invites. How should I test this?
+Allow ties for STAR and Approval? Overall winner across election methods.
+Ability to view ballot after submission.
+
+C:\Users\adria\flutter\bin\flutter.bat run -d chrome
+
+pw: AllAppedUp42
+
+claude --resume 7afb036c-b296-435f-8a1f-2421d8ed6c44

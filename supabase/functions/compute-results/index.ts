@@ -1,0 +1,338 @@
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+interface Candidate {
+  id: string;
+  name: string;
+  position: number;
+}
+
+interface Ballot {
+  payload: {
+    approval?: string[];
+    irv?: string[];
+    star?: Record<string, number>;
+  };
+}
+
+// ---- Approval Voting ----
+function computeApproval(
+  candidates: Candidate[],
+  ballots: Ballot[]
+): Record<string, unknown> {
+  const tallies: Record<string, number> = {};
+  const nameMap: Record<string, string> = {};
+
+  for (const c of candidates) {
+    tallies[c.id] = 0;
+    nameMap[c.id] = c.name;
+  }
+
+  for (const b of ballots) {
+    const approved = b.payload.approval ?? [];
+    for (const cid of approved) {
+      if (tallies[cid] !== undefined) {
+        tallies[cid]++;
+      }
+    }
+  }
+
+  // Sort by tally desc, then by candidate ID for tie-breaking
+  const sorted = Object.entries(tallies).sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
+  );
+
+  const namedTallies: Record<string, number> = {};
+  for (const [id, count] of sorted) {
+    namedTallies[nameMap[id]] = count;
+  }
+
+  return {
+    winner: sorted.length > 0 ? nameMap[sorted[0][0]] : null,
+    runner_up: sorted.length > 1 ? nameMap[sorted[1][0]] : null,
+    tallies: namedTallies,
+  };
+}
+
+// ---- Instant Runoff Voting ----
+function computeIRV(
+  candidates: Candidate[],
+  ballots: Ballot[]
+): Record<string, unknown> {
+  const nameMap: Record<string, string> = {};
+  for (const c of candidates) {
+    nameMap[c.id] = c.name;
+  }
+
+  let remaining = new Set(candidates.map((c) => c.id));
+  const rankings = ballots
+    .map((b) => (b.payload.irv ?? []).filter((id) => remaining.has(id)))
+    .filter((r) => r.length > 0);
+
+  const rounds: Array<Record<string, unknown>> = [];
+
+  while (remaining.size > 1) {
+    // Count first-choice votes
+    const counts: Record<string, number> = {};
+    for (const id of remaining) {
+      counts[id] = 0;
+    }
+
+    for (const ranking of rankings) {
+      const firstChoice = ranking.find((id) => remaining.has(id));
+      if (firstChoice) {
+        counts[firstChoice]++;
+      }
+    }
+
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const namedCounts: Record<string, number> = {};
+    for (const [id, count] of Object.entries(counts)) {
+      namedCounts[nameMap[id]] = count;
+    }
+
+    // Check for majority
+    const sorted = Object.entries(counts).sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
+    );
+
+    if (sorted[0][1] > total / 2 || remaining.size <= 2) {
+      rounds.push({ counts: namedCounts, eliminated: null });
+      break;
+    }
+
+    // Eliminate the candidate with fewest votes (tie-break by ID)
+    const minVotes = sorted[sorted.length - 1][1];
+    const toEliminate = sorted
+      .filter(([_, v]) => v === minVotes)
+      .sort((a, b) => b[0].localeCompare(a[0]))[0][0];
+
+    rounds.push({
+      counts: namedCounts,
+      eliminated: nameMap[toEliminate],
+    });
+
+    remaining = new Set([...remaining].filter((id) => id !== toEliminate));
+  }
+
+  const finalSorted = [...remaining].sort((a, b) => {
+    const lastRound = rounds[rounds.length - 1];
+    const counts = lastRound?.counts as Record<string, number> | undefined;
+    if (!counts) return a.localeCompare(b);
+    return (counts[nameMap[b]] ?? 0) - (counts[nameMap[a]] ?? 0) ||
+      a.localeCompare(b);
+  });
+
+  return {
+    winner: finalSorted.length > 0 ? nameMap[finalSorted[0]] : null,
+    runner_up: finalSorted.length > 1 ? nameMap[finalSorted[1]] : null,
+    rounds,
+  };
+}
+
+// ---- STAR Voting ----
+function computeSTAR(
+  candidates: Candidate[],
+  ballots: Ballot[]
+): Record<string, unknown> {
+  const nameMap: Record<string, string> = {};
+  for (const c of candidates) {
+    nameMap[c.id] = c.name;
+  }
+
+  // Scoring round: sum all scores
+  const scores: Record<string, number> = {};
+  for (const c of candidates) {
+    scores[c.id] = 0;
+  }
+
+  for (const b of ballots) {
+    const starVotes = b.payload.star ?? {};
+    for (const [cid, score] of Object.entries(starVotes)) {
+      if (scores[cid] !== undefined) {
+        scores[cid] += score;
+      }
+    }
+  }
+
+  // Find top 2 by score (tie-break by ID)
+  const sorted = Object.entries(scores).sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
+  );
+
+  if (sorted.length < 2) {
+    const namedScores: Record<string, number> = {};
+    for (const [id, score] of sorted) {
+      namedScores[nameMap[id]] = score;
+    }
+    return {
+      winner: sorted.length > 0 ? nameMap[sorted[0][0]] : null,
+      runner_up: null,
+      scores: namedScores,
+      runoff: null,
+    };
+  }
+
+  const finalist1 = sorted[0][0];
+  const finalist2 = sorted[1][0];
+
+  // Runoff: count how many ballots prefer each finalist
+  let pref1 = 0;
+  let pref2 = 0;
+
+  for (const b of ballots) {
+    const starVotes = b.payload.star ?? {};
+    const s1 = starVotes[finalist1] ?? 0;
+    const s2 = starVotes[finalist2] ?? 0;
+    if (s1 > s2) pref1++;
+    else if (s2 > s1) pref2++;
+  }
+
+  // Winner is the one preferred by more ballots; tie-break by score then ID
+  let winner: string;
+  let runnerUp: string;
+
+  if (pref1 > pref2) {
+    winner = finalist1;
+    runnerUp = finalist2;
+  } else if (pref2 > pref1) {
+    winner = finalist2;
+    runnerUp = finalist1;
+  } else {
+    // Tie in runoff: higher score wins, then ID
+    if (scores[finalist1] > scores[finalist2]) {
+      winner = finalist1;
+      runnerUp = finalist2;
+    } else if (scores[finalist2] > scores[finalist1]) {
+      winner = finalist2;
+      runnerUp = finalist1;
+    } else {
+      // Lexicographic ID tie-break
+      winner = finalist1 < finalist2 ? finalist1 : finalist2;
+      runnerUp = finalist1 < finalist2 ? finalist2 : finalist1;
+    }
+  }
+
+  const namedScores: Record<string, number> = {};
+  for (const [id, score] of sorted) {
+    namedScores[nameMap[id]] = score;
+  }
+
+  return {
+    winner: nameMap[winner],
+    runner_up: nameMap[runnerUp],
+    scores: namedScores,
+    runoff: {
+      [nameMap[finalist1]]: pref1,
+      [nameMap[finalist2]]: pref2,
+    },
+  };
+}
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Missing Authorization header");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Verify user identity using anon key + user's JWT
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser();
+    if (userError || !user) throw new Error("Unauthorized");
+
+    const { election_id } = await req.json();
+    if (!election_id) throw new Error("election_id required");
+
+    // Create service role client for data operations (bypasses RLS)
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Verify caller is election owner
+    const { data: election, error: electionError } = await adminClient
+      .from("elections")
+      .select("*")
+      .eq("id", election_id)
+      .single();
+
+    if (electionError || !election) throw new Error("Election not found");
+    if (election.owner_id !== user.id) throw new Error("Not election owner");
+    if (election.status !== "open")
+      throw new Error("Election must be open to compute results");
+
+    // Fetch candidates and ballots
+    const { data: candidates } = await adminClient
+      .from("candidates")
+      .select("*")
+      .eq("election_id", election_id)
+      .order("position");
+
+    const { data: ballots } = await adminClient
+      .from("ballots")
+      .select("*")
+      .eq("election_id", election_id);
+
+    const algos: string[] = election.algorithms ?? [];
+
+    // Compute results for each algorithm
+    for (const algo of algos) {
+      let resultData: Record<string, unknown> = {};
+
+      switch (algo) {
+        case "approval":
+          resultData = computeApproval(candidates ?? [], ballots ?? []);
+          break;
+        case "irv":
+          resultData = computeIRV(candidates ?? [], ballots ?? []);
+          break;
+        case "star":
+          resultData = computeSTAR(candidates ?? [], ballots ?? []);
+          break;
+      }
+
+      await adminClient.from("results").upsert(
+        {
+          election_id,
+          algorithm: algo,
+          result_data: resultData,
+        },
+        { onConflict: "election_id,algorithm" }
+      );
+    }
+
+    // Close the election
+    await adminClient
+      .from("elections")
+      .update({ status: "closed" })
+      .eq("id", election_id);
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: (error as Error).message }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+});

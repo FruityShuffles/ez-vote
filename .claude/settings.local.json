@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"where flutter\")",
+      "Bash(powershell -Command:*)",
+      "Bash(\"C:\\\\Users\\\\adria\\\\flutter\\\\bin\\\\flutter.bat\" pub get)",
+      "Bash(\"C:\\\\Users\\\\adria\\\\flutter\\\\bin\\\\flutter.bat\" pub run build_runner build --delete-conflicting-outputs)",
+      "Bash(\"C:\\\\Users\\\\adria\\\\flutter\\\\bin\\\\flutter.bat\" analyze)",
+      "Bash(wc:*)",
+      "Bash(/c/Users/adria/flutter/bin/flutter.bat analyze:*)",
+      "Bash(/c/Users/adria/flutter/bin/flutter.bat pub run build_runner build:*)"
+    ]
+  }
+}
