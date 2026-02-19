@@ -8,7 +8,11 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: '.env');
+  // Load .env for local development; ignored in production where
+  // credentials are injected via --dart-define at build time.
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {}
 
   await Supabase.initialize(
     url: SupabaseConfig.url,
