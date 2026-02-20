@@ -39,6 +39,9 @@ migrate_working_dir/
 # Claude Code
 .claude/
 
+# Local notes
+EZVote Todo.txt
+
 # Supabase
 supabase/.branches
 supabase/.temp

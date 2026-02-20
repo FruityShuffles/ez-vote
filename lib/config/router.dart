@@ -16,7 +16,11 @@ final routerKey = GlobalKey<NavigatorState>();
 // Notifies GoRouter to re-evaluate routes whenever auth state changes.
 class _GoRouterRefreshStream extends ChangeNotifier {
   _GoRouterRefreshStream(Stream<AuthState> stream) {
-    _subscription = stream.listen((_) => notifyListeners());
+    _subscription = stream.listen((authState) {
+      if (authState.event != AuthChangeEvent.initialSession) {
+        notifyListeners();
+      }
+    });
   }
 
   late final StreamSubscription<AuthState> _subscription;

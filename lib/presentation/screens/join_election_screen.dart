@@ -13,8 +13,6 @@ class JoinElectionScreen extends ConsumerStatefulWidget {
 }
 
 class _JoinElectionScreenState extends ConsumerState<JoinElectionScreen> {
-  String? _error;
-
   @override
   void initState() {
     super.initState();
@@ -26,40 +24,14 @@ class _JoinElectionScreenState extends ConsumerState<JoinElectionScreen> {
       await ref
           .read(electionRepositoryProvider)
           .joinElection(widget.electionId);
-      if (mounted) context.go('/election/${widget.electionId}');
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+    } catch (_) {
+      // Ignore errors (e.g. already a member) — fall through to election detail.
     }
+    if (mounted) context.go('/election/${widget.electionId}');
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Join Election')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(_error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: () => context.go('/'),
-                  child: const Text('Go Home'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return const Scaffold(
       body: Center(child: CircularProgressIndicator()),
     );
