@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,51 +12,32 @@ import '../presentation/screens/join_election_screen.dart';
 
 final routerKey = GlobalKey<NavigatorState>();
 
-// Notifies GoRouter to re-evaluate routes whenever auth state changes.
-class _GoRouterRefreshStream extends ChangeNotifier {
-  _GoRouterRefreshStream(Stream<AuthState> stream) {
-    _subscription = stream.listen((authState) {
-      if (authState.event != AuthChangeEvent.initialSession) {
-        notifyListeners();
-      }
-    });
-  }
-
-  late final StreamSubscription<AuthState> _subscription;
-
-  @override
-  void dispose() {
-    _subscription.cancel();
-    super.dispose();
-  }
-}
-
 GoRouter createRouter() {
   return GoRouter(
     navigatorKey: routerKey,
     initialLocation: '/',
-    refreshListenable: _GoRouterRefreshStream(
-      Supabase.instance.client.auth.onAuthStateChange,
-    ),
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
-      final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/signup';
+      final loc = state.matchedLocation;
+      final isAuthRoute = loc == '/login' || loc == '/signup';
+      debugPrint('[router] redirect: loc=$loc uri=${state.uri} loggedIn=$isLoggedIn');
 
+      String? result;
       if (!isLoggedIn && !isAuthRoute) {
         final redirectTo = Uri.encodeComponent(state.uri.toString());
-        return '/login?redirect=$redirectTo';
-      }
-      if (isLoggedIn && isAuthRoute) {
+        result = '/login?redirect=$redirectTo';
+      } else if (isLoggedIn && isAuthRoute) {
         // Honour the redirect parameter so deep links survive the auth flow.
         final redirect = state.uri.queryParameters['redirect'];
         if (redirect != null && redirect.isNotEmpty) {
-          return Uri.decodeComponent(redirect);
+          result = Uri.decodeComponent(redirect);
+        } else {
+          result = '/';
         }
-        return '/';
       }
-      return null;
+      debugPrint('[router] → result: $result');
+      return result;
     },
     routes: [
       GoRoute(
