@@ -17,6 +17,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _displayNameController = TextEditingController();
+  final _otpController = TextEditingController();
   bool _loading = false;
   bool _emailSent = false;
   String? _error;
@@ -26,6 +27,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _displayNameController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -46,7 +48,32 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 : null,
           );
       if (mounted) {
-        setState(() => _emailSent = true);
+        setState(() {
+          _emailSent = true;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authRepositoryProvider).verifyOtp(
+            email: _emailController.text.trim(),
+            token: _otpController.text.trim(),
+          );
+      if (mounted) {
+        context.go(widget.redirect != null
+            ? Uri.decodeComponent(widget.redirect!)
+            : '/');
       }
     } catch (e) {
       setState(() => _error = e.toString());
@@ -77,11 +104,42 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'We sent a confirmation link to ${_emailController.text.trim()}. '
-                      'Click it to activate your account.',
+                      'Enter the 6-digit code we sent to ${_emailController.text.trim()}.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _otpController,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmation code',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(_error!,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error)),
+                    ],
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _loading ? null : _verifyOtp,
+                        child: _loading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              )
+                            : const Text('Confirm'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     TextButton(
                       onPressed: () => context.go('/login'),
                       child: const Text('Back to sign in'),

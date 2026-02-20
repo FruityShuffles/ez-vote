@@ -35,6 +35,17 @@ class AuthRepository {
     );
   }
 
+  Future<AuthResponse> verifyOtp({
+    required String email,
+    required String token,
+  }) async {
+    return await _client.auth.verifyOTP(
+      email: email,
+      token: token,
+      type: OtpType.signup,
+    );
+  }
+
   Future<void> signOut() async {
     await _client.auth.signOut();
   }
