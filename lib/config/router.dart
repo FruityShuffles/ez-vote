@@ -19,25 +19,22 @@ GoRouter createRouter() {
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
-      final loc = state.matchedLocation;
-      final isAuthRoute = loc == '/login' || loc == '/signup';
-      debugPrint('[router] redirect: loc=$loc uri=${state.uri} loggedIn=$isLoggedIn');
+      final isAuthRoute = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/signup';
 
-      String? result;
       if (!isLoggedIn && !isAuthRoute) {
         final redirectTo = Uri.encodeComponent(state.uri.toString());
-        result = '/login?redirect=$redirectTo';
-      } else if (isLoggedIn && isAuthRoute) {
+        return '/login?redirect=$redirectTo';
+      }
+      if (isLoggedIn && isAuthRoute) {
         // Honour the redirect parameter so deep links survive the auth flow.
         final redirect = state.uri.queryParameters['redirect'];
         if (redirect != null && redirect.isNotEmpty) {
-          result = Uri.decodeComponent(redirect);
-        } else {
-          result = '/';
+          return Uri.decodeComponent(redirect);
         }
+        return '/';
       }
-      debugPrint('[router] → result: $result');
-      return result;
+      return null;
     },
     routes: [
       GoRoute(
