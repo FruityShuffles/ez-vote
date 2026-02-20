@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,10 +13,28 @@ import '../presentation/screens/join_election_screen.dart';
 
 final routerKey = GlobalKey<NavigatorState>();
 
+// Notifies GoRouter to re-evaluate routes whenever auth state changes.
+class _GoRouterRefreshStream extends ChangeNotifier {
+  _GoRouterRefreshStream(Stream<AuthState> stream) {
+    _subscription = stream.listen((_) => notifyListeners());
+  }
+
+  late final StreamSubscription<AuthState> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
 GoRouter createRouter() {
   return GoRouter(
     navigatorKey: routerKey,
     initialLocation: '/',
+    refreshListenable: _GoRouterRefreshStream(
+      Supabase.instance.client.auth.onAuthStateChange,
+    ),
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
@@ -26,7 +45,14 @@ GoRouter createRouter() {
         final redirectTo = Uri.encodeComponent(state.uri.toString());
         return '/login?redirect=$redirectTo';
       }
-      if (isLoggedIn && isAuthRoute) return '/';
+      if (isLoggedIn && isAuthRoute) {
+        // Honour the redirect parameter so deep links survive the auth flow.
+        final redirect = state.uri.queryParameters['redirect'];
+        if (redirect != null && redirect.isNotEmpty) {
+          return Uri.decodeComponent(redirect);
+        }
+        return '/';
+      }
       return null;
     },
     routes: [
