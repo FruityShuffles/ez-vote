@@ -104,7 +104,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Enter the 6-digit code we sent to ${_emailController.text.trim()}.',
+                      'Enter the 8-digit code we sent to ${_emailController.text.trim()}.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -115,7 +115,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
-                      maxLength: 6,
+                      maxLength: 8,
                       textAlign: TextAlign.center,
                     ),
                     if (_error != null) ...[
