@@ -18,6 +18,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _passwordController = TextEditingController();
   final _displayNameController = TextEditingController();
   bool _loading = false;
+  bool _emailSent = false;
   String? _error;
 
   @override
@@ -45,9 +46,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 : null,
           );
       if (mounted) {
-        context.go(widget.redirect != null
-            ? Uri.decodeComponent(widget.redirect!)
-            : '/');
+        setState(() => _emailSent = true);
       }
     } catch (e) {
       setState(() => _error = e.toString());
@@ -58,6 +57,44 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_emailSent) {
+      return Scaffold(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Card(
+              margin: const EdgeInsets.all(24),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.mark_email_unread_outlined, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Check your email',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'We sent a confirmation link to ${_emailController.text.trim()}. '
+                      'Click it to activate your account.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: () => context.go('/login'),
+                      child: const Text('Back to sign in'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
