@@ -56,4 +56,8 @@ class AuthRepository {
   Future<void> signOut() async {
     await _client.auth.signOut();
   }
+
+  Future<void> deleteAccount() async {
+    await _client.rpc('delete_current_user');
+  }
 }

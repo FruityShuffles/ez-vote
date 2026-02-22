@@ -35,6 +35,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         title: const Text('EZVote'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sign out',
             onPressed: () async {
