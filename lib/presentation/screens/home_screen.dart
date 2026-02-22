@@ -47,8 +47,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'My Elections'),
-            Tab(text: 'Voted In'),
-            Tab(icon: Icon(Icons.school), text: 'Learn'),
+            Tab(text: 'My Votes'),
+            Tab(text: 'Learn'),
           ],
         ),
       ),
