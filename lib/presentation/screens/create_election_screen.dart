@@ -184,12 +184,43 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
                   ...VotingAlgorithm.values.map((algo) {
                     final label = switch (algo) {
                       VotingAlgorithm.approval => 'Approval Voting',
-                      VotingAlgorithm.irv =>
-                        'Instant Runoff Voting (IRV)',
+                      VotingAlgorithm.irv => 'Instant Runoff Voting (IRV)',
                       VotingAlgorithm.star => 'STAR Voting',
                     };
+                    const descriptions = {
+                      VotingAlgorithm.approval:
+                          'Vote for all candidates you find acceptable — the candidate with the most approvals wins.',
+                      VotingAlgorithm.irv:
+                          'Rank candidates in order of preference; if no one has a majority, the last-place candidate is eliminated and those votes are redistributed until someone wins.',
+                      VotingAlgorithm.star:
+                          'Score each candidate 0–5; the top two scorers advance to an automatic runoff, and whichever of those two is preferred by more voters wins.',
+                    };
                     return CheckboxListTile(
-                      title: Text(label),
+                      title: Row(
+                        children: [
+                          Text(label),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.info_outline, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'About $label',
+                            onPressed: () => showDialog<void>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: Text(label),
+                                content: Text(descriptions[algo]!),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text('Got it'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       value: _selectedAlgorithms.contains(algo),
                       onChanged: (checked) {
                         setState(() {
