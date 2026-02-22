@@ -46,6 +46,13 @@ class AuthRepository {
     );
   }
 
+  Future<bool> signInWithGoogle({String? redirectTo}) async {
+    return await _client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: redirectTo,
+    );
+  }
+
   Future<void> signOut() async {
     await _client.auth.signOut();
   }

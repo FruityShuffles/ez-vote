@@ -31,6 +31,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     super.dispose();
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authRepositoryProvider).signInWithGoogle(
+            redirectTo: '${Uri.base.origin}/',
+          );
+      // Auth state change handled by authStateProvider → router redirect
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -220,6 +237,31 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Text('Sign Up'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'or',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _loading ? null : _signInWithGoogle,
+                        icon: const Text('G',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
+                        label: const Text('Continue with Google'),
                       ),
                     ),
                     const SizedBox(height: 12),
