@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../../domain/models/election.dart';
+import 'learn_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -18,7 +19,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -47,6 +48,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           tabs: const [
             Tab(text: 'My Elections'),
             Tab(text: 'Voted In'),
+            Tab(icon: Icon(Icons.school), text: 'Learn'),
           ],
         ),
       ),
@@ -55,6 +57,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         children: [
           _OwnedElectionsList(),
           _VotedElectionsList(),
+          const LearnTab(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
