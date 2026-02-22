@@ -58,7 +58,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   '• Ballots you cast in elections that have already closed are '
                   'anonymized — your voter ID is removed, but the ballot data is '
                   'retained so election results remain accurate.\n\n'
-                  'Elections are subject to automatic deletion 60 days after they close.',
+                  'Elections and all associated data are automatically deleted 60 days after they are created.',
             ),
             _Section(
               title: 'Your Rights',

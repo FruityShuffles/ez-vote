@@ -38,7 +38,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
     try {
       await ref.read(authRepositoryProvider).signInWithGoogle(
-            redirectTo: '${Uri.base.origin}/',
+            redirectTo: '${Uri.base.origin}/home',
           );
       // Auth state change handled by authStateProvider → router redirect
     } catch (e) {
@@ -90,7 +90,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (mounted) {
         context.go(widget.redirect != null
             ? Uri.decodeComponent(widget.redirect!)
-            : '/');
+            : '/home');
       }
     } catch (e) {
       setState(() => _error = e.toString());
@@ -183,6 +183,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Image.asset('EZ Vote logo.png', width: 64, height: 64),
+                    const SizedBox(height: 12),
                     Text(
                       'Create Account',
                       style: Theme.of(context).textTheme.headlineLarge,

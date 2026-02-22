@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../presentation/screens/landing_screen.dart';
 import '../presentation/screens/login_screen.dart';
 import '../presentation/screens/signup_screen.dart';
 import '../presentation/screens/home_screen.dart';
@@ -26,6 +27,7 @@ GoRouter createRouter() {
       final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/signup';
       final isPublicRoute = isAuthRoute ||
+          state.matchedLocation == '/' ||
           state.matchedLocation == '/privacy' ||
           state.matchedLocation == '/tos';
 
@@ -39,7 +41,7 @@ GoRouter createRouter() {
         if (redirect != null && redirect.isNotEmpty) {
           return Uri.decodeComponent(redirect);
         }
-        return '/';
+        return '/home';
       }
       return null;
     },
@@ -58,6 +60,10 @@ GoRouter createRouter() {
       ),
       GoRoute(
         path: '/',
+        builder: (context, state) => const LandingScreen(),
+      ),
+      GoRoute(
+        path: '/home',
         builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(
