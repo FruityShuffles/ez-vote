@@ -83,7 +83,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset('EZ Vote logo.png', width: 64, height: 64),
+                    Image.asset('EZ Vote logo small.png', width: 64, height: 64),
                     const SizedBox(height: 12),
                     Text(
                       'EZVote',

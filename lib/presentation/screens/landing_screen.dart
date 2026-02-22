@@ -18,7 +18,7 @@ class LandingScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset('EZ Vote logo.png', width: 120, height: 120),
+                  Image.asset('EZ Vote logo large.png', width: 120, height: 120),
                   const SizedBox(height: 24),
                   Text(
                     'EZVote',

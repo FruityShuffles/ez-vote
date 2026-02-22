@@ -36,7 +36,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           onTap: () => context.go('/'),
           child: Row(
             children: [
-              Image.asset('EZ Vote logo.png', width: 28, height: 28),
+              Image.asset('EZ Vote logo small.png', width: 28, height: 28),
               const SizedBox(width: 8),
               const Text('EZVote'),
             ],
@@ -52,8 +52,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             icon: const Icon(Icons.logout),
             tooltip: 'Sign out',
             onPressed: () async {
+              final router = GoRouter.of(context);
               await ref.read(authRepositoryProvider).signOut();
-              if (mounted) context.go('/login');
+              if (mounted) router.go('/login');
             },
           ),
         ],
