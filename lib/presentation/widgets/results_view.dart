@@ -20,11 +20,82 @@ class ResultsView extends ConsumerWidget {
           return const Text('No results computed yet.');
         }
         return Column(
-          children: results
-              .map((r) => _ResultCard(result: r))
-              .toList(),
+          children: [
+            if (results.length > 1) _OverallWinnerCard(results: results),
+            ...results.map((r) => _ResultCard(result: r)),
+          ],
         );
       },
+    );
+  }
+}
+
+class _OverallWinnerCard extends StatelessWidget {
+  final List<ElectionResult> results;
+
+  const _OverallWinnerCard({required this.results});
+
+  @override
+  Widget build(BuildContext context) {
+    // Tally how many algorithms each candidate won.
+    final wins = <String, int>{};
+    for (final r in results) {
+      final data = r.resultData;
+      final winners = (data['winners'] as List<dynamic>?)?.cast<String>() ??
+          (data['winner'] != null ? [data['winner'] as String] : []);
+      for (final name in winners) {
+        wins[name] = (wins[name] ?? 0) + 1;
+      }
+    }
+
+    if (wins.isEmpty) return const SizedBox.shrink();
+
+    final maxWins = wins.values.reduce((a, b) => a > b ? a : b);
+    final leaders = wins.entries
+        .where((e) => e.value == maxWins)
+        .map((e) => e.key)
+        .toList();
+
+    // No meaningful overall result if everyone is tied or leader won only once.
+    if (maxWins < 2 && results.length > 2) return const SizedBox.shrink();
+    if (leaders.length > 1) return const SizedBox.shrink();
+
+    final overallWinner = leaders.first;
+    final isMajority = maxWins > results.length / 2;
+    final label = isMajority ? 'Overall Majority Winner' : 'Overall Plurality Winner';
+    final subtitle = '$overallWinner won $maxWins of ${results.length} algorithms';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: Colors.amber.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.amber.shade300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.workspace_premium, color: Colors.amber, size: 32),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Colors.amber.shade800)),
+                  Text(overallWinner,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 18)),
+                  Text(subtitle,
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
