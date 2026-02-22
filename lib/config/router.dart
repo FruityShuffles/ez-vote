@@ -9,6 +9,7 @@ import '../presentation/screens/election_detail_screen.dart';
 import '../presentation/screens/invite_voters_screen.dart';
 import '../presentation/screens/ballot_screen.dart';
 import '../presentation/screens/join_election_screen.dart';
+import '../domain/models/ballot.dart';
 
 final routerKey = GlobalKey<NavigatorState>();
 
@@ -77,9 +78,14 @@ GoRouter createRouter() {
       ),
       GoRoute(
         path: '/election/:id/vote',
-        builder: (context, state) => BallotScreen(
-          electionId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return BallotScreen(
+            electionId: state.pathParameters['id']!,
+            initialBallot: extra?['ballot'] as Ballot?,
+            viewOnly: extra?['viewOnly'] as bool? ?? false,
+          );
+        },
       ),
     ],
   );

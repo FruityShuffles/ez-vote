@@ -76,7 +76,8 @@ class ElectionDetailScreen extends ConsumerWidget {
                         electionId: electionId,
                       ),
                     ],
-                    if (election.status == ElectionStatus.open) ...[
+                    if (election.status == ElectionStatus.open ||
+                        election.status == ElectionStatus.closed) ...[
                       _VoterControls(electionId: electionId),
                     ],
                     if (election.status == ElectionStatus.closed) ...[
@@ -212,25 +213,42 @@ class _VoterControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final existingBallot = ref.watch(existingBallotProvider(electionId));
+    final electionAsync = ref.watch(electionProvider(electionId));
+    final isClosed = electionAsync.valueOrNull?.status == ElectionStatus.closed;
 
     return existingBallot.when(
       loading: () => const SizedBox(),
       error: (_, _) => const SizedBox(),
       data: (ballot) {
         if (ballot != null) {
-          return const Card(
+          return Card(
             child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Row(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green),
-                  SizedBox(width: 8),
-                  Text('You have already submitted your ballot.'),
+                  const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text('You have already submitted your ballot.'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => context.push(
+                      '/election/$electionId/vote',
+                      extra: {'ballot': ballot, 'viewOnly': isClosed},
+                    ),
+                    icon: Icon(isClosed ? Icons.visibility : Icons.edit),
+                    label: Text(isClosed ? 'View Ballot' : 'Edit Ballot'),
+                  ),
                 ],
               ),
             ),
           );
         }
+        if (isClosed) return const SizedBox();
         return FilledButton.icon(
           onPressed: () => context.push('/election/$electionId/vote'),
           icon: const Icon(Icons.how_to_vote),

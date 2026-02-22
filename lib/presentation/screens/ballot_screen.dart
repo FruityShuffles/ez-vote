@@ -3,11 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../../domain/models/candidate.dart';
+import '../../domain/models/ballot.dart';
 
 class BallotScreen extends ConsumerStatefulWidget {
   final String electionId;
+  final Ballot? initialBallot;
+  final bool viewOnly;
 
-  const BallotScreen({super.key, required this.electionId});
+  const BallotScreen({
+    super.key,
+    required this.electionId,
+    this.initialBallot,
+    this.viewOnly = false,
+  });
 
   @override
   ConsumerState<BallotScreen> createState() => _BallotScreenState();
@@ -45,6 +53,22 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     if (algos.contains('irv') && !algos.contains('star') &&
         candidates.isNotEmpty) {
       _rankings = candidates.map((c) => c.id).toList();
+    }
+
+    final payload = widget.initialBallot?.payload;
+    if (payload != null) {
+      if (payload['star'] != null) {
+        final raw = payload['star'] as Map<String, dynamic>;
+        _scores = raw.map((k, v) => MapEntry(k, (v as num).toInt()));
+      }
+      if (payload['irv'] != null && !algos.contains('star')) {
+        _rankings = List<String>.from(payload['irv'] as List);
+      }
+      if (payload['approval'] != null &&
+          !algos.contains('star') && !algos.contains('irv')) {
+        _approvals.addAll(List<String>.from(payload['approval'] as List));
+      }
+      if (algos.contains('star')) _syncTieBreaks(candidates);
     }
   }
 
@@ -176,7 +200,11 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     final candidatesAsync = ref.watch(candidatesProvider(widget.electionId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cast Your Vote')),
+      appBar: AppBar(
+        title: Text(widget.viewOnly
+            ? 'View Ballot'
+            : (widget.initialBallot != null ? 'Edit Ballot' : 'Cast Your Vote')),
+      ),
       body: electionAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
@@ -207,38 +235,50 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                                   Theme.of(context).textTheme.bodyMedium),
                         ],
                         const SizedBox(height: 24),
-                        _buildTemplate(template, candidates),
-                        const SizedBox(height: 16),
-                        if (errors.isNotEmpty) ...[
-                          ...errors.map((e) => Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.error_outline,
-                                        color: Colors.red, size: 16),
-                                    const SizedBox(width: 8),
-                                    Text(e,
-                                        style: const TextStyle(
-                                            color: Colors.red)),
-                                  ],
-                                ),
-                              )),
-                          const SizedBox(height: 8),
-                        ],
-                        FilledButton.icon(
-                          onPressed: (_loading || errors.isNotEmpty)
-                              ? null
-                              : () => _submit(candidates, template),
-                          icon: const Icon(Icons.how_to_vote),
-                          label: _loading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                )
-                              : const Text('Submit Ballot'),
+                        IgnorePointer(
+                          ignoring: widget.viewOnly,
+                          child: _buildTemplate(template, candidates),
                         ),
+                        const SizedBox(height: 16),
+                        if (widget.viewOnly) ...[
+                          Text(
+                            'This election is closed. Your ballot is view-only.',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ] else ...[
+                          if (errors.isNotEmpty) ...[
+                            ...errors.map((e) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.error_outline,
+                                          color: Colors.red, size: 16),
+                                      const SizedBox(width: 8),
+                                      Text(e,
+                                          style: const TextStyle(
+                                              color: Colors.red)),
+                                    ],
+                                  ),
+                                )),
+                            const SizedBox(height: 8),
+                          ],
+                          FilledButton.icon(
+                            onPressed: (_loading || errors.isNotEmpty)
+                                ? null
+                                : () => _submit(candidates, template),
+                            icon: const Icon(Icons.how_to_vote),
+                            label: _loading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : Text(widget.initialBallot != null
+                                    ? 'Update Ballot'
+                                    : 'Submit Ballot'),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -750,7 +790,11 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ballot submitted!')),
+          SnackBar(
+            content: Text(widget.initialBallot != null
+                ? 'Ballot updated!'
+                : 'Ballot submitted!'),
+          ),
         );
         context.pop();
       }
