@@ -180,21 +180,12 @@ class _ElectionCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               chip,
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'delete') _confirmDelete(context);
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text(
-                      'Delete',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
-                ],
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: () => _confirmDelete(context),
               ),
             ],
           )
