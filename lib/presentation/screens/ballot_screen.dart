@@ -318,7 +318,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 style: Theme.of(context).textTheme.titleMedium),
             const Text('Give each candidate a score from 0 to 5:'),
             const SizedBox(height: 8),
-            ...candidates.map((c) => _buildScoreRow(c, candidates)),
+            ...candidates.map((c) => _buildStarCandidateRow(c, candidates)),
           ],
         ),
       ),
@@ -427,27 +427,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 style: Theme.of(context).textTheme.titleMedium),
             const Text('Rate each candidate 0–5. Set your approval threshold:'),
             const SizedBox(height: 8),
-            ...candidates.map((c) {
-              final isApproved = approvedSet.contains(c.id);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        children: [
-                          Text(c.name),
-                          if (isApproved) _approvedBadge(),
-                        ],
-                      ),
-                    ),
-                    ..._buildScoreChips(c.id, candidates),
-                  ],
-                ),
-              );
-            }),
+            ...candidates.map((c) => _buildStarCandidateRow(
+                  c, candidates,
+                  isApproved: approvedSet.contains(c.id))),
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
@@ -496,17 +478,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             const Text(
                 'Rate each candidate 0–5. IRV order is derived automatically:'),
             const SizedBox(height: 8),
-            ...candidates.map((c) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      _irvBadge(rankMap[c.id]),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(c.name)),
-                      ..._buildScoreChips(c.id, candidates),
-                    ],
-                  ),
-                )),
+            ...candidates.map((c) => _buildStarCandidateRow(
+                  c, candidates,
+                  irvRank: rankMap[c.id])),
             if (tiedGroups.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Divider(),
@@ -548,29 +522,10 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             const Text(
                 'Rate each candidate 0–5. IRV order and approvals are derived automatically:'),
             const SizedBox(height: 8),
-            ...candidates.map((c) {
-              final isApproved = approvedSet.contains(c.id);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    _irvBadge(rankMap[c.id]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        children: [
-                          Text(c.name),
-                          if (isApproved) _approvedBadge(),
-                        ],
-                      ),
-                    ),
-                    ..._buildScoreChips(c.id, candidates),
-                  ],
-                ),
-              );
-            }),
+            ...candidates.map((c) => _buildStarCandidateRow(
+                  c, candidates,
+                  irvRank: rankMap[c.id],
+                  isApproved: approvedSet.contains(c.id))),
             if (tiedGroups.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Divider(),
@@ -625,13 +580,37 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     );
   }
 
-  Widget _buildScoreRow(Candidate c, List<Candidate> candidates) {
+  Widget _buildStarCandidateRow(
+    Candidate c,
+    List<Candidate> candidates, {
+    int? irvRank,
+    bool isApproved = false,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(c.name)),
-          ..._buildScoreChips(c.id, candidates),
+          Row(children: [
+            if (irvRank != null) ...[
+              _irvBadge(irvRank),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                children: [
+                  Text(c.name,
+                      style:
+                          const TextStyle(fontWeight: FontWeight.w500)),
+                  if (isApproved) _approvedBadge(),
+                ],
+              ),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Row(children: _buildScoreChips(c.id, candidates)),
         ],
       ),
     );
