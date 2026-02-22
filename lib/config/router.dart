@@ -13,6 +13,7 @@ import '../presentation/screens/join_election_screen.dart';
 import '../presentation/screens/settings_screen.dart';
 import '../presentation/screens/privacy_policy_screen.dart';
 import '../presentation/screens/terms_screen.dart';
+import '../presentation/screens/learn_screen.dart';
 import '../domain/models/ballot.dart';
 
 final routerKey = GlobalKey<NavigatorState>();
@@ -29,7 +30,8 @@ GoRouter createRouter() {
       final isPublicRoute = isAuthRoute ||
           state.matchedLocation == '/' ||
           state.matchedLocation == '/privacy' ||
-          state.matchedLocation == '/tos';
+          state.matchedLocation == '/tos' ||
+          state.matchedLocation == '/learn';
 
       if (!isLoggedIn && !isPublicRoute) {
         final redirectTo = Uri.encodeComponent(state.uri.toString());
@@ -41,7 +43,7 @@ GoRouter createRouter() {
         if (redirect != null && redirect.isNotEmpty) {
           return Uri.decodeComponent(redirect);
         }
-        return '/home';
+        return '/dashboard';
       }
       return null;
     },
@@ -63,8 +65,12 @@ GoRouter createRouter() {
         builder: (context, state) => const LandingScreen(),
       ),
       GoRoute(
-        path: '/home',
+        path: '/dashboard',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/learn',
+        builder: (context, state) => const LearnScreen(),
       ),
       GoRoute(
         path: '/create',

@@ -32,12 +32,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Image.asset('EZ Vote logo.png', width: 28, height: 28),
-            const SizedBox(width: 8),
-            const Text('EZVote'),
-          ],
+        title: GestureDetector(
+          onTap: () => context.go('/'),
+          child: Row(
+            children: [
+              Image.asset('EZ Vote logo.png', width: 28, height: 28),
+              const SizedBox(width: 8),
+              const Text('EZVote'),
+            ],
+          ),
         ),
         actions: [
           IconButton(

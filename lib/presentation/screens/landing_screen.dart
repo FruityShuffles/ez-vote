@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
     return Scaffold(
       body: SingleChildScrollView(
         child: Center(
@@ -51,22 +53,37 @@ class LandingScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 48),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => context.go('/signup'),
-                      child: const Text('Get Started'),
+                  if (isLoggedIn) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => context.go('/dashboard'),
+                        child: const Text('Go to Dashboard'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () => context.go('/login'),
-                      child: const Text('Sign In'),
+                  ] else ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => context.go('/signup'),
+                        child: const Text('Get Started'),
+                      ),
                     ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => context.go('/login'),
+                        child: const Text('Sign In'),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => context.push('/learn'),
+                    child: const Text('Learn about voting methods'),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => context.push('/privacy'),
                     child: const Text('Privacy Policy'),

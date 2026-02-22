@@ -38,7 +38,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
     try {
       await ref.read(authRepositoryProvider).signInWithGoogle(
-            redirectTo: '${Uri.base.origin}/home',
+            redirectTo: '${Uri.base.origin}/dashboard',
           );
       // Auth state change handled by authStateProvider → router redirect
     } catch (e) {
@@ -90,7 +90,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (mounted) {
         context.go(widget.redirect != null
             ? Uri.decodeComponent(widget.redirect!)
-            : '/home');
+            : '/dashboard');
       }
     } catch (e) {
       setState(() => _error = e.toString());

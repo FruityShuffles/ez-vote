@@ -23,7 +23,7 @@ class ElectionDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.home),
             tooltip: 'Home',
-            onPressed: () => context.go('/'),
+            onPressed: () => context.go('/dashboard'),
           ),
         ],
       ),
