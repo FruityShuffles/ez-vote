@@ -1,11 +1,11 @@
 {
-    "name": "ezvote",
-    "short_name": "ezvote",
+    "name": "EZVote",
+    "short_name": "EZVote",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Create and share elections with ease. EZVote supports multiple voting methods so you can run fair, flexible polls for any group.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
