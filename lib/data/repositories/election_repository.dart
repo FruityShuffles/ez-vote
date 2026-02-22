@@ -68,4 +68,8 @@ class ElectionRepository {
         .single();
     return Election.fromJson(data);
   }
+
+  Future<void> deleteElection(String id) async {
+    await _client.from('elections').delete().eq('id', id);
+  }
 }

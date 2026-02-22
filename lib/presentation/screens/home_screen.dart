@@ -86,7 +86,15 @@ class _OwnedElectionsList extends ConsumerWidget {
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: list.length,
-            itemBuilder: (context, i) => _ElectionCard(election: list[i]),
+            itemBuilder: (context, i) => _ElectionCard(
+              election: list[i],
+              onDelete: () async {
+                await ref
+                    .read(electionRepositoryProvider)
+                    .deleteElection(list[i].id);
+                ref.invalidate(ownedElectionsProvider);
+              },
+            ),
           ),
         );
       },
@@ -123,8 +131,35 @@ class _VotedElectionsList extends ConsumerWidget {
 
 class _ElectionCard extends StatelessWidget {
   final Election election;
+  final Future<void> Function()? onDelete;
 
-  const _ElectionCard({required this.election});
+  const _ElectionCard({required this.election, this.onDelete});
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete election?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await onDelete!();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,16 +169,43 @@ class _ElectionCard extends StatelessWidget {
       ElectionStatus.closed => Colors.red,
     };
 
+    final chip = Chip(
+      label: Text(election.status.name.toUpperCase()),
+      backgroundColor: statusColor.withValues(alpha: 0.15),
+      labelStyle: TextStyle(color: statusColor),
+    );
+
+    final trailing = onDelete != null
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              chip,
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'delete') _confirmDelete(context);
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(
+                      'Delete',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          )
+        : chip;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         title: Text(election.title),
         subtitle: Text(election.description ?? ''),
-        trailing: Chip(
-          label: Text(election.status.name.toUpperCase()),
-          backgroundColor: statusColor.withValues(alpha: 0.15),
-          labelStyle: TextStyle(color: statusColor),
-        ),
+        trailing: trailing,
         onTap: () => context.push('/election/${election.id}'),
       ),
     );
