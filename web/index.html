@@ -42,5 +42,9 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <!-- Visible to crawlers (Flutter renders to canvas, so in-app links are invisible to bots) -->
+  <nav style="position:fixed;bottom:0;width:100%;text-align:center;padding:4px;font-size:12px;font-family:sans-serif;background:#fff;z-index:-1">
+    <a href="/privacy">Privacy Policy</a> · <a href="/tos">Terms of Service</a>
+  </nav>
 </body>
 </html>
