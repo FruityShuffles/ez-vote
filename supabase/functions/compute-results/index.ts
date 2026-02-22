@@ -43,19 +43,31 @@ function computeApproval(
     }
   }
 
-  // Sort by tally desc, then by candidate ID for tie-breaking
-  const sorted = Object.entries(tallies).sort(
-    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
-  );
+  // Sort by tally desc (no arbitrary tie-break — genuine ties remain)
+  const sorted = Object.entries(tallies).sort((a, b) => b[1] - a[1]);
 
   const namedTallies: Record<string, number> = {};
   for (const [id, count] of sorted) {
     namedTallies[nameMap[id]] = count;
   }
 
+  if (sorted.length === 0) {
+    return { winners: [], winner: null, runner_up: null, tallies: namedTallies };
+  }
+
+  const topTally = sorted[0][1];
+  const winners = sorted
+    .filter(([_, v]) => v === topTally)
+    .map(([id]) => nameMap[id]);
+
+  // runner_up: first candidate NOT in winners (by tally desc)
+  const runnerUpEntry = sorted.find(([id]) => !winners.includes(nameMap[id]));
+  const runner_up = runnerUpEntry ? nameMap[runnerUpEntry[0]] : null;
+
   return {
-    winner: sorted.length > 0 ? nameMap[sorted[0][0]] : null,
-    runner_up: sorted.length > 1 ? nameMap[sorted[1][0]] : null,
+    winners,
+    winner: winners[0],
+    runner_up,
     tallies: namedTallies,
   };
 }
@@ -97,41 +109,68 @@ function computeIRV(
       namedCounts[nameMap[id]] = count;
     }
 
-    // Check for majority
-    const sorted = Object.entries(counts).sort(
-      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
-    );
+    // Sort desc by votes (no tie-break)
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const minVotes = sorted[sorted.length - 1][1];
 
-    if (sorted[0][1] > total / 2 || remaining.size <= 2) {
+    // Check for majority
+    if (sorted[0][1] > total / 2) {
       rounds.push({ counts: namedCounts, eliminated: null });
       break;
     }
 
-    // Eliminate the candidate with fewest votes (tie-break by ID)
-    const minVotes = sorted[sorted.length - 1][1];
+    // Eliminate ALL candidates tied for fewest votes
     const toEliminate = sorted
       .filter(([_, v]) => v === minVotes)
-      .sort((a, b) => b[0].localeCompare(a[0]))[0][0];
+      .map(([id]) => id);
+
+    // If every remaining candidate is tied for last → all are co-winners
+    if (toEliminate.length === remaining.size) {
+      rounds.push({ counts: namedCounts, eliminated: null });
+      break;
+    }
 
     rounds.push({
       counts: namedCounts,
-      eliminated: nameMap[toEliminate],
+      eliminated: toEliminate.map((id) => nameMap[id]),
     });
 
-    remaining = new Set([...remaining].filter((id) => id !== toEliminate));
+    remaining = new Set([...remaining].filter((id) => !toEliminate.includes(id)));
   }
 
-  const finalSorted = [...remaining].sort((a, b) => {
-    const lastRound = rounds[rounds.length - 1];
-    const counts = lastRound?.counts as Record<string, number> | undefined;
-    if (!counts) return a.localeCompare(b);
-    return (counts[nameMap[b]] ?? 0) - (counts[nameMap[a]] ?? 0) ||
-      a.localeCompare(b);
-  });
+  if (remaining.size === 0) {
+    return { winners: [], winner: null, runner_up: null, rounds };
+  }
+
+  // Determine winners from the last round's vote counts
+  const lastRound = rounds[rounds.length - 1];
+  const finalCounts = lastRound?.counts as Record<string, number> | undefined;
+
+  let winners: string[];
+  let runnerUp: string | null = null;
+
+  if (remaining.size === 1) {
+    winners = [[...remaining][0]].map((id) => nameMap[id]);
+  } else if (finalCounts) {
+    const remainingIds = [...remaining];
+    const maxCount = Math.max(
+      ...remainingIds.map((id) => finalCounts[nameMap[id]] ?? 0)
+    );
+    winners = remainingIds
+      .filter((id) => (finalCounts[nameMap[id]] ?? 0) === maxCount)
+      .map((id) => nameMap[id]);
+
+    // runner_up: first remaining candidate not in winners
+    const runnerUpId = remainingIds.find((id) => !winners.includes(nameMap[id]));
+    runnerUp = runnerUpId ? nameMap[runnerUpId] : null;
+  } else {
+    winners = [...remaining].map((id) => nameMap[id]);
+  }
 
   return {
-    winner: finalSorted.length > 0 ? nameMap[finalSorted[0]] : null,
-    runner_up: finalSorted.length > 1 ? nameMap[finalSorted[1]] : null,
+    winners,
+    winner: winners.length > 0 ? winners[0] : null,
+    runner_up: runnerUp,
     rounds,
   };
 }
@@ -161,18 +200,18 @@ function computeSTAR(
     }
   }
 
-  // Find top 2 by score (tie-break by ID)
-  const sorted = Object.entries(scores).sort(
-    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
-  );
+  // Find top 2 by score (no arbitrary ID tie-break)
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
 
   if (sorted.length < 2) {
     const namedScores: Record<string, number> = {};
     for (const [id, score] of sorted) {
       namedScores[nameMap[id]] = score;
     }
+    const singleWinner = sorted.length > 0 ? nameMap[sorted[0][0]] : null;
     return {
-      winner: sorted.length > 0 ? nameMap[sorted[0][0]] : null,
+      winners: singleWinner ? [singleWinner] : [],
+      winner: singleWinner,
       runner_up: null,
       scores: namedScores,
       runoff: null,
@@ -194,29 +233,19 @@ function computeSTAR(
     else if (s2 > s1) pref2++;
   }
 
-  // Winner is the one preferred by more ballots; tie-break by score then ID
-  let winner: string;
-  let runnerUp: string;
+  let winners: string[];
+  let runnerUp: string | null;
 
   if (pref1 > pref2) {
-    winner = finalist1;
-    runnerUp = finalist2;
+    winners = [nameMap[finalist1]];
+    runnerUp = nameMap[finalist2];
   } else if (pref2 > pref1) {
-    winner = finalist2;
-    runnerUp = finalist1;
+    winners = [nameMap[finalist2]];
+    runnerUp = nameMap[finalist1];
   } else {
-    // Tie in runoff: higher score wins, then ID
-    if (scores[finalist1] > scores[finalist2]) {
-      winner = finalist1;
-      runnerUp = finalist2;
-    } else if (scores[finalist2] > scores[finalist1]) {
-      winner = finalist2;
-      runnerUp = finalist1;
-    } else {
-      // Lexicographic ID tie-break
-      winner = finalist1 < finalist2 ? finalist1 : finalist2;
-      runnerUp = finalist1 < finalist2 ? finalist2 : finalist1;
-    }
+    // Runoff tie: both finalists are co-winners
+    winners = [nameMap[finalist1], nameMap[finalist2]];
+    runnerUp = null;
   }
 
   const namedScores: Record<string, number> = {};
@@ -225,8 +254,9 @@ function computeSTAR(
   }
 
   return {
-    winner: nameMap[winner],
-    runner_up: nameMap[runnerUp],
+    winners,
+    winner: winners[0],
+    runner_up: runnerUp,
     scores: namedScores,
     runoff: {
       [nameMap[finalist1]]: pref1,

@@ -44,6 +44,15 @@ class _ResultCard extends StatelessWidget {
       _ => result.algorithm,
     };
 
+    final winners = (data['winners'] as List<dynamic>?)?.cast<String>();
+    final isTie = winners != null && winners.length > 1;
+    final displayWinner = isTie
+        ? winners.join(' & ')
+        : (winners?.firstOrNull ?? data['winner'] as String?);
+    final runnerUp = data['runner_up'] as String?;
+    final runnerUpSuppressed =
+        winners != null && runnerUp != null && winners.contains(runnerUp);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -54,20 +63,25 @@ class _ResultCard extends StatelessWidget {
             Text(algorithmLabel,
                 style: Theme.of(context).textTheme.titleMedium),
             const Divider(),
-            if (data['winner'] != null) ...[
+            if (displayWinner != null) ...[
               Row(
                 children: [
-                  const Icon(Icons.emoji_events, color: Colors.amber),
+                  Icon(isTie ? Icons.balance : Icons.emoji_events,
+                      color: Colors.amber),
                   const SizedBox(width: 8),
-                  Text('Winner: ${data['winner']}',
+                  Flexible(
+                    child: Text(
+                      isTie ? 'Tied: $displayWinner' : 'Winner: $displayWinner',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
+                          fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
             ],
-            if (data['runner_up'] != null)
-              Text('Runner-up: ${data['runner_up']}'),
+            if (runnerUp != null && !runnerUpSuppressed)
+              Text('Runner-up: $runnerUp'),
             const SizedBox(height: 12),
             if (result.algorithm == 'approval') _buildApprovalDetails(data),
             if (result.algorithm == 'irv') _buildIrvDetails(data),
@@ -122,6 +136,9 @@ class _ResultCard extends StatelessWidget {
           final round = entry.value as Map<String, dynamic>;
           final eliminated = round['eliminated'];
           final counts = round['counts'] as Map<String, dynamic>? ?? {};
+          final eliminatedStr = eliminated is List
+              ? eliminated.join(', ')
+              : eliminated?.toString();
 
           return Card(
             color: Colors.grey.shade50,
@@ -134,8 +151,8 @@ class _ResultCard extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.bold)),
                   ...counts.entries.map((c) =>
                       Text('  ${c.key}: ${c.value}')),
-                  if (eliminated != null)
-                    Text('  Eliminated: $eliminated',
+                  if (eliminatedStr != null)
+                    Text('  Eliminated: $eliminatedStr',
                         style: const TextStyle(
                             color: Colors.red,
                             fontStyle: FontStyle.italic)),
