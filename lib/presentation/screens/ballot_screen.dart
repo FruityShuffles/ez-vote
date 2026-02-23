@@ -331,11 +331,14 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
               },
               itemBuilder: (context, index) {
                 final candidate = candidateMap[_rankings[index]];
-                return ListTile(
+                return ReorderableDragStartListener(
                   key: ValueKey(_rankings[index]),
-                  leading: CircleAvatar(child: Text('${index + 1}')),
-                  title: Text(candidate?.name ?? 'Unknown'),
-                  trailing: const Icon(Icons.drag_handle),
+                  index: index,
+                  child: ListTile(
+                    leading: CircleAvatar(child: Text('${index + 1}')),
+                    title: Text(candidate?.name ?? 'Unknown'),
+                    trailing: const Icon(Icons.drag_handle),
+                  ),
                 );
               },
             ),
@@ -429,17 +432,20 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 final id = _rankings[index];
                 final candidate = candidateMap[id];
                 final isApproved = approvedSet.contains(id);
-                return ListTile(
+                return ReorderableDragStartListener(
                   key: ValueKey(id),
-                  leading: CircleAvatar(child: Text('${index + 1}')),
-                  title: Text(candidate?.name ?? 'Unknown'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isApproved) _approvedBadge(),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.drag_handle),
-                    ],
+                  index: index,
+                  child: ListTile(
+                    leading: CircleAvatar(child: Text('${index + 1}')),
+                    title: Text(candidate?.name ?? 'Unknown'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isApproved) _approvedBadge(),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.drag_handle),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -709,15 +715,18 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           itemBuilder: (context, index) {
             final id = order[index];
             final candidate = candidateMap[id];
-            return ListTile(
+            return ReorderableDragStartListener(
               key: ValueKey('tie_${score}_$id'),
-              leading: CircleAvatar(
-                radius: 12,
-                child: Text('${index + 1}',
-                    style: const TextStyle(fontSize: 12)),
+              index: index,
+              child: ListTile(
+                leading: CircleAvatar(
+                  radius: 12,
+                  child: Text('${index + 1}',
+                      style: const TextStyle(fontSize: 12)),
+                ),
+                title: Text(candidate?.name ?? 'Unknown'),
+                trailing: const Icon(Icons.drag_handle),
               ),
-              title: Text(candidate?.name ?? 'Unknown'),
-              trailing: const Icon(Icons.drag_handle),
             );
           },
         ),

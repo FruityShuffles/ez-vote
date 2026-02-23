@@ -113,9 +113,53 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
     }
   }
 
+  bool get _hasAnyCandidate =>
+      _candidateControllers.any((c) => c.text.trim().isNotEmpty);
+
+  Future<void> _onPopInvoked(bool didPop) async {
+    if (didPop) return;
+    if (!_hasAnyCandidate) {
+      if (mounted) context.pop();
+      return;
+    }
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard this election?'),
+        content: const Text(
+          'You have unsaved candidates. Save as a draft to keep your work, '
+          'or discard to leave without saving.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('cancel'),
+            child: const Text('Keep editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('discard'),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop('draft'),
+            child: const Text('Save as Draft'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (result == 'discard') {
+      context.pop();
+    } else if (result == 'draft') {
+      await _save();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) => _onPopInvoked(didPop),
+      child: Scaffold(
       appBar: AppBar(title: const Text('Create Election')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -258,6 +302,7 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
