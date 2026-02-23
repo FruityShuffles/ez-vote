@@ -22,6 +22,16 @@ GoRouter createRouter() {
   return GoRouter(
     navigatorKey: routerKey,
     initialLocation: '/',
+    errorBuilder: (context, state) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final isLoggedIn =
+            Supabase.instance.client.auth.currentSession != null;
+        context.go(isLoggedIn ? '/dashboard' : '/');
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    },
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;

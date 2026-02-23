@@ -15,15 +15,50 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  GoRouter? _router;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_onTabChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.of(context);
+    if (_router != router) {
+      _router?.routerDelegate.removeListener(_onRouteChanged);
+      _router = router;
+      router.routerDelegate.addListener(_onRouteChanged);
+    }
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    switch (_tabController.index) {
+      case 0:
+        ref.invalidate(ownedElectionsProvider);
+      case 1:
+        ref.invalidate(votedElectionsProvider);
+    }
+  }
+
+  void _onRouteChanged() {
+    if (!mounted) return;
+    final path =
+        GoRouter.of(context).routeInformationProvider.value.uri.path;
+    if (path == '/dashboard') {
+      ref.invalidate(ownedElectionsProvider);
+      ref.invalidate(votedElectionsProvider);
+    }
   }
 
   @override
   void dispose() {
+    _router?.routerDelegate.removeListener(_onRouteChanged);
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }

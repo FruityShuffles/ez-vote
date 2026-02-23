@@ -19,6 +19,10 @@ class ElectionDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Election Details'),
+        leading: BackButton(
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/dashboard'),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
