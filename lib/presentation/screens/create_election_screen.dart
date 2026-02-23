@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
+import '../widgets/dashboard_button.dart';
 import '../../domain/models/election.dart';
 
 class CreateElectionScreen extends ConsumerStatefulWidget {
-  const CreateElectionScreen({super.key});
+  final String? electionId;
+
+  const CreateElectionScreen({super.key, this.electionId});
 
   @override
   ConsumerState<CreateElectionScreen> createState() =>
@@ -22,6 +25,62 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
   ];
   final Set<VotingAlgorithm> _selectedAlgorithms = {VotingAlgorithm.approval};
   bool _loading = false;
+  bool _loadingInitial = false;
+
+  bool get _isEditing => widget.electionId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      _loadInitialData();
+    }
+  }
+
+  Future<void> _loadInitialData() async {
+    setState(() => _loadingInitial = true);
+    try {
+      final electionRepo = ref.read(electionRepositoryProvider);
+      final candidateRepo = ref.read(candidateRepositoryProvider);
+
+      final election = await electionRepo.getById(widget.electionId!);
+      final candidates =
+          await candidateRepo.listForElection(widget.electionId!);
+
+      _titleController.text = election.title;
+      _descriptionController.text = election.description ?? '';
+
+      _selectedAlgorithms.clear();
+      for (final name in election.algorithms) {
+        final algo = VotingAlgorithm.values.firstWhere(
+          (a) => a.name == name,
+          orElse: () => VotingAlgorithm.approval,
+        );
+        _selectedAlgorithms.add(algo);
+      }
+
+      // Dispose existing controllers and replace with one per candidate
+      for (final c in _candidateControllers) {
+        c.dispose();
+      }
+      _candidateControllers.clear();
+      for (final candidate in candidates) {
+        _candidateControllers.add(TextEditingController(text: candidate.name));
+      }
+      // Ensure at least 2 controllers
+      while (_candidateControllers.length < 2) {
+        _candidateControllers.add(TextEditingController());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading election: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingInitial = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -78,29 +137,46 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
     setState(() => _loading = true);
 
     try {
-      final election = await ref.read(electionRepositoryProvider).create(
-            title: _titleController.text.trim(),
-            description: _descriptionController.text.trim().isNotEmpty
-                ? _descriptionController.text.trim()
-                : null,
-            algorithms:
-                _selectedAlgorithms.map((a) => a.name).toList(),
-          );
+      final electionRepo = ref.read(electionRepositoryProvider);
+      final candidateRepo = ref.read(candidateRepositoryProvider);
+      final algorithms = _selectedAlgorithms.map((a) => a.name).toList();
+      final title = _titleController.text.trim();
+      final description = _descriptionController.text.trim().isNotEmpty
+          ? _descriptionController.text.trim()
+          : null;
 
-      await ref
-          .read(candidateRepositoryProvider)
-          .setCandidates(election.id, candidateNames);
-
-      if (open) {
-        await ref
-            .read(electionRepositoryProvider)
-            .updateStatus(election.id, ElectionStatus.open);
-      }
-
-      ref.invalidate(ownedElectionsProvider);
-
-      if (mounted) {
-        context.go('/election/${election.id}');
+      if (_isEditing) {
+        await electionRepo.update(
+          widget.electionId!,
+          title: title,
+          description: description,
+          algorithms: algorithms,
+        );
+        await candidateRepo.setCandidates(widget.electionId!, candidateNames);
+        if (open) {
+          await electionRepo.updateStatus(
+              widget.electionId!, ElectionStatus.open);
+        }
+        ref.invalidate(electionProvider(widget.electionId!));
+        ref.invalidate(candidatesProvider(widget.electionId!));
+        ref.invalidate(ownedElectionsProvider);
+        if (mounted) {
+          context.go('/election/${widget.electionId}');
+        }
+      } else {
+        final election = await electionRepo.create(
+          title: title,
+          description: description,
+          algorithms: algorithms,
+        );
+        await candidateRepo.setCandidates(election.id, candidateNames);
+        if (open) {
+          await electionRepo.updateStatus(election.id, ElectionStatus.open);
+        }
+        ref.invalidate(ownedElectionsProvider);
+        if (mounted) {
+          context.go('/election/${election.id}');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -118,6 +194,10 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
 
   Future<void> _onPopInvoked(bool didPop) async {
     if (didPop) return;
+    if (_isEditing) {
+      if (mounted) context.go('/election/${widget.electionId}');
+      return;
+    }
     if (!_hasAnyCandidate) {
       if (mounted) context.pop();
       return;
@@ -160,149 +240,166 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) => _onPopInvoked(didPop),
       child: Scaffold(
-      appBar: AppBar(title: const Text('Create Election')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Election Title',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? 'Title required' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description (optional)',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 24),
-                  Text('Candidates',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  ..._candidateControllers.asMap().entries.map((entry) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
+        appBar: AppBar(
+          leading: const DashboardButton(),
+          title: Text(_isEditing ? 'Edit Election' : 'Create Election'),
+        ),
+        body: _loadingInitial
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: entry.value,
-                              decoration: InputDecoration(
-                                labelText: 'Candidate ${entry.key + 1}',
-                                border: const OutlineInputBorder(),
-                              ),
+                          TextFormField(
+                            controller: _titleController,
+                            decoration: const InputDecoration(
+                              labelText: 'Election Title',
+                              border: OutlineInputBorder(),
                             ),
+                            validator: (v) =>
+                                v == null || v.trim().isEmpty
+                                    ? 'Title required'
+                                    : null,
                           ),
-                          if (_candidateControllers.length > 2)
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline),
-                              onPressed: () => _removeCandidate(entry.key),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _descriptionController,
+                            decoration: const InputDecoration(
+                              labelText: 'Description (optional)',
+                              border: OutlineInputBorder(),
                             ),
-                        ],
-                      ),
-                    );
-                  }),
-                  TextButton.icon(
-                    onPressed: _addCandidate,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Candidate'),
-                  ),
-                  const SizedBox(height: 24),
-                  Text('Voting Algorithms',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  ...VotingAlgorithm.values.map((algo) {
-                    final label = switch (algo) {
-                      VotingAlgorithm.approval => 'Approval Voting',
-                      VotingAlgorithm.irv => 'Instant Runoff Voting (IRV)',
-                      VotingAlgorithm.star => 'STAR Voting',
-                    };
-                    const descriptions = {
-                      VotingAlgorithm.approval:
-                          'Vote for all candidates you find acceptable — the candidate with the most approvals wins.',
-                      VotingAlgorithm.irv:
-                          'Rank candidates in order of preference; if no one has a majority, the last-place candidate is eliminated and those votes are redistributed until someone wins.',
-                      VotingAlgorithm.star:
-                          'Score each candidate 0–5; the top two scorers advance to an automatic runoff, and whichever of those two is preferred by more voters wins.',
-                    };
-                    return CheckboxListTile(
-                      title: Row(
-                        children: [
-                          Text(label),
-                          const SizedBox(width: 4),
-                          IconButton(
-                            icon: const Icon(Icons.info_outline, size: 18),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            tooltip: 'About $label',
-                            onPressed: () => showDialog<void>(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                title: Text(label),
-                                content: Text(descriptions[algo]!),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
-                                    child: const Text('Got it'),
+                            maxLines: 3,
+                          ),
+                          const SizedBox(height: 24),
+                          Text('Candidates',
+                              style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          ..._candidateControllers.asMap().entries.map((entry) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: entry.value,
+                                      decoration: InputDecoration(
+                                        labelText: 'Candidate ${entry.key + 1}',
+                                        border: const OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                                  if (_candidateControllers.length > 2)
+                                    IconButton(
+                                      icon: const Icon(
+                                          Icons.remove_circle_outline),
+                                      onPressed: () =>
+                                          _removeCandidate(entry.key),
+                                    ),
+                                ],
+                              ),
+                            );
+                          }),
+                          TextButton.icon(
+                            onPressed: _addCandidate,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Candidate'),
+                          ),
+                          const SizedBox(height: 24),
+                          Text('Voting Algorithms',
+                              style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          ...VotingAlgorithm.values.map((algo) {
+                            final label = switch (algo) {
+                              VotingAlgorithm.approval => 'Approval Voting',
+                              VotingAlgorithm.irv =>
+                                'Instant Runoff Voting (IRV)',
+                              VotingAlgorithm.star => 'STAR Voting',
+                            };
+                            const descriptions = {
+                              VotingAlgorithm.approval:
+                                  'Vote for all candidates you find acceptable — the candidate with the most approvals wins.',
+                              VotingAlgorithm.irv:
+                                  'Rank candidates in order of preference; if no one has a majority, the last-place candidate is eliminated and those votes are redistributed until someone wins.',
+                              VotingAlgorithm.star:
+                                  'Score each candidate 0–5; the top two scorers advance to an automatic runoff, and whichever of those two is preferred by more voters wins.',
+                            };
+                            return CheckboxListTile(
+                              title: Row(
+                                children: [
+                                  Text(label),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    icon: const Icon(Icons.info_outline,
+                                        size: 18),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    tooltip: 'About $label',
+                                    onPressed: () => showDialog<void>(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: Text(label),
+                                        content: Text(descriptions[algo]!),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(context).pop(),
+                                            child: const Text('Got it'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
+                              value: _selectedAlgorithms.contains(algo),
+                              onChanged: (checked) {
+                                setState(() {
+                                  if (checked == true) {
+                                    _selectedAlgorithms.add(algo);
+                                  } else {
+                                    _selectedAlgorithms.remove(algo);
+                                  }
+                                });
+                              },
+                            );
+                          }),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _loading ? null : () => _save(),
+                                  child: Text(_isEditing
+                                      ? 'Save Changes'
+                                      : 'Save as Draft'),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: _loading
+                                      ? null
+                                      : () => _save(open: true),
+                                  child: Text(_isEditing
+                                      ? 'Save & Open'
+                                      : 'Save & Open'),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      value: _selectedAlgorithms.contains(algo),
-                      onChanged: (checked) {
-                        setState(() {
-                          if (checked == true) {
-                            _selectedAlgorithms.add(algo);
-                          } else {
-                            _selectedAlgorithms.remove(algo);
-                          }
-                        });
-                      },
-                    );
-                  }),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _loading ? null : () => _save(),
-                          child: const Text('Save as Draft'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed:
-                              _loading ? null : () => _save(open: true),
-                          child: const Text('Save & Open'),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ),
       ),
-    ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
+import '../widgets/dashboard_button.dart';
 
 class InviteVotersScreen extends ConsumerStatefulWidget {
   final String electionId;
@@ -65,7 +66,11 @@ class _InviteVotersScreenState extends ConsumerState<InviteVotersScreen> {
     final invites = ref.watch(invitesProvider(widget.electionId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Invite Voters')),
+      appBar: AppBar(
+        title: const Text('Invite Voters'),
+        leading: const DashboardButton(),
+        automaticallyImplyLeading: false,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Center(

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../../domain/models/election.dart';
 import '../widgets/results_view.dart';
+import '../widgets/dashboard_button.dart';
 
 class ElectionDetailScreen extends ConsumerWidget {
   final String electionId;
@@ -19,17 +20,7 @@ class ElectionDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Election Details'),
-        leading: BackButton(
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go('/dashboard'),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home),
-            tooltip: 'Home',
-            onPressed: () => context.go('/dashboard'),
-          ),
-        ],
+        leading: const DashboardButton(),
       ),
       body: electionAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -172,6 +163,13 @@ class _OwnerControls extends ConsumerWidget {
           spacing: 12,
           runSpacing: 8,
           children: [
+            if (election.status == ElectionStatus.draft)
+              OutlinedButton.icon(
+                onPressed: () =>
+                    context.push('/election/$electionId/edit'),
+                icon: const Icon(Icons.edit),
+                label: const Text('Edit Election'),
+              ),
             if (election.status == ElectionStatus.draft)
               FilledButton.icon(
                 onPressed: () async {

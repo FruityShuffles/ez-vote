@@ -59,6 +59,25 @@ class ElectionRepository {
     return Election.fromJson(data);
   }
 
+  Future<Election> update(
+    String id, {
+    required String title,
+    String? description,
+    required List<String> algorithms,
+  }) async {
+    final data = await _client
+        .from('elections')
+        .update({
+          'title': title,
+          'description': description,
+          'algorithms': algorithms,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    return Election.fromJson(data);
+  }
+
   Future<Election> updateStatus(String id, ElectionStatus status) async {
     final data = await _client
         .from('elections')

@@ -93,6 +93,12 @@ GoRouter createRouter() {
         ),
       ),
       GoRoute(
+        path: '/election/:id/edit',
+        builder: (context, state) => CreateElectionScreen(
+          electionId: state.pathParameters['id'],
+        ),
+      ),
+      GoRoute(
         path: '/election/:id/join',
         builder: (context, state) => JoinElectionScreen(
           electionId: state.pathParameters['id']!,

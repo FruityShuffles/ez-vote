@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
+import '../widgets/dashboard_button.dart';
 import '../../domain/models/candidate.dart';
 import '../../domain/models/ballot.dart';
 
@@ -204,6 +205,8 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
         title: Text(widget.viewOnly
             ? 'View Ballot'
             : (widget.initialBallot != null ? 'Edit Ballot' : 'Cast Your Vote')),
+        leading: const DashboardButton(),
+        automaticallyImplyLeading: false,
       ),
       body: electionAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

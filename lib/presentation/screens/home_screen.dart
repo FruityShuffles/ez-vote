@@ -69,7 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Scaffold(
       appBar: AppBar(
         title: GestureDetector(
-          onTap: () => context.go('/'),
+          onTap: () => context.go('/dashboard'),
           child: Row(
             children: [
               Image.asset('EZ Vote logo small.png', width: 28, height: 28),
@@ -306,7 +306,9 @@ class _ElectionCard extends ConsumerWidget {
             ? null
             : Text(subtitleParts.join(' · ')),
         trailing: trailing,
-        onTap: () => context.push('/election/${election.id}'),
+        onTap: () => election.status == ElectionStatus.draft
+            ? context.push('/election/${election.id}/edit')
+            : context.push('/election/${election.id}'),
       ),
     );
   }
