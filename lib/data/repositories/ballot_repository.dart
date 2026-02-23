@@ -18,6 +18,14 @@ class BallotRepository {
     return Ballot.fromJson(data);
   }
 
+  Future<int> getBallotCount(String electionId) async {
+    final res = await _client.rpc(
+      'get_ballot_count',
+      params: {'p_election_id': electionId},
+    );
+    return (res as int?) ?? 0;
+  }
+
   Future<Ballot> upsertBallot({
     required String electionId,
     required Map<String, dynamic> payload,

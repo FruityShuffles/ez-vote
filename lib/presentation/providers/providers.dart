@@ -92,3 +92,8 @@ final resultsProvider =
     FutureProvider.family<List<ElectionResult>, String>((ref, electionId) async {
   return ref.read(resultRepositoryProvider).getResults(electionId);
 });
+
+final ballotCountProvider =
+    FutureProvider.family<int, String>((ref, electionId) async {
+  return ref.read(ballotRepositoryProvider).getBallotCount(electionId);
+});

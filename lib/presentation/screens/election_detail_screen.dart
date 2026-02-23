@@ -54,6 +54,8 @@ class ElectionDetailScreen extends ConsumerWidget {
                       Text(election.description!),
                     const SizedBox(height: 16),
                     _StatusChip(status: election.status),
+                    const SizedBox(height: 8),
+                    _BallotCountRow(electionId: electionId),
                     const SizedBox(height: 16),
                     Text('Algorithms: ${election.algorithms.join(", ")}'),
                     const SizedBox(height: 24),
@@ -97,6 +99,31 @@ class ElectionDetailScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _BallotCountRow extends ConsumerWidget {
+  final String electionId;
+
+  const _BallotCountRow({required this.electionId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final countAsync = ref.watch(ballotCountProvider(electionId));
+    return countAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, s) => const SizedBox.shrink(),
+      data: (n) => Row(
+        children: [
+          const Icon(Icons.how_to_vote_outlined, size: 16, color: Colors.grey),
+          const SizedBox(width: 6),
+          Text(
+            '$n ballot${n == 1 ? '' : 's'} submitted',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../../domain/models/election.dart';
+import '../../domain/models/result.dart';
 import 'learn_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -179,7 +180,26 @@ class _VotedElectionsList extends ConsumerWidget {
   }
 }
 
-class _ElectionCard extends StatelessWidget {
+String? _winnersLabel(List<ElectionResult> results) {
+  final wins = <String, int>{};
+  for (final r in results) {
+    final data = r.resultData;
+    final ws = (data['winners'] as List<dynamic>?)?.cast<String>() ??
+        (data['winner'] != null ? [data['winner'] as String] : []);
+    for (final name in ws) {
+      wins[name] = (wins[name] ?? 0) + 1;
+    }
+  }
+  if (wins.isEmpty) return null;
+  final maxW = wins.values.reduce((a, b) => a > b ? a : b);
+  final leaders =
+      wins.entries.where((e) => e.value == maxW).map((e) => e.key).toList();
+  return leaders.length == 1
+      ? 'Winner: ${leaders.first}'
+      : 'Tied: ${leaders.join(' & ')}';
+}
+
+class _ElectionCard extends ConsumerWidget {
   final Election election;
   final Future<void> Function()? onDelete;
 
@@ -212,7 +232,7 @@ class _ElectionCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusColor = switch (election.status) {
       ElectionStatus.draft => Colors.grey,
       ElectionStatus.open => Colors.green,
@@ -241,11 +261,32 @@ class _ElectionCard extends StatelessWidget {
           )
         : chip;
 
+    final countAsync = ref.watch(ballotCountProvider(election.id));
+    final countLine = countAsync.whenOrNull(
+      data: (n) => '$n ballot${n == 1 ? '' : 's'}',
+    );
+
+    final resultsAsync = election.status == ElectionStatus.closed
+        ? ref.watch(resultsProvider(election.id))
+        : null;
+    final winnerLine = resultsAsync?.whenOrNull(
+      data: (results) => _winnersLabel(results),
+    );
+
+    final subtitleParts = [
+      if (election.description != null && election.description!.isNotEmpty)
+        election.description!,
+      ?countLine,
+      ?winnerLine,
+    ];
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         title: Text(election.title),
-        subtitle: Text(election.description ?? ''),
+        subtitle: subtitleParts.isEmpty
+            ? null
+            : Text(subtitleParts.join(' · ')),
         trailing: trailing,
         onTap: () => context.push('/election/${election.id}'),
       ),
