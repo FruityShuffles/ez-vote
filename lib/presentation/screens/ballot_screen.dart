@@ -800,6 +800,20 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
       ref.invalidate(existingBallotProvider(widget.electionId));
 
+      // Trigger real-time results computation if enabled
+      final election =
+          await ref.read(electionProvider(widget.electionId).future);
+      if (election.realtimeResults) {
+        try {
+          await ref
+              .read(resultRepositoryProvider)
+              .computeResults(widget.electionId, close: false);
+          ref.invalidate(resultsProvider(widget.electionId));
+        } catch (_) {
+          // Non-fatal — results will catch up on next vote
+        }
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

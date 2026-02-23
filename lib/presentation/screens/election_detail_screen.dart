@@ -57,13 +57,17 @@ class ElectionDetailScreen extends ConsumerWidget {
                       loading: () => const CircularProgressIndicator(),
                       error: (e, _) => Text('Error: $e'),
                       data: (candidates) => Column(
-                        children: candidates
-                            .map((c) => ListTile(
-                                  leading: CircleAvatar(
-                                      child: Text('${c.position + 1}')),
-                                  title: Text(c.name),
-                                ))
-                            .toList(),
+                        children: [
+                          ...candidates
+                              .map((c) => ListTile(
+                                    leading: CircleAvatar(
+                                        child: Text('${c.position + 1}')),
+                                    title: Text(c.name),
+                                  )),
+                          if (election.allowVoterCandidates &&
+                              election.status == ElectionStatus.open)
+                            _AddCandidateField(electionId: electionId),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -77,9 +81,14 @@ class ElectionDetailScreen extends ConsumerWidget {
                         election.status == ElectionStatus.closed) ...[
                       _VoterControls(electionId: electionId),
                     ],
-                    if (election.status == ElectionStatus.closed) ...[
+                    if (election.status == ElectionStatus.closed ||
+                        (election.realtimeResults &&
+                            election.status == ElectionStatus.open)) ...[
                       const Divider(height: 32),
-                      Text('Results',
+                      Text(
+                          election.status == ElectionStatus.open
+                              ? 'Live Results'
+                              : 'Results',
                           style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 16),
                       ResultsView(electionId: electionId),
@@ -188,7 +197,7 @@ class _OwnerControls extends ConsumerWidget {
                   try {
                     await ref
                         .read(resultRepositoryProvider)
-                        .computeResults(electionId);
+                        .computeResults(electionId, close: true);
                     ref.invalidate(electionProvider(electionId));
                     ref.invalidate(ownedElectionsProvider);
                     ref.invalidate(resultsProvider(electionId));
@@ -201,7 +210,9 @@ class _OwnerControls extends ConsumerWidget {
                   }
                 },
                 icon: const Icon(Icons.stop),
-                label: const Text('Close & Compute Results'),
+                label: Text(election.realtimeResults
+                    ? 'Close Election'
+                    : 'Close & Compute Results'),
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.red,
                 ),
@@ -250,12 +261,39 @@ class _VoterControls extends ConsumerWidget {
       error: (_, _) => const SizedBox(),
       data: (ballot) {
         if (ballot != null) {
+          final election = electionAsync.valueOrNull;
+          final isStale = election != null &&
+              election.candidatesUpdatedAt.isAfter(ballot.updatedAt);
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (isStale && !isClosed)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: Colors.orange.withValues(alpha: 0.4)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.warning_amber, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Candidates have changed since your last vote — update your ballot.',
+                              style: TextStyle(color: Colors.orange),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   const Row(
                     children: [
                       Icon(Icons.check_circle, color: Colors.green),
@@ -284,6 +322,85 @@ class _VoterControls extends ConsumerWidget {
           label: const Text('Cast Your Vote'),
         );
       },
+    );
+  }
+}
+
+class _AddCandidateField extends ConsumerStatefulWidget {
+  final String electionId;
+
+  const _AddCandidateField({required this.electionId});
+
+  @override
+  ConsumerState<_AddCandidateField> createState() =>
+      _AddCandidateFieldState();
+}
+
+class _AddCandidateFieldState extends ConsumerState<_AddCandidateField> {
+  final _controller = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final name = _controller.text.trim();
+    if (name.isEmpty) return;
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(candidateRepositoryProvider)
+          .addCandidate(widget.electionId, name);
+      _controller.clear();
+      ref.invalidate(candidatesProvider(widget.electionId));
+      ref.invalidate(electionProvider(widget.electionId));
+    } catch (e) {
+      if (mounted) {
+        final msg = e.toString().contains('idx_candidates_unique_name')
+            ? 'A candidate with that name already exists'
+            : 'Error adding candidate: $e';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                hintText: 'Add a candidate...',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) => _add(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            onPressed: _submitting ? null : _add,
+            icon: _submitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.add),
+          ),
+        ],
+      ),
     );
   }
 }

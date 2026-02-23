@@ -10,6 +10,8 @@ class ElectionRepository {
     required String title,
     String? description,
     required List<String> algorithms,
+    bool allowVoterCandidates = false,
+    bool realtimeResults = false,
   }) async {
     final userId = _client.auth.currentUser!.id;
     final data = await _client
@@ -20,6 +22,8 @@ class ElectionRepository {
           'description': description,
           'status': 'draft',
           'algorithms': algorithms,
+          'allow_voter_candidates': allowVoterCandidates,
+          'realtime_results': realtimeResults,
         })
         .select()
         .single();
@@ -64,6 +68,8 @@ class ElectionRepository {
     required String title,
     String? description,
     required List<String> algorithms,
+    bool allowVoterCandidates = false,
+    bool realtimeResults = false,
   }) async {
     final data = await _client
         .from('elections')
@@ -71,6 +77,8 @@ class ElectionRepository {
           'title': title,
           'description': description,
           'algorithms': algorithms,
+          'allow_voter_candidates': allowVoterCandidates,
+          'realtime_results': realtimeResults,
         })
         .eq('id', id)
         .select()

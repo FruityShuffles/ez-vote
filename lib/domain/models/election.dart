@@ -23,6 +23,9 @@ class Election {
   final ElectionStatus status;
   final List<String> algorithms;
   final String inviteMode;
+  final bool allowVoterCandidates;
+  final bool realtimeResults;
+  final DateTime candidatesUpdatedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -34,6 +37,9 @@ class Election {
     required this.status,
     required this.algorithms,
     required this.inviteMode,
+    this.allowVoterCandidates = false,
+    this.realtimeResults = false,
+    required this.candidatesUpdatedAt,
     required this.createdAt,
     required this.updatedAt,
   });

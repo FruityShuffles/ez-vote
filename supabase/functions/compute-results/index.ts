@@ -289,13 +289,13 @@ serve(async (req: Request) => {
     } = await userClient.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { election_id } = await req.json();
+    const { election_id, close = true } = await req.json();
     if (!election_id) throw new Error("election_id required");
 
     // Create service role client for data operations (bypasses RLS)
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller is election owner
+    // Fetch the election
     const { data: election, error: electionError } = await adminClient
       .from("elections")
       .select("*")
@@ -303,9 +303,27 @@ serve(async (req: Request) => {
       .single();
 
     if (electionError || !election) throw new Error("Election not found");
-    if (election.owner_id !== user.id) throw new Error("Not election owner");
     if (election.status !== "open")
       throw new Error("Election must be open to compute results");
+
+    if (close) {
+      // Closing: must be owner
+      if (election.owner_id !== user.id) throw new Error("Not election owner");
+    } else {
+      // Real-time compute: must be participant and realtime_results enabled
+      if (!election.realtime_results)
+        throw new Error("Real-time results not enabled");
+      const isOwner = election.owner_id === user.id;
+      if (!isOwner) {
+        const { data: voter } = await adminClient
+          .from("election_voters")
+          .select("id")
+          .eq("election_id", election_id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!voter) throw new Error("Not a participant");
+      }
+    }
 
     // Fetch candidates and ballots
     const { data: candidates } = await adminClient
@@ -347,11 +365,13 @@ serve(async (req: Request) => {
       );
     }
 
-    // Close the election
-    await adminClient
-      .from("elections")
-      .update({ status: "closed" })
-      .eq("id", election_id);
+    // Close the election only when requested
+    if (close) {
+      await adminClient
+        .from("elections")
+        .update({ status: "closed" })
+        .eq("id", election_id);
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

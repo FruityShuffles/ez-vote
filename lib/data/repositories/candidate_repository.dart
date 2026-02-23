@@ -15,6 +15,23 @@ class CandidateRepository {
     return data.map((e) => Candidate.fromJson(e)).toList();
   }
 
+  Future<void> addCandidate(String electionId, String name) async {
+    // Get the current max position
+    final existing = await _client
+        .from('candidates')
+        .select('position')
+        .eq('election_id', electionId)
+        .order('position', ascending: false)
+        .limit(1);
+    final nextPosition =
+        existing.isEmpty ? 0 : (existing[0]['position'] as int) + 1;
+    await _client.from('candidates').insert({
+      'election_id': electionId,
+      'name': name,
+      'position': nextPosition,
+    });
+  }
+
   Future<void> setCandidates(
       String electionId, List<String> candidateNames) async {
     // Delete existing candidates

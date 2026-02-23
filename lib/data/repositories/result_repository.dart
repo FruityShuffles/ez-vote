@@ -15,10 +15,10 @@ class ResultRepository {
     return data.map((e) => ElectionResult.fromJson(e)).toList();
   }
 
-  Future<void> computeResults(String electionId) async {
+  Future<void> computeResults(String electionId, {bool close = true}) async {
     await _client.functions.invoke(
       'compute-results',
-      body: {'election_id': electionId},
+      body: {'election_id': electionId, 'close': close},
     );
   }
 }

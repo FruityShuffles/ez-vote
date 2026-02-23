@@ -24,6 +24,8 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
     TextEditingController(),
   ];
   final Set<VotingAlgorithm> _selectedAlgorithms = {VotingAlgorithm.approval};
+  bool _allowVoterCandidates = false;
+  bool _realtimeResults = false;
   bool _loading = false;
   bool _loadingInitial = false;
 
@@ -58,6 +60,8 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
         );
         _selectedAlgorithms.add(algo);
       }
+      _allowVoterCandidates = election.allowVoterCandidates;
+      _realtimeResults = election.realtimeResults;
 
       // Dispose existing controllers and replace with one per candidate
       for (final c in _candidateControllers) {
@@ -151,6 +155,8 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
           title: title,
           description: description,
           algorithms: algorithms,
+          allowVoterCandidates: _allowVoterCandidates,
+          realtimeResults: _realtimeResults,
         );
         await candidateRepo.setCandidates(widget.electionId!, candidateNames);
         if (open) {
@@ -168,6 +174,8 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
           title: title,
           description: description,
           algorithms: algorithms,
+          allowVoterCandidates: _allowVoterCandidates,
+          realtimeResults: _realtimeResults,
         );
         await candidateRepo.setCandidates(election.id, candidateNames);
         if (open) {
@@ -369,6 +377,35 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
                               },
                             );
                           }),
+                          const SizedBox(height: 24),
+                          Text('Settings',
+                              style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            title: const Text('Allow voters to add candidates'),
+                            subtitle: const Text(
+                              'Participants can suggest new candidates while the election is open',
+                            ),
+                            value: _allowVoterCandidates,
+                            onChanged: (v) {
+                              setState(() {
+                                _allowVoterCandidates = v;
+                                if (v) _realtimeResults = true;
+                              });
+                            },
+                          ),
+                          SwitchListTile(
+                            title: const Text('Show real-time results'),
+                            subtitle: const Text(
+                              'Results update after each vote (always on when voter candidates enabled)',
+                            ),
+                            value: _realtimeResults,
+                            onChanged: _allowVoterCandidates
+                                ? null
+                                : (v) {
+                                    setState(() => _realtimeResults = v);
+                                  },
+                          ),
                           const SizedBox(height: 24),
                           Row(
                             children: [
