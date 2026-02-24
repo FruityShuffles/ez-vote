@@ -56,18 +56,32 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
       _rankings = candidates.map((c) => c.id).toList();
     }
 
+    final currentIds = candidates.map((c) => c.id).toSet();
+
     final payload = widget.initialBallot?.payload;
     if (payload != null) {
       if (payload['star'] != null) {
         final raw = payload['star'] as Map<String, dynamic>;
         _scores = raw.map((k, v) => MapEntry(k, (v as num).toInt()));
+        // Add new candidates with score 0, remove deleted candidates
+        for (final id in currentIds) {
+          _scores.putIfAbsent(id, () => 0);
+        }
+        _scores.removeWhere((id, _) => !currentIds.contains(id));
       }
       if (payload['irv'] != null && !algos.contains('star')) {
         _rankings = List<String>.from(payload['irv'] as List);
+        // Remove deleted candidates, append new ones at the end
+        _rankings.removeWhere((id) => !currentIds.contains(id));
+        for (final id in currentIds) {
+          if (!_rankings.contains(id)) _rankings.add(id);
+        }
       }
       if (payload['approval'] != null &&
           !algos.contains('star') && !algos.contains('irv')) {
         _approvals.addAll(List<String>.from(payload['approval'] as List));
+        // Remove deleted candidates
+        _approvals.removeWhere((id) => !currentIds.contains(id));
       }
       if (algos.contains('star')) _syncTieBreaks(candidates);
     }
