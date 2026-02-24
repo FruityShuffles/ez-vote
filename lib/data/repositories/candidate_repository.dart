@@ -15,6 +15,14 @@ class CandidateRepository {
     return data.map((e) => Candidate.fromJson(e)).toList();
   }
 
+  Future<int> countForElection(String electionId) async {
+    final data = await _client
+        .from('candidates')
+        .select('id')
+        .eq('election_id', electionId);
+    return data.length;
+  }
+
   Future<void> addCandidate(String electionId, String name) async {
     // Get the current max position
     final existing = await _client

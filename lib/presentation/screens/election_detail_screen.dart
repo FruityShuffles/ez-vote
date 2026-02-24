@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,13 +9,52 @@ import '../../domain/models/election.dart';
 import '../widgets/results_view.dart';
 import '../widgets/dashboard_button.dart';
 
-class ElectionDetailScreen extends ConsumerWidget {
+class ElectionDetailScreen extends ConsumerStatefulWidget {
   final String electionId;
 
   const ElectionDetailScreen({super.key, required this.electionId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ElectionDetailScreen> createState() =>
+      _ElectionDetailScreenState();
+}
+
+class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) => _poll());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _poll() async {
+    final election = ref.read(electionProvider(widget.electionId)).valueOrNull;
+    if (election == null ||
+        !election.allowVoterCandidates ||
+        election.status != ElectionStatus.open) {
+      return;
+    }
+
+    final freshCount = await ref
+        .read(candidateRepositoryProvider)
+        .countForElection(widget.electionId);
+    final cachedCandidates =
+        ref.read(candidatesProvider(widget.electionId)).valueOrNull;
+    if (cachedCandidates != null && freshCount != cachedCandidates.length) {
+      ref.invalidate(candidatesProvider(widget.electionId));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final electionId = widget.electionId;
     final electionAsync = ref.watch(electionProvider(electionId));
     final candidatesAsync = ref.watch(candidatesProvider(electionId));
 
@@ -245,13 +286,44 @@ class _OwnerControls extends ConsumerWidget {
   }
 }
 
-class _VoterControls extends ConsumerWidget {
+class _VoterControls extends ConsumerStatefulWidget {
   final String electionId;
 
   const _VoterControls({required this.electionId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_VoterControls> createState() => _VoterControlsState();
+}
+
+class _VoterControlsState extends ConsumerState<_VoterControls> {
+  /// Returns true if navigation should be blocked (candidates changed).
+  Future<bool> _candidatesChanged() async {
+    final election =
+        ref.read(electionProvider(widget.electionId)).valueOrNull;
+    if (election == null || !election.allowVoterCandidates) return false;
+
+    final freshCount = await ref
+        .read(candidateRepositoryProvider)
+        .countForElection(widget.electionId);
+    final cached =
+        ref.read(candidatesProvider(widget.electionId)).valueOrNull;
+    if (cached != null && freshCount != cached.length) {
+      ref.invalidate(candidatesProvider(widget.electionId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Candidates have been updated — please review before voting')),
+        );
+      }
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final electionId = widget.electionId;
     final existingBallot = ref.watch(existingBallotProvider(electionId));
     final electionAsync = ref.watch(electionProvider(electionId));
     final isClosed = electionAsync.valueOrNull?.status == ElectionStatus.closed;
@@ -303,10 +375,14 @@ class _VoterControls extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: () => context.push(
-                      '/election/$electionId/vote',
-                      extra: {'ballot': ballot, 'viewOnly': isClosed},
-                    ),
+                    onPressed: () async {
+                      if (await _candidatesChanged()) return;
+                      if (!context.mounted) return;
+                      context.push(
+                        '/election/$electionId/vote',
+                        extra: {'ballot': ballot, 'viewOnly': isClosed},
+                      );
+                    },
                     icon: Icon(isClosed ? Icons.visibility : Icons.edit),
                     label: Text(isClosed ? 'View Ballot' : 'Edit Ballot'),
                   ),
@@ -317,7 +393,11 @@ class _VoterControls extends ConsumerWidget {
         }
         if (isClosed) return const SizedBox();
         return FilledButton.icon(
-          onPressed: () => context.push('/election/$electionId/vote'),
+          onPressed: () async {
+            if (await _candidatesChanged()) return;
+            if (!context.mounted) return;
+            context.push('/election/$electionId/vote');
+          },
           icon: const Icon(Icons.how_to_vote),
           label: const Text('Cast Your Vote'),
         );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import '../providers/providers.dart';
 import '../widgets/dashboard_button.dart';
 import '../../domain/models/candidate.dart';
 import '../../domain/models/ballot.dart';
+import '../../domain/models/election.dart';
 
 class BallotScreen extends ConsumerStatefulWidget {
   final String electionId;
@@ -41,6 +44,76 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
   bool _loading = false;
   bool _initialized = false;
+
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollCandidates());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _pollCandidates() async {
+    final election =
+        ref.read(electionProvider(widget.electionId)).valueOrNull;
+    if (election == null ||
+        !election.allowVoterCandidates ||
+        election.status != ElectionStatus.open) {
+      return;
+    }
+
+    final freshCount = await ref
+        .read(candidateRepositoryProvider)
+        .countForElection(widget.electionId);
+    final cached =
+        ref.read(candidatesProvider(widget.electionId)).valueOrNull;
+    if (cached != null && freshCount != cached.length) {
+      final freshCandidates = await ref
+          .read(candidateRepositoryProvider)
+          .listForElection(widget.electionId);
+      _mergeNewCandidates(freshCandidates, election.algorithms);
+      ref.invalidate(candidatesProvider(widget.electionId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Candidates have been updated — your ballot has been adjusted')),
+        );
+        setState(() {});
+      }
+    }
+  }
+
+  void _mergeNewCandidates(List<Candidate> freshCandidates, List<String> algos) {
+    final currentIds = freshCandidates.map((c) => c.id).toSet();
+
+    if (algos.contains('star')) {
+      for (final id in currentIds) {
+        _scores.putIfAbsent(id, () => 0);
+      }
+      _scores.removeWhere((id, _) => !currentIds.contains(id));
+      _syncTieBreaks(freshCandidates);
+    }
+
+    if (algos.contains('irv') && !algos.contains('star')) {
+      _rankings.removeWhere((id) => !currentIds.contains(id));
+      for (final id in currentIds) {
+        if (!_rankings.contains(id)) _rankings.add(id);
+      }
+    }
+
+    if (algos.contains('approval') &&
+        !algos.contains('star') &&
+        !algos.contains('irv')) {
+      _approvals.removeWhere((id) => !currentIds.contains(id));
+    }
+  }
 
   // ── Initialization ────────────────────────────────────────────────────────
 
@@ -776,6 +849,28 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   // ── Submit ────────────────────────────────────────────────────────────────
 
   Future<void> _submit(List<Candidate> candidates, String template) async {
+    // Pre-submit gate: check for candidate changes in ad-hoc elections
+    final preCheckElection =
+        ref.read(electionProvider(widget.electionId)).valueOrNull;
+    if (preCheckElection != null && preCheckElection.allowVoterCandidates) {
+      final freshCandidates = await ref
+          .read(candidateRepositoryProvider)
+          .listForElection(widget.electionId);
+      if (freshCandidates.length != candidates.length) {
+        _mergeNewCandidates(freshCandidates, preCheckElection.algorithms);
+        ref.invalidate(candidatesProvider(widget.electionId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'New candidates were added — please review your ballot before submitting')),
+          );
+          setState(() {});
+        }
+        return;
+      }
+    }
+
     setState(() => _loading = true);
 
     try {
