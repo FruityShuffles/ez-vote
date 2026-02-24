@@ -151,6 +151,16 @@ function computeIRV(
 
   if (remaining.size === 1) {
     winners = [[...remaining][0]].map((id) => nameMap[id]);
+    // Runner-ups: all candidates eliminated in the final round
+    const lastElimRound = [...rounds]
+      .reverse()
+      .find((r) => Array.isArray(r.eliminated) && (r.eliminated as string[]).length > 0);
+    const runnerUpNames = lastElimRound?.eliminated as string[] | undefined;
+    if (runnerUpNames && runnerUpNames.length === 1) {
+      runnerUp = runnerUpNames[0];
+    } else if (runnerUpNames && runnerUpNames.length > 1) {
+      runnerUp = runnerUpNames.join(" & ");
+    }
   } else if (finalCounts) {
     const remainingIds = [...remaining];
     const maxCount = Math.max(
@@ -243,9 +253,18 @@ function computeSTAR(
     winners = [nameMap[finalist2]];
     runnerUp = nameMap[finalist1];
   } else {
-    // Runoff tie: both finalists are co-winners
-    winners = [nameMap[finalist1], nameMap[finalist2]];
-    runnerUp = null;
+    // Runoff tie: use total score as tie-breaker
+    if (scores[finalist1] > scores[finalist2]) {
+      winners = [nameMap[finalist1]];
+      runnerUp = nameMap[finalist2];
+    } else if (scores[finalist2] > scores[finalist1]) {
+      winners = [nameMap[finalist2]];
+      runnerUp = nameMap[finalist1];
+    } else {
+      // Score also tied: both finalists are co-winners
+      winners = [nameMap[finalist1], nameMap[finalist2]];
+      runnerUp = null;
+    }
   }
 
   const namedScores: Record<string, number> = {};
