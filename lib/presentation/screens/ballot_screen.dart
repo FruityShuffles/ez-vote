@@ -813,6 +813,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           );
 
       ref.invalidate(existingBallotProvider(widget.electionId));
+      ref.invalidate(ballotCountProvider(widget.electionId));
 
       // Trigger real-time results computation if enabled
       final election =
