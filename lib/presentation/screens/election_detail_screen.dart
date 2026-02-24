@@ -49,6 +49,9 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
         ref.read(candidatesProvider(widget.electionId)).valueOrNull;
     if (cachedCandidates != null && freshCount != cachedCandidates.length) {
       ref.invalidate(candidatesProvider(widget.electionId));
+      // Also refresh the election so candidatesUpdatedAt is current,
+      // which triggers the stale-ballot warning for voters who already voted.
+      ref.invalidate(electionProvider(widget.electionId));
     }
   }
 
@@ -296,11 +299,11 @@ class _VoterControls extends ConsumerStatefulWidget {
 }
 
 class _VoterControlsState extends ConsumerState<_VoterControls> {
-  /// Returns true if navigation should be blocked (candidates changed).
-  Future<bool> _candidatesChanged() async {
+  /// Silently refreshes candidates if the count changed. Never blocks navigation.
+  Future<void> _refreshIfChanged() async {
     final election =
         ref.read(electionProvider(widget.electionId)).valueOrNull;
-    if (election == null || !election.allowVoterCandidates) return false;
+    if (election == null || !election.allowVoterCandidates) return;
 
     final freshCount = await ref
         .read(candidateRepositoryProvider)
@@ -309,16 +312,7 @@ class _VoterControlsState extends ConsumerState<_VoterControls> {
         ref.read(candidatesProvider(widget.electionId)).valueOrNull;
     if (cached != null && freshCount != cached.length) {
       ref.invalidate(candidatesProvider(widget.electionId));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Candidates have been updated — please review before voting')),
-        );
-      }
-      return true;
     }
-    return false;
   }
 
   @override
@@ -376,7 +370,7 @@ class _VoterControlsState extends ConsumerState<_VoterControls> {
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      if (await _candidatesChanged()) return;
+                      await _refreshIfChanged();
                       if (!context.mounted) return;
                       context.push(
                         '/election/$electionId/vote',
@@ -394,7 +388,7 @@ class _VoterControlsState extends ConsumerState<_VoterControls> {
         if (isClosed) return const SizedBox();
         return FilledButton.icon(
           onPressed: () async {
-            if (await _candidatesChanged()) return;
+            await _refreshIfChanged();
             if (!context.mounted) return;
             context.push('/election/$electionId/vote');
           },
