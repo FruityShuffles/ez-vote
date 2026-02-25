@@ -379,6 +379,7 @@ serve(async (req: Request) => {
           election_id,
           algorithm: algo,
           result_data: resultData,
+          updated_at: new Date().toISOString(),
         },
         { onConflict: "election_id,algorithm" }
       );

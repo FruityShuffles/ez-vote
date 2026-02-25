@@ -9,6 +9,7 @@ class ElectionResult {
   final String algorithm;
   final Map<String, dynamic> resultData;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   const ElectionResult({
     required this.id,
@@ -16,6 +17,7 @@ class ElectionResult {
     required this.algorithm,
     required this.resultData,
     required this.createdAt,
+    required this.updatedAt,
   });
 
   factory ElectionResult.fromJson(Map<String, dynamic> json) =>

@@ -21,6 +21,7 @@ class ElectionDetailScreen extends ConsumerStatefulWidget {
 
 class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
   Timer? _pollTimer;
+  DateTime? _lastResultsUpdatedAt;
 
   @override
   void initState() {
@@ -36,22 +37,35 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
 
   Future<void> _poll() async {
     final election = ref.read(electionProvider(widget.electionId)).valueOrNull;
-    if (election == null ||
-        !election.allowVoterCandidates ||
-        election.status != ElectionStatus.open) {
-      return;
+    if (election == null || election.status != ElectionStatus.open) return;
+
+    // Poll for candidate changes (ad-hoc elections)
+    if (election.allowVoterCandidates) {
+      final freshCount = await ref
+          .read(candidateRepositoryProvider)
+          .countForElection(widget.electionId);
+      final cachedCandidates =
+          ref.read(candidatesProvider(widget.electionId)).valueOrNull;
+      if (cachedCandidates != null && freshCount != cachedCandidates.length) {
+        ref.invalidate(candidatesProvider(widget.electionId));
+        // Also refresh the election so candidatesUpdatedAt is current,
+        // which triggers the stale-ballot warning for voters who already voted.
+        ref.invalidate(electionProvider(widget.electionId));
+      }
     }
 
-    final freshCount = await ref
-        .read(candidateRepositoryProvider)
-        .countForElection(widget.electionId);
-    final cachedCandidates =
-        ref.read(candidatesProvider(widget.electionId)).valueOrNull;
-    if (cachedCandidates != null && freshCount != cachedCandidates.length) {
-      ref.invalidate(candidatesProvider(widget.electionId));
-      // Also refresh the election so candidatesUpdatedAt is current,
-      // which triggers the stale-ballot warning for voters who already voted.
-      ref.invalidate(electionProvider(widget.electionId));
+    // Poll for results changes (realtime results)
+    if (election.realtimeResults) {
+      final freshUpdatedAt = await ref
+          .read(resultRepositoryProvider)
+          .getResultsUpdatedAt(widget.electionId);
+      if (freshUpdatedAt != null &&
+          _lastResultsUpdatedAt != null &&
+          freshUpdatedAt != _lastResultsUpdatedAt) {
+        ref.invalidate(resultsProvider(widget.electionId));
+        ref.invalidate(ballotCountProvider(widget.electionId));
+      }
+      _lastResultsUpdatedAt = freshUpdatedAt;
     }
   }
 

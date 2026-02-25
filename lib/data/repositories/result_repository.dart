@@ -21,4 +21,15 @@ class ResultRepository {
       body: {'election_id': electionId, 'close': close},
     );
   }
+
+  Future<DateTime?> getResultsUpdatedAt(String electionId) async {
+    final data = await _client
+        .from('results')
+        .select('updated_at')
+        .eq('election_id', electionId)
+        .order('updated_at', ascending: false)
+        .limit(1);
+    if (data.isEmpty) return null;
+    return DateTime.parse(data.first['updated_at'] as String);
+  }
 }

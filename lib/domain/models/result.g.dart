@@ -13,6 +13,7 @@ ElectionResult _$ElectionResultFromJson(Map<String, dynamic> json) =>
       algorithm: json['algorithm'] as String,
       resultData: json['result_data'] as Map<String, dynamic>,
       createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
     );
 
 Map<String, dynamic> _$ElectionResultToJson(ElectionResult instance) =>
@@ -22,4 +23,5 @@ Map<String, dynamic> _$ElectionResultToJson(ElectionResult instance) =>
       'algorithm': instance.algorithm,
       'result_data': instance.resultData,
       'created_at': instance.createdAt.toIso8601String(),
+      'updated_at': instance.updatedAt.toIso8601String(),
     };

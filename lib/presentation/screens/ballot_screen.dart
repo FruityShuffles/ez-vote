@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
+
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../widgets/dashboard_button.dart';
@@ -922,17 +924,23 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
       ref.invalidate(existingBallotProvider(widget.electionId));
       ref.invalidate(ballotCountProvider(widget.electionId));
 
-      // Trigger real-time results computation if enabled
+      // Trigger real-time results computation if enabled,
+      // but skip if the payload hasn't changed (edit with no modifications)
       final election =
           await ref.read(electionProvider(widget.electionId).future);
       if (election.realtimeResults) {
-        try {
-          await ref
-              .read(resultRepositoryProvider)
-              .computeResults(widget.electionId, close: false);
-          ref.invalidate(resultsProvider(widget.electionId));
-        } catch (_) {
-          // Non-fatal — results will catch up on next vote
+        final oldPayload = widget.initialBallot?.payload;
+        final payloadChanged = oldPayload == null ||
+            jsonEncode(payload) != jsonEncode(oldPayload);
+        if (payloadChanged) {
+          try {
+            await ref
+                .read(resultRepositoryProvider)
+                .computeResults(widget.electionId, close: false);
+            ref.invalidate(resultsProvider(widget.electionId));
+          } catch (_) {
+            // Non-fatal — results will catch up on next vote
+          }
         }
       }
 
