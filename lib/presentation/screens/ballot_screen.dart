@@ -150,11 +150,23 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           if (!_rankings.contains(id)) _rankings.add(id);
         }
       }
-      if (payload['approval'] != null &&
-          !algos.contains('star') && !algos.contains('irv')) {
-        _approvals.addAll(List<String>.from(payload['approval'] as List));
-        // Remove deleted candidates
-        _approvals.removeWhere((id) => !currentIds.contains(id));
+      if (payload['approval'] != null) {
+        final savedApprovals = List<String>.from(payload['approval'] as List)
+          ..removeWhere((id) => !currentIds.contains(id));
+        if (!algos.contains('star') && !algos.contains('irv')) {
+          // Template C: restore approvals directly
+          _approvals.addAll(savedApprovals);
+        } else if (algos.contains('star') && !algos.contains('irv')) {
+          // Template E: derive cutoff = min score among approved candidates
+          if (savedApprovals.isNotEmpty) {
+            _approvalCutoff = savedApprovals
+                .map((id) => _scores[id] ?? 0)
+                .reduce((a, b) => a < b ? a : b);
+          }
+        } else {
+          // Templates D (IRV+Approval) and G (STAR+IRV+Approval): set topK
+          _approvalTopK = savedApprovals.length;
+        }
       }
       if (algos.contains('star')) _syncTieBreaks(candidates);
     }
