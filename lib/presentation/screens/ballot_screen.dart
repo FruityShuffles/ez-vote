@@ -439,7 +439,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           children: [
             Text('Rank Your Preferences',
                 style: Theme.of(context).textTheme.titleMedium),
-            const Text('Drag to rank all candidates (1 = most preferred):'),
+            const SizedBox(height: 4),
+            const Text(
+                'Drag candidates into your preferred order. #1 is your top choice.'),
             const SizedBox(height: 8),
             ReorderableListView.builder(
               shrinkWrap: true,
@@ -482,7 +484,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           children: [
             Text('Rate Each Candidate',
                 style: Theme.of(context).textTheme.titleMedium),
-            const Text('Give each candidate a score from 0 to 5:'),
+            const SizedBox(height: 4),
+            const Text(
+                'Give each candidate a score from 0 (no support) to 5 (strongest support).'),
             const SizedBox(height: 8),
             ...candidates.map((c) => _buildStarCandidateRow(c, candidates)),
           ],
@@ -500,9 +504,11 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Select Approved Candidates',
+            Text('Approve Candidates',
                 style: Theme.of(context).textTheme.titleMedium),
-            const Text('Check all candidates you approve of:'),
+            const SizedBox(height: 4),
+            const Text(
+                'Check every candidate you\'d be happy to see win.'),
             const SizedBox(height: 8),
             ...candidates.map((c) => CheckboxListTile(
                   title: Text(c.name),
@@ -537,8 +543,16 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           children: [
             Text('Rank & Approve Candidates',
                 style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
             const Text(
-                'Drag to rank candidates, then set how many you approve:'),
+                'Drag candidates into your preferred order. #1 is your top choice.'),
+            const SizedBox(height: 4),
+            const Text(
+                'Then choose how many of your top-ranked candidates to approve.'),
+            const SizedBox(height: 12),
+            _buildApprovalStepperCard(
+              child: _buildTopKStepper(candidates.length, 'candidates'),
+            ),
             const SizedBox(height: 8),
             ReorderableListView.builder(
               shrinkWrap: true,
@@ -573,8 +587,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 );
               },
             ),
-            const SizedBox(height: 16),
-            _buildTopKStepper(candidates.length, 'candidates'),
           ],
         ),
       ),
@@ -594,33 +606,38 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           children: [
             Text('Rate & Approve Candidates',
                 style: Theme.of(context).textTheme.titleMedium),
-            const Text('Rate each candidate 0–5. Set your approval threshold:'),
+            const SizedBox(height: 4),
+            const Text(
+                'Give each candidate a score from 0 (no support) to 5 (strongest support).'),
+            const SizedBox(height: 4),
+            const Text(
+                'Then set a threshold \u2014 candidates at or above that score are approved.'),
+            const SizedBox(height: 12),
+            _buildApprovalStepperCard(
+              child: Row(
+                children: [
+                  const Text('Approval threshold: score \u2265 '),
+                  IconButton(
+                    icon: const Icon(Icons.remove),
+                    onPressed: _approvalCutoff > 0
+                        ? () => setState(() => _approvalCutoff--)
+                        : null,
+                  ),
+                  Text('$_approvalCutoff',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: _approvalCutoff < 5
+                        ? () => setState(() => _approvalCutoff++)
+                        : null,
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 8),
             ...candidates.map((c) => _buildStarCandidateRow(
                   c, candidates,
                   isApproved: approvedSet.contains(c.id))),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Text('Approval threshold: score ≥ '),
-                IconButton(
-                  icon: const Icon(Icons.remove),
-                  onPressed: _approvalCutoff > 0
-                      ? () => setState(() => _approvalCutoff--)
-                      : null,
-                ),
-                Text('$_approvalCutoff',
-                    style: Theme.of(context).textTheme.titleMedium),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: _approvalCutoff < 5
-                      ? () => setState(() => _approvalCutoff++)
-                      : null,
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -655,10 +672,24 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rate & Rank Candidates',
+            Text(showApproval ? 'Rate, Rank & Approve' : 'Rate & Rank Candidates',
                 style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
             const Text(
-                'Tap scores to rate (0–5). Drag to reorder — scores adjust automatically:'),
+                'Give each candidate a score from 0 (no support) to 5 (strongest support). The list automatically sorts by score to create your ranking.'),
+            const SizedBox(height: 4),
+            const Text(
+                'To fine-tune the order, drag candidates up or down \u2014 their scores will adjust to stay consistent with the new position.'),
+            if (showApproval) ...[
+              const SizedBox(height: 4),
+              const Text(
+                  'Finally, choose how many of your top-ranked candidates to approve.'),
+              const SizedBox(height: 12),
+              _buildApprovalStepperCard(
+                child: _buildTopKStepper(
+                    candidates.length, 'candidates (by rank order)'),
+              ),
+            ],
             const SizedBox(height: 8),
             ReorderableListView.builder(
               shrinkWrap: true,
@@ -698,13 +729,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 );
               },
             ),
-            if (showApproval) ...[
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              _buildTopKStepper(
-                  candidates.length, 'candidates (by rank order)'),
-            ],
           ],
         ),
       ),
@@ -867,6 +891,17 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
         ),
       );
     });
+  }
+
+  Widget _buildApprovalStepperCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: child,
+    );
   }
 
   Widget _buildTopKStepper(int maxCount, String label) {
