@@ -19,11 +19,30 @@ class ResultsView extends ConsumerWidget {
         if (results.isEmpty) {
           return const Text('No results computed yet.');
         }
-        return Column(
-          children: [
-            if (results.length > 1) _OverallWinnerCard(results: results),
-            ...results.map((r) => _ResultCard(result: r)),
-          ],
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final sideBySide =
+                results.length > 1 && constraints.maxWidth >= 480;
+            return Column(
+              children: [
+                if (results.length > 1) _OverallWinnerCard(results: results),
+                if (sideBySide)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: results
+                        .map((r) => Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: _ResultCard(result: r),
+                              ),
+                            ))
+                        .toList(),
+                  )
+                else
+                  ...results.map((r) => _ResultCard(result: r)),
+              ],
+            );
+          },
         );
       },
     );

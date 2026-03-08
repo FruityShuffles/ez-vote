@@ -158,7 +158,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     ),
                     const SizedBox(height: 8),
                     TextButton(
-                      onPressed: () => context.go('/login'),
+                      onPressed: () => context.go(widget.redirect != null
+                          ? '/login?redirect=${Uri.encodeComponent(widget.redirect!)}'
+                          : '/login'),
                       child: const Text('Back to sign in'),
                     ),
                   ],

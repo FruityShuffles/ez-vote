@@ -75,6 +75,8 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
     final electionAsync = ref.watch(electionProvider(electionId));
     final candidatesAsync = ref.watch(candidatesProvider(electionId));
 
+    final existingBallotAsync = ref.watch(existingBallotProvider(electionId));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Election Details'),
@@ -87,6 +89,13 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
           final currentUserId =
               ref.read(supabaseClientProvider).auth.currentUser?.id;
           final isOwner = election.ownerId == currentUserId;
+          final hasSubmittedBallot =
+              existingBallotAsync.valueOrNull != null;
+
+          final showResults = election.status == ElectionStatus.closed ||
+              (election.realtimeResults &&
+                  election.status == ElectionStatus.open &&
+                  hasSubmittedBallot);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -107,6 +116,16 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                     _BallotCountRow(electionId: electionId),
                     const SizedBox(height: 16),
                     Text('Algorithms: ${election.algorithms.join(", ")}'),
+                    if (showResults) ...[
+                      const Divider(height: 32),
+                      Text(
+                          election.status == ElectionStatus.open
+                              ? 'Live Results'
+                              : 'Results',
+                          style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 16),
+                      ResultsView(electionId: electionId),
+                    ],
                     const SizedBox(height: 24),
                     Text('Candidates',
                         style: Theme.of(context).textTheme.titleMedium),
@@ -118,8 +137,6 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                         children: [
                           ...candidates
                               .map((c) => ListTile(
-                                    leading: CircleAvatar(
-                                        child: Text('${c.position + 1}')),
                                     title: Text(c.name),
                                   )),
                           if (election.allowVoterCandidates &&
@@ -138,18 +155,6 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                     if (election.status == ElectionStatus.open ||
                         election.status == ElectionStatus.closed) ...[
                       _VoterControls(electionId: electionId),
-                    ],
-                    if (election.status == ElectionStatus.closed ||
-                        (election.realtimeResults &&
-                            election.status == ElectionStatus.open)) ...[
-                      const Divider(height: 32),
-                      Text(
-                          election.status == ElectionStatus.open
-                              ? 'Live Results'
-                              : 'Results',
-                          style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 16),
-                      ResultsView(electionId: electionId),
                     ],
                   ],
                 ),
