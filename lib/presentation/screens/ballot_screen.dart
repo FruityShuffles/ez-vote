@@ -328,8 +328,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
         title: Text(widget.viewOnly
             ? 'View Ballot'
             : (widget.initialBallot != null ? 'Edit Ballot' : 'Cast Your Vote')),
-        leading: const DashboardButton(),
-        automaticallyImplyLeading: false,
+        actions: const [DashboardButton()],
       ),
       body: electionAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
