@@ -44,6 +44,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   // Tie-break state: score → ordered list of tied candidate IDs (score > 0 only)
   final Map<int, List<String>> _tieBreaks = {};
 
+  // Animated reorder offsets for score-driven position changes (Templates F/G)
+  Map<String, Offset> _slideOffsets = {};
+
   bool _loading = false;
   bool _initialized = false;
 
@@ -459,10 +462,20 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 return ReorderableDragStartListener(
                   key: ValueKey(_rankings[index]),
                   index: index,
-                  child: ListTile(
-                    leading: CircleAvatar(child: Text('${index + 1}')),
-                    title: Text(candidate?.name ?? 'Unknown'),
-                    trailing: const Icon(Icons.drag_handle),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: ListTile(
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.drag_indicator,
+                              size: 20, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          CircleAvatar(child: Text('${index + 1}')),
+                        ],
+                      ),
+                      title: Text(candidate?.name ?? 'Unknown'),
+                    ),
                   ),
                 );
               },
@@ -572,16 +585,20 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 return ReorderableDragStartListener(
                   key: ValueKey(id),
                   index: index,
-                  child: ListTile(
-                    leading: CircleAvatar(child: Text('${index + 1}')),
-                    title: Text(candidate?.name ?? 'Unknown'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isApproved) _approvedBadge(),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.drag_handle),
-                      ],
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: ListTile(
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.drag_indicator,
+                              size: 20, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          CircleAvatar(child: Text('${index + 1}')),
+                        ],
+                      ),
+                      title: Text(candidate?.name ?? 'Unknown'),
+                      trailing: isApproved ? _approvedBadge() : null,
                     ),
                   ),
                 );
@@ -693,6 +710,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             const SizedBox(height: 8),
             ReorderableListView.builder(
               shrinkWrap: true,
+              clipBehavior: Clip.none,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: sortedIds.length,
               onReorder: (oldIndex, newIndex) {
@@ -719,7 +737,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 final id = sortedIds[index];
                 final candidate = candidateMap[id];
                 return _buildReorderableStarRow(
-                  key: ValueKey(id),
                   index: index,
                   candidateId: id,
                   candidateName: candidate?.name ?? 'Unknown',
@@ -736,7 +753,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   }
 
   Widget _buildReorderableStarRow({
-    required Key key,
     required int index,
     required String candidateId,
     required String candidateName,
@@ -744,37 +760,47 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     required bool isApproved,
     required bool showApproval,
   }) {
-    return ReorderableDragStartListener(
-      key: key,
-      index: index,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+    return Padding(
+      key: ValueKey(candidateId),
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      child: AnimatedSlide(
+        offset: _slideOffsets[candidateId] ?? Offset.zero,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: Colors.blue.shade100,
-                  child: Text('${index + 1}',
-                      style: const TextStyle(fontSize: 12)),
+            ReorderableDragStartListener(
+              index: index,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.grab,
+                child: Row(
+                  children: [
+                    const Icon(Icons.drag_indicator,
+                        size: 20, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Colors.blue.shade100,
+                      child: Text('${index + 1}',
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        children: [
+                          Text(candidateName,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w500)),
+                          if (showApproval && isApproved) _approvedBadge(),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 6,
-                    children: [
-                      Text(candidateName,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w500)),
-                      if (showApproval && isApproved) _approvedBadge(),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.drag_handle),
-              ],
+              ),
             ),
             const SizedBox(height: 4),
             Row(
@@ -795,14 +821,36 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           label: Text('$i'),
           selected: (_scores[candidateId] ?? 0) == i,
           onSelected: (_) {
-            setState(() {
-              // Get current display order BEFORE changing score
-              final currentOrder = _deriveRanking(candidates);
-              _scores[candidateId] = i;
-              // Stable sort by score desc — preserves relative order of equal scores
-              currentOrder.sort((a, b) =>
-                  (_scores[b] ?? 0).compareTo(_scores[a] ?? 0));
-              _rebuildTieBreaksFromOrder(currentOrder);
+            // Capture old order BEFORE changing score
+            final oldOrder = _deriveRanking(candidates);
+
+            // Update score and compute new order
+            _scores[candidateId] = i;
+            final newOrder = List<String>.from(oldOrder);
+            newOrder.sort((a, b) =>
+                (_scores[b] ?? 0).compareTo(_scores[a] ?? 0));
+            _rebuildTieBreaksFromOrder(newOrder);
+
+            // Compute slide offsets: each item starts at its old visual
+            // position and animates to its new position
+            _slideOffsets = {};
+            for (int idx = 0; idx < newOrder.length; idx++) {
+              final id = newOrder[idx];
+              final oldIdx = oldOrder.indexOf(id);
+              if (oldIdx != idx) {
+                _slideOffsets[id] = Offset(0, (oldIdx - idx).toDouble());
+              }
+            }
+
+            setState(() {});
+
+            // Clear offsets on next frame so AnimatedSlide animates to zero
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _slideOffsets = {};
+                });
+              }
             });
           },
         ),
