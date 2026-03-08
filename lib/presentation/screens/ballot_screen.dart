@@ -212,6 +212,25 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     return Map.fromEntries(byScore.entries.where((e) => e.value.length > 1));
   }
 
+  // ── Tie-break rebuild from explicit order (for reorderable F/G) ──────────
+
+  /// Rebuild _tieBreaks from an explicit display order list.
+  /// Groups candidates by score and preserves list order within each group.
+  void _rebuildTieBreaksFromOrder(List<String> order) {
+    _tieBreaks.clear();
+    final Map<int, List<String>> byScore = {};
+    for (final id in order) {
+      final score = _scores[id] ?? 0;
+      byScore.putIfAbsent(score, () => []);
+      byScore[score]!.add(id);
+    }
+    for (final entry in byScore.entries) {
+      if (entry.value.length > 1 && entry.key > 0) {
+        _tieBreaks[entry.key] = entry.value;
+      }
+    }
+  }
+
   // ── Pure derivation functions ─────────────────────────────────────────────
 
   /// Sort by score desc; within tied groups, use _tieBreaks order if set,
@@ -611,11 +630,24 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   // ── Template F: STAR + IRV ────────────────────────────────────────────────
 
   Widget _buildTemplateF(List<Candidate> candidates) {
-    final ranking = _deriveRanking(candidates);
-    final rankMap = {
-      for (int i = 0; i < ranking.length; i++) ranking[i]: i + 1
-    };
-    final tiedGroups = _getUiTiedGroups(candidates);
+    return _buildReorderableStarList(candidates, showApproval: false);
+  }
+
+  // ── Template G: STAR + IRV + Approval ────────────────────────────────────
+
+  Widget _buildTemplateG(List<Candidate> candidates) {
+    return _buildReorderableStarList(candidates, showApproval: true);
+  }
+
+  // ── Reorderable STAR list (Templates F & G) ──────────────────────────────
+
+  Widget _buildReorderableStarList(List<Candidate> candidates,
+      {required bool showApproval}) {
+    final sortedIds = _deriveRanking(candidates);
+    final candidateMap = {for (final c in candidates) c.id: c};
+    final approvedSet = showApproval
+        ? _deriveApprovalsFromRanking(sortedIds)
+        : <String>{};
 
     return Card(
       child: Padding(
@@ -623,27 +655,55 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rate Candidates',
+            Text('Rate & Rank Candidates',
                 style: Theme.of(context).textTheme.titleMedium),
             const Text(
-                'Rate each candidate 0–5. IRV order is derived automatically:'),
+                'Tap scores to rate (0–5). Drag to reorder — scores adjust automatically:'),
             const SizedBox(height: 8),
-            ...candidates.map((c) => _buildStarCandidateRow(
-                  c, candidates,
-                  irvRank: rankMap[c.id])),
-            if (tiedGroups.isNotEmpty) ...[
+            ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: sortedIds.length,
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) newIndex--;
+                  final reordered = List<String>.from(sortedIds);
+                  final draggedId = reordered.removeAt(oldIndex);
+                  reordered.insert(newIndex, draggedId);
+
+                  // Adjust score to fit between neighbors
+                  final aboveScore = newIndex > 0
+                      ? (_scores[reordered[newIndex - 1]] ?? 0)
+                      : 5;
+                  final belowScore = newIndex < reordered.length - 1
+                      ? (_scores[reordered[newIndex + 1]] ?? 0)
+                      : 0;
+                  final currentScore = _scores[draggedId] ?? 0;
+                  _scores[draggedId] = currentScore.clamp(belowScore, aboveScore);
+
+                  _rebuildTieBreaksFromOrder(reordered);
+                });
+              },
+              itemBuilder: (context, index) {
+                final id = sortedIds[index];
+                final candidate = candidateMap[id];
+                return _buildReorderableStarRow(
+                  key: ValueKey(id),
+                  index: index,
+                  candidateId: id,
+                  candidateName: candidate?.name ?? 'Unknown',
+                  candidates: candidates,
+                  isApproved: approvedSet.contains(id),
+                  showApproval: showApproval,
+                );
+              },
+            ),
+            if (showApproval) ...[
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 8),
-              Text('Resolve Ties',
-                  style: Theme.of(context).textTheme.titleSmall),
-              const Text(
-                  'Drag to set preference within tied score groups:'),
-              const SizedBox(height: 4),
-              ...tiedGroups.entries.map(
-                (entry) =>
-                    _buildTieBreakGroup(entry.key, entry.value, candidates),
-              ),
+              _buildTopKStepper(
+                  candidates.length, 'candidates (by rank order)'),
             ],
           ],
         ),
@@ -651,54 +711,79 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     );
   }
 
-  // ── Template G: STAR + IRV + Approval ────────────────────────────────────
-
-  Widget _buildTemplateG(List<Candidate> candidates) {
-    final ranking = _deriveRanking(candidates);
-    final rankMap = {
-      for (int i = 0; i < ranking.length; i++) ranking[i]: i + 1
-    };
-    final tiedGroups = _getUiTiedGroups(candidates);
-    final approvedSet = _deriveApprovalsFromRanking(ranking);
-
-    return Card(
+  Widget _buildReorderableStarRow({
+    required Key key,
+    required int index,
+    required String candidateId,
+    required String candidateName,
+    required List<Candidate> candidates,
+    required bool isApproved,
+    required bool showApproval,
+  }) {
+    return ReorderableDragStartListener(
+      key: key,
+      index: index,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rate Candidates',
-                style: Theme.of(context).textTheme.titleMedium),
-            const Text(
-                'Rate each candidate 0–5. IRV order and approvals are derived automatically:'),
-            const SizedBox(height: 8),
-            ...candidates.map((c) => _buildStarCandidateRow(
-                  c, candidates,
-                  irvRank: rankMap[c.id],
-                  isApproved: approvedSet.contains(c.id))),
-            if (tiedGroups.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text('Resolve Ties',
-                  style: Theme.of(context).textTheme.titleSmall),
-              const Text(
-                  'Drag to set preference within tied score groups:'),
-              const SizedBox(height: 4),
-              ...tiedGroups.entries.map(
-                (entry) =>
-                    _buildTieBreakGroup(entry.key, entry.value, candidates),
-              ),
-            ],
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
-            _buildTopKStepper(
-                candidates.length, 'candidates (by IRV order)'),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: Colors.blue.shade100,
+                  child: Text('${index + 1}',
+                      style: const TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    children: [
+                      Text(candidateName,
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w500)),
+                      if (showApproval && isApproved) _approvedBadge(),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.drag_handle),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: _buildScoreChipsForReorderable(candidateId, candidates),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildScoreChipsForReorderable(
+      String candidateId, List<Candidate> candidates) {
+    return List.generate(6, (i) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1),
+        child: ChoiceChip(
+          label: Text('$i'),
+          selected: (_scores[candidateId] ?? 0) == i,
+          onSelected: (_) {
+            setState(() {
+              // Get current display order BEFORE changing score
+              final currentOrder = _deriveRanking(candidates);
+              _scores[candidateId] = i;
+              // Stable sort by score desc — preserves relative order of equal scores
+              currentOrder.sort((a, b) =>
+                  (_scores[b] ?? 0).compareTo(_scores[a] ?? 0));
+              _rebuildTieBreaksFromOrder(currentOrder);
+            });
+          },
+        ),
+      );
+    });
   }
 
   // ── Shared UI helpers ─────────────────────────────────────────────────────
@@ -782,60 +867,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
         ),
       );
     });
-  }
-
-  Widget _buildTieBreakGroup(
-      int score, List<String> tiedIds, List<Candidate> allCandidates) {
-    final candidateMap = {for (final c in allCandidates) c.id: c};
-    // Use stored order if valid, otherwise fall back to default
-    final stored = _tieBreaks[score];
-    final order = (stored != null &&
-            stored.toSet().containsAll(tiedIds.toSet()) &&
-            tiedIds.toSet().containsAll(stored.toSet()))
-        ? stored
-        : tiedIds;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 4),
-          child: Text('Score $score (tied)',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-        ),
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: order.length,
-          onReorder: (oldIndex, newIndex) {
-            setState(() {
-              if (newIndex > oldIndex) newIndex--;
-              final newOrder = List<String>.from(order);
-              final item = newOrder.removeAt(oldIndex);
-              newOrder.insert(newIndex, item);
-              _tieBreaks[score] = newOrder;
-            });
-          },
-          itemBuilder: (context, index) {
-            final id = order[index];
-            final candidate = candidateMap[id];
-            return ReorderableDragStartListener(
-              key: ValueKey('tie_${score}_$id'),
-              index: index,
-              child: ListTile(
-                leading: CircleAvatar(
-                  radius: 12,
-                  child: Text('${index + 1}',
-                      style: const TextStyle(fontSize: 12)),
-                ),
-                title: Text(candidate?.name ?? 'Unknown'),
-                trailing: const Icon(Icons.drag_handle),
-              ),
-            );
-          },
-        ),
-      ],
-    );
   }
 
   Widget _buildTopKStepper(int maxCount, String label) {
