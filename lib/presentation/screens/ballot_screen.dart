@@ -46,6 +46,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
   // Animated reorder offsets for score-driven position changes (Templates F/G)
   Map<String, Offset> _slideOffsets = {};
+  int _slideVersion = 0;
 
   bool _loading = false;
   bool _initialized = false;
@@ -759,13 +760,17 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     required bool isApproved,
     required bool showApproval,
   }) {
+    final slideBegin = _slideOffsets[candidateId] ?? Offset.zero;
     return Padding(
       key: ValueKey(candidateId),
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
-      child: AnimatedSlide(
-        offset: _slideOffsets[candidateId] ?? Offset.zero,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+      child: TweenAnimationBuilder<Offset>(
+        key: ValueKey('slide_${candidateId}_$_slideVersion'),
+        tween: Tween(begin: slideBegin, end: Offset.zero),
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOut,
+        builder: (context, offset, child) =>
+            FractionalTranslation(translation: offset, child: child),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -830,8 +835,8 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 (_scores[b] ?? 0).compareTo(_scores[a] ?? 0));
             _rebuildTieBreaksFromOrder(newOrder);
 
-            // Compute slide offsets: each item starts at its old visual
-            // position and animates to its new position
+            // Compute slide offsets: begin = old visual position, end = zero
+            // TweenAnimationBuilder animates from begin→end on each new version
             _slideOffsets = {};
             for (int idx = 0; idx < newOrder.length; idx++) {
               final id = newOrder[idx];
@@ -840,17 +845,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 _slideOffsets[id] = Offset(0, (oldIdx - idx).toDouble());
               }
             }
+            _slideVersion++;
 
             setState(() {});
-
-            // Clear offsets on next frame so AnimatedSlide animates to zero
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() {
-                  _slideOffsets = {};
-                });
-              }
-            });
           },
         ),
       );
