@@ -25,6 +25,7 @@ class Election {
   final String inviteMode;
   final bool allowVoterCandidates;
   final bool realtimeResults;
+  final bool includeFptp;
   final DateTime candidatesUpdatedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -39,6 +40,7 @@ class Election {
     required this.inviteMode,
     this.allowVoterCandidates = false,
     this.realtimeResults = false,
+    this.includeFptp = true,
     required this.candidatesUpdatedAt,
     required this.createdAt,
     required this.updatedAt,

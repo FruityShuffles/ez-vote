@@ -26,6 +26,7 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
   final Set<VotingAlgorithm> _selectedAlgorithms = {VotingAlgorithm.approval};
   bool _allowVoterCandidates = false;
   bool _realtimeResults = false;
+  bool _includeFptp = true;
   bool _loading = false;
   bool _loadingInitial = false;
 
@@ -62,6 +63,7 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
       }
       _allowVoterCandidates = election.allowVoterCandidates;
       _realtimeResults = election.realtimeResults;
+      _includeFptp = election.includeFptp;
 
       // Dispose existing controllers and replace with one per candidate
       for (final c in _candidateControllers) {
@@ -157,6 +159,7 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
           algorithms: algorithms,
           allowVoterCandidates: _allowVoterCandidates,
           realtimeResults: _realtimeResults,
+          includeFptp: _includeFptp,
         );
         await candidateRepo.setCandidates(widget.electionId!, candidateNames);
         if (open) {
@@ -176,6 +179,7 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
           algorithms: algorithms,
           allowVoterCandidates: _allowVoterCandidates,
           realtimeResults: _realtimeResults,
+          includeFptp: _includeFptp,
         );
         await candidateRepo.setCandidates(election.id, candidateNames);
         if (open) {
@@ -405,6 +409,16 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
                                 : (v) {
                                     setState(() => _realtimeResults = v);
                                   },
+                          ),
+                          SwitchListTile(
+                            title: const Text('Include FPTP comparison'),
+                            subtitle: const Text(
+                              'Compare results to simple plurality (first-past-the-post) voting',
+                            ),
+                            value: _includeFptp,
+                            onChanged: (v) {
+                              setState(() => _includeFptp = v);
+                            },
                           ),
                           const SizedBox(height: 24),
                           Row(

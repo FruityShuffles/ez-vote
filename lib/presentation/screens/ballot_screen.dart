@@ -37,6 +37,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   // Approval-only: direct checkboxes (no STAR, no IRV)
   final Set<String> _approvals = {};
 
+  // FPTP: first-choice pick (templates B, C, E when includeFptp is on)
+  String? _fptpChoice;
+
   // Derivation settings
   int _approvalCutoff = 3; // STAR+Approval: approve where score >= cutoff
   int _approvalTopK = 0;   // IRV+Approval or STAR+IRV+Approval: approve top N
@@ -119,6 +122,10 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
         !algos.contains('irv')) {
       _approvals.removeWhere((id) => !currentIds.contains(id));
     }
+
+    if (_fptpChoice != null && !currentIds.contains(_fptpChoice)) {
+      _fptpChoice = null;
+    }
   }
 
   // ── Initialization ────────────────────────────────────────────────────────
@@ -173,6 +180,10 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
           // Templates D (IRV+Approval) and G (STAR+IRV+Approval): set topK
           _approvalTopK = savedApprovals.length;
         }
+      }
+      if (payload['fptp'] != null) {
+        _fptpChoice = payload['fptp'] as String;
+        if (!currentIds.contains(_fptpChoice)) _fptpChoice = null;
       }
       if (algos.contains('star')) _syncTieBreaks(candidates);
     }
@@ -304,17 +315,23 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
   // ── Validation ────────────────────────────────────────────────────────────
 
-  List<String> _getBlockingErrors(List<Candidate> candidates, String template) {
+  List<String> _getBlockingErrors(List<Candidate> candidates, String template, Election election) {
+    final errors = <String>[];
     switch (template) {
       case 'B':
       case 'E':
       case 'F':
       case 'G':
         if (candidates.every((c) => (_scores[c.id] ?? 0) == 0)) {
-          return ['Rate at least one candidate above 0'];
+          errors.add('Rate at least one candidate above 0');
         }
     }
-    return [];
+    if (election.includeFptp &&
+        (template == 'B' || template == 'C' || template == 'E') &&
+        _fptpChoice == null) {
+      errors.add('Pick a first choice for the FPTP comparison');
+    }
+    return errors;
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -341,7 +358,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             data: (candidates) {
               _initializeState(candidates, election.algorithms);
               final template = _getTemplate(election.algorithms);
-              final errors = _getBlockingErrors(candidates, template);
+              final errors = _getBlockingErrors(candidates, template, election);
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -363,7 +380,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                         const SizedBox(height: 24),
                         IgnorePointer(
                           ignoring: widget.viewOnly,
-                          child: _buildTemplate(template, candidates),
+                          child: _buildTemplate(template, candidates, election),
                         ),
                         const SizedBox(height: 16),
                         if (widget.viewOnly) ...[
@@ -391,7 +408,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                           FilledButton.icon(
                             onPressed: (_loading || errors.isNotEmpty)
                                 ? null
-                                : () => _submit(candidates, template),
+                                : () => _submit(candidates, template, election),
                             icon: const Icon(Icons.how_to_vote),
                             label: _loading
                                 ? const SizedBox(
@@ -417,17 +434,28 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     );
   }
 
-  Widget _buildTemplate(String template, List<Candidate> candidates) {
-    switch (template) {
-      case 'A': return _buildTemplateA(candidates);
-      case 'B': return _buildTemplateB(candidates);
-      case 'C': return _buildTemplateC(candidates);
-      case 'D': return _buildTemplateD(candidates);
-      case 'E': return _buildTemplateE(candidates);
-      case 'F': return _buildTemplateF(candidates);
-      case 'G': return _buildTemplateG(candidates);
-      default:  return const SizedBox.shrink();
-    }
+  Widget _buildTemplate(String template, List<Candidate> candidates, Election election) {
+    final needsFptpPicker = election.includeFptp &&
+        (template == 'B' || template == 'C' || template == 'E');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        switch (template) {
+          'A' => _buildTemplateA(candidates),
+          'B' => _buildTemplateB(candidates),
+          'C' => _buildTemplateC(candidates),
+          'D' => _buildTemplateD(candidates),
+          'E' => _buildTemplateE(candidates),
+          'F' => _buildTemplateF(candidates),
+          'G' => _buildTemplateG(candidates),
+          _ => const SizedBox.shrink(),
+        },
+        if (needsFptpPicker) ...[
+          const SizedBox(height: 16),
+          _buildFptpPicker(candidates),
+        ],
+      ],
+    );
   }
 
   // ── Template A: IRV only ──────────────────────────────────────────────────
@@ -970,9 +998,40 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     );
   }
 
+  // ── FPTP picker (templates B, C, E) ──────────────────────────────────────
+
+  Widget _buildFptpPicker(List<Candidate> candidates) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('First Choice (FPTP)',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            const Text(
+                'If this were a simple plurality election, which single candidate would you pick?'),
+            const SizedBox(height: 8),
+            RadioGroup<String>(
+              groupValue: _fptpChoice ?? '',
+              onChanged: (v) => setState(() => _fptpChoice = v),
+              child: Column(
+                children: candidates.map((c) => RadioListTile<String>(
+                      title: Text(c.name),
+                      value: c.id,
+                    )).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Submit ────────────────────────────────────────────────────────────────
 
-  Future<void> _submit(List<Candidate> candidates, String template) async {
+  Future<void> _submit(List<Candidate> candidates, String template, Election election) async {
     // Pre-submit gate: check for candidate changes in ad-hoc elections
     final preCheckElection =
         ref.read(electionProvider(widget.electionId)).valueOrNull;
@@ -1026,6 +1085,10 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
               _deriveApprovalsFromRanking(ranking).toList();
       }
 
+      if (election.includeFptp && _fptpChoice != null) {
+        payload['fptp'] = _fptpChoice;
+      }
+
       await ref.read(ballotRepositoryProvider).upsertBallot(
             electionId: widget.electionId,
             payload: payload,
@@ -1036,9 +1099,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
       // Trigger real-time results computation if enabled,
       // but skip if the payload hasn't changed (edit with no modifications)
-      final election =
+      final freshElection =
           await ref.read(electionProvider(widget.electionId).future);
-      if (election.realtimeResults) {
+      if (freshElection.realtimeResults) {
         final oldPayload = widget.initialBallot?.payload;
         final payloadChanged = oldPayload == null ||
             jsonEncode(payload) != jsonEncode(oldPayload);

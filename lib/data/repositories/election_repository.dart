@@ -12,6 +12,7 @@ class ElectionRepository {
     required List<String> algorithms,
     bool allowVoterCandidates = false,
     bool realtimeResults = false,
+    bool includeFptp = true,
   }) async {
     final userId = _client.auth.currentUser!.id;
     final data = await _client
@@ -24,6 +25,7 @@ class ElectionRepository {
           'algorithms': algorithms,
           'allow_voter_candidates': allowVoterCandidates,
           'realtime_results': realtimeResults,
+          'include_fptp': includeFptp,
         })
         .select()
         .single();
@@ -78,6 +80,7 @@ class ElectionRepository {
     required List<String> algorithms,
     bool allowVoterCandidates = false,
     bool realtimeResults = false,
+    bool includeFptp = true,
   }) async {
     final data = await _client
         .from('elections')
@@ -87,6 +90,7 @@ class ElectionRepository {
           'algorithms': algorithms,
           'allow_voter_candidates': allowVoterCandidates,
           'realtime_results': realtimeResults,
+          'include_fptp': includeFptp,
         })
         .eq('id', id)
         .select()

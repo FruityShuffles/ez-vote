@@ -18,6 +18,7 @@ interface Ballot {
     approval?: string[];
     irv?: string[];
     star?: Record<string, number>;
+    fptp?: string;
   };
 }
 
@@ -284,6 +285,59 @@ function computeSTAR(
   };
 }
 
+// ---- First Past The Post (FPTP) ----
+function computeFPTP(
+  candidates: Candidate[],
+  ballots: Ballot[],
+  hasIrv: boolean
+): Record<string, unknown> {
+  const nameMap: Record<string, string> = {};
+  const tallies: Record<string, number> = {};
+
+  for (const c of candidates) {
+    nameMap[c.id] = c.name;
+    tallies[c.id] = 0;
+  }
+
+  for (const b of ballots) {
+    // Use explicit fptp choice if present, otherwise fall back to irv[0]
+    let firstChoice: string | undefined = b.payload.fptp;
+    if (!firstChoice && hasIrv) {
+      const irv = b.payload.irv ?? [];
+      firstChoice = irv.length > 0 ? irv[0] : undefined;
+    }
+    if (firstChoice && tallies[firstChoice] !== undefined) {
+      tallies[firstChoice]++;
+    }
+  }
+
+  const sorted = Object.entries(tallies).sort((a, b) => b[1] - a[1]);
+
+  const namedTallies: Record<string, number> = {};
+  for (const [id, count] of sorted) {
+    namedTallies[nameMap[id]] = count;
+  }
+
+  if (sorted.length === 0) {
+    return { winners: [], winner: null, runner_up: null, tallies: namedTallies };
+  }
+
+  const topTally = sorted[0][1];
+  const winners = sorted
+    .filter(([_, v]) => v === topTally)
+    .map(([id]) => nameMap[id]);
+
+  const runnerUpEntry = sorted.find(([id]) => !winners.includes(nameMap[id]));
+  const runner_up = runnerUpEntry ? nameMap[runnerUpEntry[0]] : null;
+
+  return {
+    winners,
+    winner: winners[0],
+    runner_up,
+    tallies: namedTallies,
+  };
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -379,6 +433,21 @@ serve(async (req: Request) => {
           election_id,
           algorithm: algo,
           result_data: resultData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "election_id,algorithm" }
+      );
+    }
+
+    // Compute FPTP comparison if enabled
+    if (election.include_fptp) {
+      const hasIrv = algos.includes("irv");
+      const fptpResult = computeFPTP(candidates ?? [], ballots ?? [], hasIrv);
+      await adminClient.from("results").upsert(
+        {
+          election_id,
+          algorithm: "fptp",
+          result_data: fptpResult,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "election_id,algorithm" }

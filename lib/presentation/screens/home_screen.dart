@@ -227,6 +227,7 @@ class _VotedElectionsList extends ConsumerWidget {
 String? _winnersLabel(List<ElectionResult> results) {
   final wins = <String, int>{};
   for (final r in results) {
+    if (r.algorithm == 'fptp') continue;
     final data = r.resultData;
     final ws = (data['winners'] as List<dynamic>?)?.cast<String>() ??
         (data['winner'] != null ? [data['winner'] as String] : []);

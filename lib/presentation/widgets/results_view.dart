@@ -56,9 +56,10 @@ class _OverallWinnerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Tally how many algorithms each candidate won.
+    // Tally how many algorithms each candidate won (skip FPTP — it's a reference comparison).
     final wins = <String, int>{};
-    for (final r in results) {
+    final scoredResults = results.where((r) => r.algorithm != 'fptp').toList();
+    for (final r in scoredResults) {
       final data = r.resultData;
       final winners = (data['winners'] as List<dynamic>?)?.cast<String>() ??
           (data['winner'] != null ? [data['winner'] as String] : []);
@@ -76,13 +77,13 @@ class _OverallWinnerCard extends StatelessWidget {
         .toList();
 
     // No meaningful overall result if everyone is tied or leader won only once.
-    if (maxWins < 2 && results.length > 2) return const SizedBox.shrink();
+    if (maxWins < 2 && scoredResults.length > 2) return const SizedBox.shrink();
     if (leaders.length > 1) return const SizedBox.shrink();
 
     final overallWinner = leaders.first;
-    final isMajority = maxWins > results.length / 2;
+    final isMajority = maxWins > scoredResults.length / 2;
     final label = isMajority ? 'Overall Majority Winner' : 'Overall Plurality Winner';
-    final subtitle = '$overallWinner won $maxWins of ${results.length} algorithms';
+    final subtitle = '$overallWinner won $maxWins of ${scoredResults.length} algorithms';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -131,6 +132,7 @@ class _ResultCard extends StatelessWidget {
       'approval' => 'Approval Voting',
       'irv' => 'Instant Runoff Voting (IRV)',
       'star' => 'STAR Voting',
+      'fptp' => 'First Past The Post (FPTP)',
       _ => result.algorithm,
     };
 
@@ -176,6 +178,7 @@ class _ResultCard extends StatelessWidget {
             if (result.algorithm == 'approval') _buildApprovalDetails(data),
             if (result.algorithm == 'irv') _buildIrvDetails(data),
             if (result.algorithm == 'star') _buildStarDetails(data),
+            if (result.algorithm == 'fptp') _buildFptpDetails(data),
           ],
         ),
       ),
@@ -248,6 +251,37 @@ class _ResultCard extends StatelessWidget {
                             fontStyle: FontStyle.italic)),
                 ],
               ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildFptpDetails(Map<String, dynamic> data) {
+    final tallies = data['tallies'] as Map<String, dynamic>? ?? {};
+    final maxCount =
+        tallies.values.fold<num>(1, (a, b) => b > a ? b : a).toDouble();
+
+    final sorted = tallies.entries.toList()
+      ..sort((a, b) => (b.value as num).compareTo(a.value as num));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Vote Counts:',
+            style: TextStyle(fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        ...sorted.map((entry) {
+          final fraction = (entry.value as num) / maxCount;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${entry.key}: ${entry.value}'),
+                LinearProgressIndicator(value: fraction.toDouble()),
+              ],
             ),
           );
         }),
