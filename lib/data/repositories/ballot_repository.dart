@@ -18,6 +18,14 @@ class BallotRepository {
     return Ballot.fromJson(data);
   }
 
+  Future<List<String>> getVoterNames(String electionId) async {
+    final res = await _client.rpc(
+      'get_election_voters',
+      params: {'p_election_id': electionId},
+    ) as List<dynamic>;
+    return res.map((row) => (row['display_name'] as String?) ?? '').toList();
+  }
+
   Future<int> getBallotCount(String electionId) async {
     final res = await _client.rpc(
       'get_ballot_count',

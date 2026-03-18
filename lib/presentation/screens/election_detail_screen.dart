@@ -172,19 +172,75 @@ class _BallotCountRow extends ConsumerWidget {
 
   const _BallotCountRow({required this.electionId});
 
+  void _showVoters(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => _VoterListSheet(electionId: electionId),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final countAsync = ref.watch(ballotCountProvider(electionId));
     return countAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
-      data: (n) => Row(
+      data: (n) => InkWell(
+        onTap: () => _showVoters(context, ref),
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.how_to_vote_outlined,
+                  size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              Text(
+                '$n ballot${n == 1 ? '' : 's'} submitted',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VoterListSheet extends ConsumerWidget {
+  final String electionId;
+
+  const _VoterListSheet({required this.electionId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final votersAsync = ref.watch(electionVotersProvider(electionId));
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.how_to_vote_outlined, size: 16, color: Colors.grey),
-          const SizedBox(width: 6),
-          Text(
-            '$n ballot${n == 1 ? '' : 's'} submitted',
-            style: Theme.of(context).textTheme.bodySmall,
+          Text('Voters', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          votersAsync.when(
+            loading: () =>
+                const Center(child: CircularProgressIndicator()),
+            error: (e, s) =>
+                Text('Could not load voters: $e'),
+            data: (names) => names.isEmpty
+                ? const Text('No ballots submitted yet.')
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: names.length,
+                    separatorBuilder: (_, index) => const Divider(height: 1),
+                    itemBuilder: (_, i) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(names[i]),
+                    ),
+                  ),
           ),
         ],
       ),
