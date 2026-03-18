@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../../domain/models/result.dart';
+import '../../domain/services/election_analysis_service.dart';
 
 class ResultsView extends ConsumerWidget {
   final String electionId;
@@ -26,6 +27,7 @@ class ResultsView extends ConsumerWidget {
             return Column(
               children: [
                 if (results.length > 1) _OverallWinnerCard(results: results),
+                _AnalysisCard(results: results),
                 if (sideBySide)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,6 +115,98 @@ class _OverallWinnerCard extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalysisCard extends StatelessWidget {
+  final List<ElectionResult> results;
+
+  const _AnalysisCard({required this.results});
+
+  @override
+  Widget build(BuildContext context) {
+    final analysis = analyzeResults(results);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: Colors.blueGrey.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blueGrey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.analytics_outlined,
+                    color: Colors.blueGrey.shade700, size: 28),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    analysis.headline,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Colors.blueGrey.shade800,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(analysis.summary,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
+            if (analysis.insights.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Theme(
+                data: Theme.of(context)
+                    .copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: Text('View detailed analysis',
+                      style: TextStyle(
+                          color: Colors.blueGrey.shade700,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500)),
+                  children: analysis.insights
+                      .map((insight) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(insight.icon,
+                                    size: 20,
+                                    color: Colors.blueGrey.shade600),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(insight.title,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14)),
+                                      const SizedBox(height: 4),
+                                      Text(insight.body,
+                                          style: TextStyle(
+                                              color: Colors.grey.shade700,
+                                              fontSize: 13)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ],
           ],
         ),
       ),
