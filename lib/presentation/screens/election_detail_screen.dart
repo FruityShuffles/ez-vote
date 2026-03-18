@@ -336,26 +336,15 @@ class _OwnerControls extends ConsumerWidget {
                   backgroundColor: Colors.red,
                 ),
               ),
-              if (election.inviteMode == 'open')
                 OutlinedButton.icon(
-                  onPressed: () {
-                    final joinUrl =
-                        '${Uri.base.origin}/election/$electionId/join';
-                    Clipboard.setData(ClipboardData(text: joinUrl));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Join link copied!')),
-                    );
-                  },
-                  icon: const Icon(Icons.link),
-                  label: const Text('Copy Join Link'),
+                onPressed: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => _InviteSheet(electionId: electionId),
                 ),
-              if (election.inviteMode == 'invite_only')
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      context.push('/election/$electionId/invite'),
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Invite Voters'),
-                ),
+                icon: const Icon(Icons.person_add),
+                label: const Text('Invite'),
+              ),
             ],
           ],
         ),
@@ -547,6 +536,161 @@ class _AddCandidateFieldState extends ConsumerState<_AddCandidateField> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.add),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InviteSheet extends ConsumerStatefulWidget {
+  final String electionId;
+
+  const _InviteSheet({required this.electionId});
+
+  @override
+  ConsumerState<_InviteSheet> createState() => _InviteSheetState();
+}
+
+class _InviteSheetState extends ConsumerState<_InviteSheet> {
+  final _searchController = TextEditingController();
+  final Set<String> _addedIds = {};
+  final Set<String> _loadingIds = {};
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _copyJoinLink(BuildContext context) {
+    final joinUrl =
+        '${Uri.base.origin}/election/${widget.electionId}/join';
+    Clipboard.setData(ClipboardData(text: joinUrl));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Join link copied!')));
+  }
+
+  Future<void> _addVoter(String userId) async {
+    setState(() => _loadingIds.add(userId));
+    try {
+      await ref
+          .read(ballotRepositoryProvider)
+          .addVoterToElection(widget.electionId, userId);
+      setState(() => _addedIds.add(userId));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding voter: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingIds.remove(userId));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final covotersAsync = ref.watch(priorCovotersProvider(widget.electionId));
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 20, 16, 32 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Invite Voters',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => _copyJoinLink(context),
+            icon: const Icon(Icons.link),
+            label: const Text('Copy Join Link'),
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+          Text('Add from prior elections',
+              style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _searchController,
+            decoration: const InputDecoration(
+              hintText: 'Search by name...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+          ),
+          const SizedBox(height: 8),
+          covotersAsync.when(
+            loading: () =>
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+            error: (e, s) => Text('Could not load: $e'),
+            data: (covoters) {
+              final filtered = _query.isEmpty
+                  ? covoters
+                  : covoters
+                      .where((c) => c.displayName
+                          .toLowerCase()
+                          .contains(_query))
+                      .toList();
+
+              if (filtered.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    _query.isEmpty
+                        ? 'No prior co-voters to add.'
+                        : 'No matches for "$_query".',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                );
+              }
+
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, index) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final c = filtered[i];
+                    final added = _addedIds.contains(c.userId);
+                    final loading = _loadingIds.contains(c.userId);
+                    return ListTile(
+                      dense: true,
+                      title: Text(c.displayName),
+                      subtitle: Text(
+                        'Voted with you in ${c.electionCount} '
+                        'election${c.electionCount == 1 ? '' : 's'}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      trailing: loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : added
+                              ? const Icon(Icons.check,
+                                  color: Colors.green)
+                              : TextButton(
+                                  onPressed: () => _addVoter(c.userId),
+                                  child: const Text('Add'),
+                                ),
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ],
       ),

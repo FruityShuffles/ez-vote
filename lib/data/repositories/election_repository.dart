@@ -40,6 +40,14 @@ class ElectionRepository {
     return data.map((e) => Election.fromJson(e)).toList();
   }
 
+  /// Returns open elections where the user is invited but has not yet voted.
+  Future<List<Election>> listPendingInvitations() async {
+    final res = await _client.rpc('get_pending_invitations') as List<dynamic>;
+    return res
+        .map((e) => Election.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Returns elections in which the current user has cast a ballot.
   Future<List<Election>> listVoted() async {
     final userId = _client.auth.currentUser!.id;

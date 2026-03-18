@@ -1,6 +1,18 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/ballot.dart';
 
+class Covoter {
+  final String userId;
+  final String displayName;
+  final int electionCount;
+
+  const Covoter({
+    required this.userId,
+    required this.displayName,
+    required this.electionCount,
+  });
+}
+
 class BallotRepository {
   final SupabaseClient _client;
 
@@ -32,6 +44,27 @@ class BallotRepository {
       params: {'p_election_id': electionId},
     );
     return (res as int?) ?? 0;
+  }
+
+  Future<List<Covoter>> getPriorCovoters(String electionId) async {
+    final res = await _client.rpc(
+      'get_prior_covoters',
+      params: {'p_election_id': electionId},
+    ) as List<dynamic>;
+    return res
+        .map((row) => Covoter(
+              userId: row['user_id'] as String,
+              displayName: (row['display_name'] as String?) ?? '',
+              electionCount: (row['election_count'] as int?) ?? 1,
+            ))
+        .toList();
+  }
+
+  Future<void> addVoterToElection(String electionId, String userId) async {
+    await _client.rpc('add_voter_to_election', params: {
+      'p_election_id': electionId,
+      'p_voter_id': userId,
+    });
   }
 
   Future<Ballot> upsertBallot({

@@ -43,6 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ref.invalidate(ownedElectionsProvider);
       case 1:
         ref.invalidate(votedElectionsProvider);
+        ref.invalidate(pendingInvitationsProvider);
     }
   }
 
@@ -53,6 +54,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (path == '/dashboard') {
       ref.invalidate(ownedElectionsProvider);
       ref.invalidate(votedElectionsProvider);
+      ref.invalidate(pendingInvitationsProvider);
     }
   }
 
@@ -174,26 +176,50 @@ class _OwnedElectionsList extends ConsumerWidget {
 class _VotedElectionsList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final elections = ref.watch(votedElectionsProvider);
+    final votedAsync = ref.watch(votedElectionsProvider);
+    final pendingAsync = ref.watch(pendingInvitationsProvider);
 
-    return elections.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
-      data: (list) {
-        if (list.isEmpty) {
-          return const Center(
-            child: Text('Elections you vote in will appear here.'),
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(votedElectionsProvider),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: list.length,
-            itemBuilder: (context, i) => _ElectionCard(election: list[i]),
-          ),
-        );
+    final pending = pendingAsync.valueOrNull ?? [];
+    final voted = votedAsync.valueOrNull ?? [];
+    final isLoading =
+        votedAsync.isLoading && pendingAsync.isLoading;
+
+    if (isLoading) return const Center(child: CircularProgressIndicator());
+
+    if (pending.isEmpty && voted.isEmpty) {
+      return const Center(
+        child: Text('Elections you vote in will appear here.'),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(votedElectionsProvider);
+        ref.invalidate(pendingInvitationsProvider);
       },
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (pending.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('Pending Invitations',
+                  style: Theme.of(context).textTheme.titleSmall),
+            ),
+            ...pending.map((e) => _ElectionCard(election: e)),
+            const Divider(height: 32),
+          ],
+          if (voted.isNotEmpty) ...[
+            if (pending.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('Voted',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ),
+            ...voted.map((e) => _ElectionCard(election: e)),
+          ],
+        ],
+      ),
     );
   }
 }
