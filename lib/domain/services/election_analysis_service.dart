@@ -101,8 +101,9 @@ ElectionAnalysis analyzeResults(List<ElectionResult> results) {
             .map((e) => '${_algoLabel(e.key)} selected ${e.value.first}')
             .join('; ');
         headline = 'Most methods agree: $consensusWinner';
-        summary =
-            '$consensusWinner won $agreeing of ${nonFptp.length} methods. $disagreeDesc.';
+        summary = disagreeDesc.isNotEmpty
+            ? '$consensusWinner won $agreeing of ${nonFptp.length} methods. $disagreeDesc.'
+            : '$consensusWinner won $agreeing of ${nonFptp.length} methods.';
       } else {
         headline = 'Methods partially agree';
         summary =

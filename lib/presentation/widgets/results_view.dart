@@ -131,6 +131,12 @@ class _AnalysisCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final analysis = analyzeResults(results);
 
+    // When multiple results exist, the _OverallWinnerCard already shows the
+    // consensus winner — only show this card if there are insights to add.
+    if (results.length > 1 && analysis.insights.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       color: Colors.blueGrey.shade50,
