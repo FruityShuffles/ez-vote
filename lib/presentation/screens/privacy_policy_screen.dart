@@ -65,7 +65,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               body:
                   'You may delete your account at any time from the Settings screen. '
                   'If you have questions or requests regarding your personal data, '
-                  'contact us at adrian.rice23@gmail.com.',
+                  'contact us at contact@ez-vote.org.',
             ),
             _Section(
               title: 'Governing Law',
@@ -74,7 +74,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             ),
             _Section(
               title: 'Contact',
-              body: 'adrian.rice23@gmail.com',
+              body: 'contact@ez-vote.org',
             ),
           ],
         ),

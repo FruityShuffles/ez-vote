@@ -64,7 +64,7 @@ class TermsScreen extends StatelessWidget {
             ),
             _Section(
               title: 'Contact',
-              body: 'Questions? Contact us at adrian.rice23@gmail.com.',
+              body: 'Questions? Contact us at contact@ez-vote.org.',
             ),
           ],
         ),
