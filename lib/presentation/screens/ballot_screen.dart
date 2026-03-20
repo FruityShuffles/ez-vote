@@ -54,6 +54,10 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   bool _loading = false;
   bool _initialized = false;
 
+  // Zero-approval warning: fires once per ballot session
+  bool _zeroApprovalWarningShown = false;
+  bool _zeroApprovalWarningFlash = false;
+
   Timer? _pollTimer;
 
   @override
@@ -295,6 +299,18 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   Set<String> _deriveApprovalsFromRanking(List<String> ranking) {
     if (_approvalTopK <= 0) return {};
     return ranking.take(_approvalTopK).toSet();
+  }
+
+  // ── Zero-approval check ──────────────────────────────────────────────────
+
+  bool _hasZeroApprovals(String template, List<Candidate> candidates) {
+    switch (template) {
+      case 'C': return _approvals.isEmpty;
+      case 'D': return _approvalTopK == 0;
+      case 'E': return _deriveApprovalsFromScores(candidates).isEmpty;
+      case 'G': return _approvalTopK == 0;
+      default: return false;
+    }
   }
 
   // ── Template selection ────────────────────────────────────────────────────
@@ -539,32 +555,49 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   // ── Template C: Approval only ─────────────────────────────────────────────
 
   Widget _buildTemplateC(List<Candidate> candidates) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Approve Candidates',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 4),
-            const Text(
-                'Check every candidate you\'d be happy to see win.'),
-            const SizedBox(height: 8),
-            ...candidates.map((c) => CheckboxListTile(
-                  title: Text(c.name),
-                  value: _approvals.contains(c.id),
-                  onChanged: (checked) {
-                    setState(() {
-                      if (checked == true) {
-                        _approvals.add(c.id);
-                      } else {
-                        _approvals.remove(c.id);
-                      }
-                    });
-                  },
-                )),
-          ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: _zeroApprovalWarningFlash
+            ? Border.all(color: Colors.orange, width: 2)
+            : null,
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Approve Candidates',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              const Text(
+                  'Check every candidate you\'d be happy to see win.'),
+              if (_zeroApprovalWarningFlash) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'You haven\'t approved any candidates',
+                  style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500, fontSize: 13),
+                ),
+              ],
+              const SizedBox(height: 8),
+              ...candidates.map((c) => CheckboxListTile(
+                    title: Text(c.name),
+                    value: _approvals.contains(c.id),
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked == true) {
+                          _approvals.add(c.id);
+                        } else {
+                          _approvals.remove(c.id);
+                        }
+                      });
+                    },
+                  )),
+            ],
+          ),
         ),
       ),
     );
@@ -591,10 +624,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             const Text(
                 'Then choose how many of your top-ranked candidates to approve.'),
             const SizedBox(height: 12),
-            _buildApprovalStepperCard(
-              child: _buildTopKStepper(candidates.length, 'candidates'),
-            ),
-            const SizedBox(height: 8),
             ReorderableListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -632,6 +661,11 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 );
               },
             ),
+            const SizedBox(height: 8),
+            _buildApprovalStepperCard(
+              child: _buildTopKStepper(candidates.length, 'candidates'),
+              warning: _zeroApprovalWarningFlash,
+            ),
           ],
         ),
       ),
@@ -658,6 +692,10 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             const Text(
                 'Then set a threshold \u2014 candidates at or above that score are approved.'),
             const SizedBox(height: 12),
+            ...candidates.map((c) => _buildStarCandidateRow(
+                  c, candidates,
+                  isApproved: approvedSet.contains(c.id))),
+            const SizedBox(height: 8),
             _buildApprovalStepperCard(
               child: Row(
                 children: [
@@ -678,11 +716,8 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                   ),
                 ],
               ),
+              warning: _zeroApprovalWarningFlash,
             ),
-            const SizedBox(height: 8),
-            ...candidates.map((c) => _buildStarCandidateRow(
-                  c, candidates,
-                  isApproved: approvedSet.contains(c.id))),
           ],
         ),
       ),
@@ -729,11 +764,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
               const SizedBox(height: 4),
               const Text(
                   'Finally, choose how many of your top-ranked candidates to approve.'),
-              const SizedBox(height: 12),
-              _buildApprovalStepperCard(
-                child: _buildTopKStepper(
-                    candidates.length, 'candidates (by rank order)'),
-              ),
             ],
             const SizedBox(height: 8),
             ReorderableListView.builder(
@@ -774,6 +804,14 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 );
               },
             ),
+            if (showApproval) ...[
+              const SizedBox(height: 8),
+              _buildApprovalStepperCard(
+                child: _buildTopKStepper(
+                    candidates.length, 'candidates (by rank order)'),
+                warning: _zeroApprovalWarningFlash,
+              ),
+            ],
           ],
         ),
       ),
@@ -965,14 +1003,29 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     });
   }
 
-  Widget _buildApprovalStepperCard({required Widget child}) {
-    return Container(
+  Widget _buildApprovalStepperCard({required Widget child, bool warning = false}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
+        color: warning ? Colors.orange.shade100 : Colors.green.shade50,
         borderRadius: BorderRadius.circular(12),
+        border: warning ? Border.all(color: Colors.orange, width: 2) : null,
       ),
-      child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          child,
+          if (warning) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'You haven\'t approved any candidates',
+              style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500, fontSize: 13),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -1032,6 +1085,19 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   // ── Submit ────────────────────────────────────────────────────────────────
 
   Future<void> _submit(List<Candidate> candidates, String template, Election election) async {
+    // Soft warning: flash the approval UI once if zero approvals
+    const approvalTemplates = ['C', 'D', 'E', 'G'];
+    if (approvalTemplates.contains(template) &&
+        _hasZeroApprovals(template, candidates) &&
+        !_zeroApprovalWarningShown) {
+      _zeroApprovalWarningShown = true;
+      setState(() => _zeroApprovalWarningFlash = true);
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _zeroApprovalWarningFlash = false);
+      });
+      return;
+    }
+
     // Pre-submit gate: check for candidate changes in ad-hoc elections
     final preCheckElection =
         ref.read(electionProvider(widget.electionId)).valueOrNull;
