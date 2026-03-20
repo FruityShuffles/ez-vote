@@ -128,18 +128,28 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                       ResultsView(electionId: electionId),
                     ],
                     const SizedBox(height: 24),
-                    Text('Candidates',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
                     candidatesAsync.when(
                       loading: () => const CircularProgressIndicator(),
                       error: (e, _) => Text('Error: $e'),
                       data: (candidates) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ...candidates
-                              .map((c) => ListTile(
-                                    title: Text(c.name),
-                                  )),
+                          Text(
+                            'Candidates (${candidates.length})',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: candidates
+                                .map((c) => Chip(
+                                      label: Text(c.name),
+                                      backgroundColor: Colors.indigo
+                                          .withValues(alpha: 0.15),
+                                    ))
+                                .toList(),
+                          ),
                           if (election.allowVoterCandidates &&
                               election.status == ElectionStatus.open)
                             _AddCandidateField(electionId: electionId),
