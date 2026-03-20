@@ -116,7 +116,25 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                     _BallotCountRow(electionId: electionId),
                     _PendingInviteesRow(electionId: electionId),
                     const SizedBox(height: 16),
-                    Text('Algorithms: ${election.algorithms.join(", ")}'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: election.algorithms.map((algo) {
+                        final (icon, label) = switch (algo) {
+                          'approval' => (Icons.thumb_up_outlined, 'Approval'),
+                          'irv' => (Icons.format_list_numbered, 'IRV'),
+                          'star' => (Icons.star_outline, 'STAR'),
+                          'fptp' => (Icons.person_outlined, 'FPTP'),
+                          _ => (Icons.how_to_vote_outlined, algo),
+                        };
+                        return Chip(
+                          avatar: Icon(icon, size: 18),
+                          label: Text(label),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                    ),
                     if (showResults) ...[
                       const Divider(height: 32),
                       Text(
@@ -127,35 +145,37 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                       const SizedBox(height: 16),
                       ResultsView(electionId: electionId),
                     ],
-                    const SizedBox(height: 24),
-                    candidatesAsync.when(
-                      loading: () => const CircularProgressIndicator(),
-                      error: (e, _) => Text('Error: $e'),
-                      data: (candidates) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Candidates (${candidates.length})',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: candidates
-                                .map((c) => Chip(
-                                      label: Text(c.name),
-                                      backgroundColor: Colors.indigo
-                                          .withValues(alpha: 0.15),
-                                    ))
-                                .toList(),
-                          ),
-                          if (election.allowVoterCandidates &&
-                              election.status == ElectionStatus.open)
-                            _AddCandidateField(electionId: electionId),
-                        ],
+                    if (election.status != ElectionStatus.closed) ...[
+                      const SizedBox(height: 24),
+                      candidatesAsync.when(
+                        loading: () => const CircularProgressIndicator(),
+                        error: (e, _) => Text('Error: $e'),
+                        data: (candidates) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Candidates (${candidates.length})',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: candidates
+                                  .map((c) => Chip(
+                                        label: Text(c.name),
+                                        backgroundColor: Colors.indigo
+                                            .withValues(alpha: 0.15),
+                                      ))
+                                  .toList(),
+                            ),
+                            if (election.allowVoterCandidates &&
+                                election.status == ElectionStatus.open)
+                              _AddCandidateField(electionId: electionId),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 24),
                     if (isOwner) ...[
                       _OwnerControls(
@@ -165,6 +185,7 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                     ],
                     if (election.status == ElectionStatus.open ||
                         election.status == ElectionStatus.closed) ...[
+                      if (isOwner) const SizedBox(height: 12),
                       _VoterControls(electionId: electionId),
                     ],
                   ],
@@ -291,75 +312,87 @@ class _OwnerControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Divider(),
-        Text('Owner Controls',
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (election.status == ElectionStatus.draft)
-              OutlinedButton.icon(
-                onPressed: () =>
-                    context.push('/election/$electionId/edit'),
-                icon: const Icon(Icons.edit),
-                label: const Text('Edit Election'),
-              ),
-            if (election.status == ElectionStatus.draft)
-              FilledButton.icon(
-                onPressed: () async {
-                  await ref
-                      .read(electionRepositoryProvider)
-                      .updateStatus(electionId, ElectionStatus.open);
-                  ref.invalidate(electionProvider(electionId));
-                  ref.invalidate(ownedElectionsProvider);
-                },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Open Election'),
-              ),
-            if (election.status == ElectionStatus.open) ...[
-              FilledButton.icon(
-                onPressed: () async {
-                  try {
-                    await ref
-                        .read(resultRepositoryProvider)
-                        .computeResults(electionId, close: true);
-                    ref.invalidate(electionProvider(electionId));
-                    ref.invalidate(ownedElectionsProvider);
-                    ref.invalidate(resultsProvider(electionId));
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error computing results: $e')),
-                      );
-                    }
-                  }
-                },
-                icon: const Icon(Icons.stop),
-                label: Text(election.realtimeResults
-                    ? 'Close Election'
-                    : 'Close & Compute Results'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red,
-                ),
-              ),
-                OutlinedButton.icon(
-                onPressed: () => showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => _InviteSheet(electionId: electionId),
-                ),
-                icon: const Icon(Icons.person_add),
-                label: const Text('Invite'),
-              ),
-            ],
+            Row(
+              children: [
+                Icon(Icons.settings, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text('Owner Controls',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey,
+                        )),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                if (election.status == ElectionStatus.draft)
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        context.push('/election/$electionId/edit'),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit Election'),
+                  ),
+                if (election.status == ElectionStatus.draft)
+                  FilledButton.icon(
+                    onPressed: () async {
+                      await ref
+                          .read(electionRepositoryProvider)
+                          .updateStatus(electionId, ElectionStatus.open);
+                      ref.invalidate(electionProvider(electionId));
+                      ref.invalidate(ownedElectionsProvider);
+                    },
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Open Election'),
+                  ),
+                if (election.status == ElectionStatus.open) ...[
+                  FilledButton.icon(
+                    onPressed: () async {
+                      try {
+                        await ref
+                            .read(resultRepositoryProvider)
+                            .computeResults(electionId, close: true);
+                        ref.invalidate(electionProvider(electionId));
+                        ref.invalidate(ownedElectionsProvider);
+                        ref.invalidate(resultsProvider(electionId));
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error computing results: $e')),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.stop),
+                    label: Text(election.realtimeResults
+                        ? 'Close Election'
+                        : 'Close & Compute Results'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => _InviteSheet(electionId: electionId),
+                    ),
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Invite'),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -461,14 +494,19 @@ class _VoterControlsState extends ConsumerState<_VoterControls> {
           );
         }
         if (isClosed) return const SizedBox();
-        return FilledButton.icon(
-          onPressed: () async {
-            await _refreshIfChanged();
-            if (!context.mounted) return;
-            context.push('/election/$electionId/vote');
-          },
-          icon: const Icon(Icons.how_to_vote),
-          label: const Text('Cast Your Vote'),
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: FilledButton.icon(
+              onPressed: () async {
+                await _refreshIfChanged();
+                if (!context.mounted) return;
+                context.push('/election/$electionId/vote');
+              },
+              icon: const Icon(Icons.how_to_vote),
+              label: const Text('Cast Your Vote'),
+            ),
+          ),
         );
       },
     );
@@ -736,7 +774,7 @@ class _PendingInviteesRow extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                const Icon(Icons.person_outline, size: 16, color: Colors.grey),
                 const SizedBox(width: 6),
                 Text(
                   '$n pending invitee${n == 1 ? '' : 's'}',
