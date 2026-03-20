@@ -101,7 +101,7 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
             padding: const EdgeInsets.all(24),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 960),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
