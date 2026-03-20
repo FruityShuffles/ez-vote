@@ -779,7 +779,7 @@ class _PendingInviteesRow extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.send_outlined, size: 16, color: Colors.grey),
+                const Icon(Icons.group_add, size: 16, color: Colors.grey),
                 const SizedBox(width: 6),
                 Text(
                   '$n pending invitee${n == 1 ? '' : 's'}',
