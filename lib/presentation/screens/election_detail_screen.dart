@@ -121,7 +121,7 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                       runSpacing: 4,
                       children: election.algorithms.map((algo) {
                         final (icon, label) = switch (algo) {
-                          'approval' => (Icons.thumb_up_outlined, 'Approval'),
+                          'approval' => (Icons.check_circle_outline, 'Approval'),
                           'irv' => (Icons.format_list_numbered, 'IRV'),
                           'star' => (Icons.star_outline, 'STAR'),
                           'fptp' => (Icons.person_outlined, 'FPTP'),
@@ -312,6 +312,11 @@ class _OwnerControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Hide the entire card when there are no actions (e.g., closed election)
+    if (election.status == ElectionStatus.closed) {
+      return const SizedBox.shrink();
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -774,7 +779,7 @@ class _PendingInviteesRow extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.person_outline, size: 16, color: Colors.grey),
+                const Icon(Icons.send_outlined, size: 16, color: Colors.grey),
                 const SizedBox(width: 6),
                 Text(
                   '$n pending invitee${n == 1 ? '' : 's'}',
