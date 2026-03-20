@@ -114,6 +114,7 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                     _StatusChip(status: election.status),
                     const SizedBox(height: 8),
                     _BallotCountRow(electionId: electionId),
+                    _PendingInviteesRow(electionId: electionId),
                     const SizedBox(height: 16),
                     Text('Algorithms: ${election.algorithms.join(", ")}'),
                     if (showResults) ...[
@@ -579,6 +580,8 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
           .read(ballotRepositoryProvider)
           .addVoterToElection(widget.electionId, userId);
       setState(() => _addedIds.add(userId));
+      ref.invalidate(priorCovotersProvider(widget.electionId));
+      ref.invalidate(pendingInviteesProvider(widget.electionId));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -691,6 +694,78 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
                 ),
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingInviteesRow extends ConsumerWidget {
+  final String electionId;
+
+  const _PendingInviteesRow({required this.electionId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingAsync = ref.watch(pendingInviteesProvider(electionId));
+    return pendingAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (names) {
+        if (names.isEmpty) return const SizedBox.shrink();
+        final n = names.length;
+        return InkWell(
+          onTap: () => showModalBottomSheet(
+            context: context,
+            builder: (_) => _PendingInviteesSheet(names: names),
+          ),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(
+                  '$n pending invitee${n == 1 ? '' : 's'}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PendingInviteesSheet extends StatelessWidget {
+  final List<String> names;
+
+  const _PendingInviteesSheet({required this.names});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Pending Invitees',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: names.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(names[i]),
+            ),
           ),
         ],
       ),

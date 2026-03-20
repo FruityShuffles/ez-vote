@@ -60,6 +60,14 @@ class BallotRepository {
         .toList();
   }
 
+  Future<List<String>> getPendingInvitees(String electionId) async {
+    final res = await _client.rpc(
+      'get_pending_invitees',
+      params: {'p_election_id': electionId},
+    ) as List<dynamic>;
+    return res.map((row) => (row['display_name'] as String?) ?? '').toList();
+  }
+
   Future<void> addVoterToElection(String electionId, String userId) async {
     await _client.rpc('add_voter_to_election', params: {
       'p_election_id': electionId,

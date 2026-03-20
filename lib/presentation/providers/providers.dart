@@ -104,6 +104,11 @@ final electionVotersProvider =
   return ref.read(ballotRepositoryProvider).getVoterNames(electionId);
 });
 
+final pendingInviteesProvider =
+    FutureProvider.family<List<String>, String>((ref, electionId) async {
+  return ref.read(ballotRepositoryProvider).getPendingInvitees(electionId);
+});
+
 final priorCovotersProvider =
     FutureProvider.family<List<Covoter>, String>((ref, electionId) async {
   return ref.read(ballotRepositoryProvider).getPriorCovoters(electionId);
