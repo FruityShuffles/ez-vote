@@ -451,27 +451,16 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   }
 
   Widget _buildTemplate(String template, List<Candidate> candidates, Election election) {
-    final needsFptpPicker = election.includeFptp &&
-        (template == 'B' || template == 'C' || template == 'E');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        switch (template) {
-          'A' => _buildTemplateA(candidates),
-          'B' => _buildTemplateB(candidates),
-          'C' => _buildTemplateC(candidates),
-          'D' => _buildTemplateD(candidates),
-          'E' => _buildTemplateE(candidates),
-          'F' => _buildTemplateF(candidates),
-          'G' => _buildTemplateG(candidates),
-          _ => const SizedBox.shrink(),
-        },
-        if (needsFptpPicker) ...[
-          const SizedBox(height: 16),
-          _buildFptpPicker(candidates),
-        ],
-      ],
-    );
+    return switch (template) {
+      'A' => _buildTemplateA(candidates),
+      'B' => _buildTemplateB(candidates, election),
+      'C' => _buildTemplateC(candidates, election),
+      'D' => _buildTemplateD(candidates),
+      'E' => _buildTemplateE(candidates, election),
+      'F' => _buildTemplateF(candidates),
+      'G' => _buildTemplateG(candidates),
+      _ => const SizedBox.shrink(),
+    };
   }
 
   // ── Template A: IRV only ──────────────────────────────────────────────────
@@ -532,7 +521,12 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
   // ── Template B: STAR only ─────────────────────────────────────────────────
 
-  Widget _buildTemplateB(List<Candidate> candidates) {
+  Widget _buildTemplateB(List<Candidate> candidates, Election election) {
+    // FPTP: auto-derive from highest-scored candidates
+    if (election.includeFptp) {
+      _autoFptpFromScores(candidates);
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -546,6 +540,8 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                 'Give each candidate a score from 0 (no support) to 5 (strongest support).'),
             const SizedBox(height: 8),
             ...candidates.map((c) => _buildStarCandidateRow(c, candidates)),
+            if (election.includeFptp)
+              _buildInlineFptpPicker(_getTopScoredCandidates(candidates)),
           ],
         ),
       ),
@@ -554,7 +550,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
   // ── Template C: Approval only ─────────────────────────────────────────────
 
-  Widget _buildTemplateC(List<Candidate> candidates) {
+  Widget _buildTemplateC(List<Candidate> candidates, Election election) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
       decoration: BoxDecoration(
@@ -592,10 +588,15 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                           _approvals.add(c.id);
                         } else {
                           _approvals.remove(c.id);
+                          if (_fptpChoice == c.id) _fptpChoice = null;
                         }
                       });
                     },
                   )),
+              if (election.includeFptp)
+                _buildInlineFptpPicker(
+                  candidates.where((c) => _approvals.contains(c.id)).toList(),
+                ),
             ],
           ),
         ),
@@ -674,8 +675,13 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
   // ── Template E: STAR + Approval ───────────────────────────────────────────
 
-  Widget _buildTemplateE(List<Candidate> candidates) {
+  Widget _buildTemplateE(List<Candidate> candidates, Election election) {
     final approvedSet = _deriveApprovalsFromScores(candidates);
+
+    // FPTP: auto-derive from highest-scored candidates
+    if (election.includeFptp) {
+      _autoFptpFromScores(candidates);
+    }
 
     return Card(
       child: Padding(
@@ -718,6 +724,8 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
               ),
               warning: _zeroApprovalWarningFlash,
             ),
+            if (election.includeFptp)
+              _buildInlineFptpPicker(_getTopScoredCandidates(candidates)),
           ],
         ),
       ),
@@ -1051,33 +1059,78 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     );
   }
 
-  // ── FPTP picker (templates B, C, E) ──────────────────────────────────────
+  // ── FPTP helpers (templates B, C, E) ─────────────────────────────────────
 
-  Widget _buildFptpPicker(List<Candidate> candidates) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+  /// Returns candidates tied at the highest non-zero score.
+  List<Candidate> _getTopScoredCandidates(List<Candidate> candidates) {
+    final maxScore = candidates.fold<int>(
+        0, (max, c) => (_scores[c.id] ?? 0) > max ? (_scores[c.id] ?? 0) : max);
+    if (maxScore == 0) return [];
+    return candidates.where((c) => (_scores[c.id] ?? 0) == maxScore).toList();
+  }
+
+  /// Auto-set _fptpChoice when exactly one candidate has the max score,
+  /// and clear it when it's no longer among top-scored.
+  void _autoFptpFromScores(List<Candidate> candidates) {
+    final topCandidates = _getTopScoredCandidates(candidates);
+    if (topCandidates.length == 1) {
+      _fptpChoice = topCandidates.first.id;
+    } else if (_fptpChoice != null &&
+        !topCandidates.any((c) => c.id == _fptpChoice)) {
+      _fptpChoice = null;
+    }
+  }
+
+  /// Inline FPTP picker shown within a template card.
+  /// Shows radio buttons for eligible candidates, auto-selects if only one,
+  /// and hides entirely if no eligible candidates.
+  Widget _buildInlineFptpPicker(List<Candidate> eligibleCandidates) {
+    if (eligibleCandidates.isEmpty) return const SizedBox.shrink();
+
+    // Auto-select if only one eligible
+    if (eligibleCandidates.length == 1) {
+      final onlyId = eligibleCandidates.first.id;
+      if (_fptpChoice != onlyId) _fptpChoice = onlyId;
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('First Choice (FPTP)',
-                style: Theme.of(context).textTheme.titleMedium),
+            const Divider(),
             const SizedBox(height: 4),
-            const Text(
-                'If this were a simple plurality election, which single candidate would you pick?'),
-            const SizedBox(height: 8),
-            RadioGroup<String>(
-              groupValue: _fptpChoice ?? '',
-              onChanged: (v) => setState(() => _fptpChoice = v),
-              child: Column(
-                children: candidates.map((c) => RadioListTile<String>(
-                      title: Text(c.name),
-                      value: c.id,
-                    )).toList(),
-              ),
-            ),
+            Text('First Choice (FPTP)',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text('Your first choice: ${eligibleCandidates.first.name}',
+                style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(),
+          const SizedBox(height: 4),
+          Text('First Choice (FPTP)',
+              style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          const Text(
+              'If this were a simple plurality election, which single candidate would you pick?'),
+          RadioGroup<String>(
+            groupValue: _fptpChoice ?? '',
+            onChanged: (v) => setState(() => _fptpChoice = v),
+            child: Column(
+              children: eligibleCandidates.map((c) => RadioListTile<String>(
+                    title: Text(c.name),
+                    value: c.id,
+                  )).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
