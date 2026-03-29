@@ -522,11 +522,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   // ── Template B: STAR only ─────────────────────────────────────────────────
 
   Widget _buildTemplateB(List<Candidate> candidates, Election election) {
-    // FPTP: auto-derive from highest-scored candidates
-    if (election.includeFptp) {
-      _autoFptpFromScores(candidates);
-    }
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -677,11 +672,6 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
   Widget _buildTemplateE(List<Candidate> candidates, Election election) {
     final approvedSet = _deriveApprovalsFromScores(candidates);
-
-    // FPTP: auto-derive from highest-scored candidates
-    if (election.includeFptp) {
-      _autoFptpFromScores(candidates);
-    }
 
     return Card(
       child: Padding(
@@ -920,6 +910,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
               }
             }
             _slideVersion++;
+            _autoFptpFromScores(candidates);
 
             setState(() {});
           },
@@ -1004,6 +995,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             setState(() {
               _scores[candidateId] = i;
               _syncTieBreaks(candidates);
+              _autoFptpFromScores(candidates);
             });
           },
         ),
@@ -1087,10 +1079,14 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   Widget _buildInlineFptpPicker(List<Candidate> eligibleCandidates) {
     if (eligibleCandidates.isEmpty) return const SizedBox.shrink();
 
-    // Auto-select if only one eligible
+    // Auto-select if only one eligible (post-frame to avoid build-phase mutation)
     if (eligibleCandidates.length == 1) {
       final onlyId = eligibleCandidates.first.id;
-      if (_fptpChoice != onlyId) _fptpChoice = onlyId;
+      if (_fptpChoice != onlyId) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _fptpChoice = onlyId);
+        });
+      }
       return Padding(
         padding: const EdgeInsets.only(top: 12),
         child: Column(
@@ -1158,7 +1154,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
       final freshCandidates = await ref
           .read(candidateRepositoryProvider)
           .listForElection(widget.electionId);
-      if (freshCandidates.length != candidates.length) {
+      final freshIds = freshCandidates.map((c) => c.id).toSet();
+      final currentIds = candidates.map((c) => c.id).toSet();
+      if (!freshIds.containsAll(currentIds) || !currentIds.containsAll(freshIds)) {
         _mergeNewCandidates(freshCandidates, preCheckElection.algorithms);
         ref.invalidate(candidatesProvider(widget.electionId));
         if (mounted) {
@@ -1180,25 +1178,25 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
       switch (template) {
         case 'A':
-          payload['irv'] = _rankings;
+          payload['irv'] = List<String>.from(_rankings);
         case 'B':
-          payload['star'] = _scores;
+          payload['star'] = Map<String, int>.from(_scores);
         case 'C':
           payload['approval'] = _approvals.toList();
         case 'D':
-          payload['irv'] = _rankings;
+          payload['irv'] = List<String>.from(_rankings);
           payload['approval'] =
               _deriveApprovalsFromRanking(_rankings).toList();
         case 'E':
-          payload['star'] = _scores;
+          payload['star'] = Map<String, int>.from(_scores);
           payload['approval'] =
               _deriveApprovalsFromScores(candidates).toList();
         case 'F':
-          payload['star'] = _scores;
+          payload['star'] = Map<String, int>.from(_scores);
           payload['irv'] = _deriveRanking(candidates);
         case 'G':
           final ranking = _deriveRanking(candidates);
-          payload['star'] = _scores;
+          payload['star'] = Map<String, int>.from(_scores);
           payload['irv'] = ranking;
           payload['approval'] =
               _deriveApprovalsFromRanking(ranking).toList();
