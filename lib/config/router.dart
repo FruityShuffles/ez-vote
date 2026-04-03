@@ -49,9 +49,13 @@ GoRouter createRouter() {
       }
       if (isLoggedIn && isAuthRoute) {
         // Honour the redirect parameter so deep links survive the auth flow.
+        // Validate the decoded value starts with '/' — GoRouter contains external
+        // URLs via its route-matching, but we make this constraint explicit rather
+        // than relying on that implicit behaviour.
         final redirect = state.uri.queryParameters['redirect'];
         if (redirect != null && redirect.isNotEmpty) {
-          return Uri.decodeComponent(redirect);
+          final dest = Uri.decodeComponent(redirect);
+          return dest.startsWith('/') ? dest : '/dashboard';
         }
         return '/dashboard';
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/providers.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -86,11 +87,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       await ref.read(authRepositoryProvider).verifyOtp(
             email: _emailController.text.trim(),
             token: _otpController.text.trim(),
+            type: OtpType.signup,
           );
       if (mounted) {
-        context.go(widget.redirect != null
+        final dest = widget.redirect != null
             ? Uri.decodeComponent(widget.redirect!)
-            : '/dashboard');
+            : '/dashboard';
+        context.go(dest.startsWith('/') ? dest : '/dashboard');
       }
     } catch (e) {
       setState(() => _error = e.toString());
@@ -271,7 +274,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: () => context.go(widget.redirect != null
-                          ? '/login?redirect=${widget.redirect}'
+                          ? '/login?redirect=${Uri.encodeComponent(widget.redirect!)}'
                           : '/login'),
                       child: const Text('Already have an account? Sign in'),
                     ),

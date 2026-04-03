@@ -57,9 +57,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: _passwordController.text,
           );
       if (mounted) {
-        context.go(widget.redirect != null
+        final dest = widget.redirect != null
             ? Uri.decodeComponent(widget.redirect!)
-            : '/dashboard');
+            : '/dashboard';
+        context.go(dest.startsWith('/') ? dest : '/dashboard');
       }
     } catch (e) {
       setState(() => _error = e.toString());

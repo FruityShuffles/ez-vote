@@ -38,11 +38,12 @@ class AuthRepository {
   Future<AuthResponse> verifyOtp({
     required String email,
     required String token,
+    required OtpType type,
   }) async {
     return await _client.auth.verifyOTP(
       email: email,
       token: token,
-      type: OtpType.signup,
+      type: type,
     );
   }
 
@@ -57,6 +58,7 @@ class AuthRepository {
     await _client.auth.signOut();
   }
 
+  // Throws on failure (rpc() propagates exceptions). Callers must handle.
   Future<void> deleteAccount() async {
     await _client.rpc('delete_current_user');
   }
