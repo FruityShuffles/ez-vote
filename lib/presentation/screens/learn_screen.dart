@@ -168,15 +168,17 @@ class _LearnTabState extends State<LearnTab> {
               ),
               const SizedBox(height: 16),
               Center(
-                child: SegmentedButton<String>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 'approval', label: Text('Approval')),
-                    ButtonSegment(value: 'irv', label: Text('IRV')),
-                    ButtonSegment(value: 'star', label: Text('STAR')),
-                  ],
-                  selected: {_selected},
-                  onSelectionChanged: (s) => setState(() => _selected = s.first),
+                child: SizedBox(
+                  width: 320,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'approval', label: Text('Approval')),
+                      ButtonSegment(value: 'irv', label: Text('IRV')),
+                      ButtonSegment(value: 'star', label: Text('STAR')),
+                    ],
+                    selected: {_selected},
+                    onSelectionChanged: (s) => setState(() => _selected = s.first),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
