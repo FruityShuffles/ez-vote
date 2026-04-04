@@ -18,6 +18,7 @@ Multi-algorithm voting application. Flutter (web) + Supabase backend.
 
 ## Features
 
+- [[Features/Invite Voters]] — Join link, QR code, add from prior elections
 - [[Features/Ad-Hoc Candidates]] — allowVoterCandidates: polling, merging, pre-submit gate
 - [[Features/Realtime Results]] — realtimeResults flag, polling, non-blocking compute calls
 - [[Features/Election Analysis]] — Cross-method insight generation, patterns detected

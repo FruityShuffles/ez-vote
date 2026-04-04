@@ -34,6 +34,12 @@ This was a deliberate choice: the derivation logic (especially tie-break order) 
 
 See [[Client-Side Derivation]] for a fuller discussion.
 
+## Algorithm Display Order
+
+Results are always shown in the order: **Approval → IRV → STAR → FPTP**.
+
+This order is enforced in `ResultRepository.getResults()` (client-side sort after fetch) rather than relying on database ordering. FPTP is always last because it is a reference comparison, not a primary method — consistent with it being a flag rather than a peer algorithm.
+
 ## Why FPTP Is a Flag, Not an Algorithm
 
 See [[FPTP]] → "Why It's a Flag, Not an Algorithm."
