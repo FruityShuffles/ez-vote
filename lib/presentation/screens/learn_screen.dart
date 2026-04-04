@@ -169,6 +169,7 @@ class _LearnTabState extends State<LearnTab> {
               const SizedBox(height: 16),
               Center(
                 child: SegmentedButton<String>(
+                  showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(value: 'approval', label: Text('Approval')),
                     ButtonSegment(value: 'irv', label: Text('IRV')),

@@ -7,12 +7,18 @@ class ResultRepository {
   ResultRepository(this._client);
 
   Future<List<ElectionResult>> getResults(String electionId) async {
+    const order = ['approval', 'irv', 'star', 'fptp'];
     final data = await _client
         .from('results')
         .select()
-        .eq('election_id', electionId)
-        .order('algorithm');
-    return data.map((e) => ElectionResult.fromJson(e)).toList();
+        .eq('election_id', electionId);
+    final results = data.map((e) => ElectionResult.fromJson(e)).toList();
+    results.sort((a, b) {
+      final ai = order.indexOf(a.algorithm);
+      final bi = order.indexOf(b.algorithm);
+      return (ai < 0 ? 999 : ai).compareTo(bi < 0 ? 999 : bi);
+    });
+    return results;
   }
 
   Future<void> computeResults(String electionId, {bool close = true}) async {
