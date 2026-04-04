@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/candidate.dart';
+import '../../domain/exceptions.dart';
 
 class CandidateRepository {
   final SupabaseClient _client;
@@ -33,11 +34,16 @@ class CandidateRepository {
         .limit(1);
     final nextPosition =
         existing.isEmpty ? 0 : (existing[0]['position'] as int) + 1;
-    await _client.from('candidates').insert({
-      'election_id': electionId,
-      'name': name,
-      'position': nextPosition,
-    });
+    try {
+      await _client.from('candidates').insert({
+        'election_id': electionId,
+        'name': name,
+        'position': nextPosition,
+      });
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') throw const DuplicateCandidateException();
+      rethrow;
+    }
   }
 
   Future<void> setCandidates(

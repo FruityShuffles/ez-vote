@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../../domain/models/election.dart';
+import '../../domain/exceptions.dart';
 import '../widgets/results_view.dart';
 import '../widgets/dashboard_button.dart';
 
@@ -104,7 +105,7 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
       ),
       body: electionAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => const Center(child: Text('Could not load election. Please try again.')),
         data: (election) {
           final currentUserId = ref.watch(currentUserProvider)?.id;
           final isOwner = election.ownerId == currentUserId;
@@ -168,7 +169,7 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
                       const SizedBox(height: 24),
                       candidatesAsync.when(
                         loading: () => const CircularProgressIndicator(),
-                        error: (e, _) => Text('Error: $e'),
+                        error: (e, _) => const Text('Could not load candidates. Please try again.'),
                         data: (candidates) => Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -235,7 +236,10 @@ class _BallotCountRow extends ConsumerWidget {
     final countAsync = ref.watch(ballotCountProvider(electionId));
     return countAsync.when(
       loading: () => const SizedBox.shrink(),
-      error: (e, s) => const SizedBox.shrink(),
+      error: (e, s) => const Tooltip(
+        message: 'Could not load ballot count',
+        child: Icon(Icons.error_outline, size: 16, color: Colors.grey),
+      ),
       data: (n) => InkWell(
         onTap: () => _showVoters(context, ref),
         borderRadius: BorderRadius.circular(4),
@@ -279,7 +283,7 @@ class _VoterListSheet extends ConsumerWidget {
             loading: () =>
                 const Center(child: CircularProgressIndicator()),
             error: (e, s) =>
-                Text('Could not load voters: $e'),
+                const Text('Could not load voters. Please try again.'),
             data: (names) => names.isEmpty
                 ? const Text('No ballots submitted yet.')
                 : ListView.separated(
@@ -578,9 +582,9 @@ class _AddCandidateFieldState extends ConsumerState<_AddCandidateField> {
       ref.invalidate(electionProvider(widget.electionId));
     } catch (e) {
       if (mounted) {
-        final msg = e.toString().contains('idx_candidates_unique_name')
+        final msg = e is DuplicateCandidateException
             ? 'A candidate with that name already exists'
-            : 'Error adding candidate: $e';
+            : 'Error adding candidate. Please try again.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg)),
         );
@@ -749,7 +753,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
                   padding: EdgeInsets.all(16),
                   child: Center(child: CircularProgressIndicator()),
                 ),
-            error: (e, s) => Text('Could not load: $e'),
+            error: (e, s) => const Text('Could not load voters. Please try again.'),
             data: (covoters) {
               final filtered = _query.isEmpty
                   ? covoters
@@ -825,7 +829,10 @@ class _PendingInviteesRow extends ConsumerWidget {
     final pendingAsync = ref.watch(pendingInviteesProvider(electionId));
     return pendingAsync.when(
       loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
+      error: (_, _) => const Tooltip(
+        message: 'Could not load pending invitees',
+        child: Icon(Icons.error_outline, size: 16, color: Colors.grey),
+      ),
       data: (names) {
         if (names.isEmpty) return const SizedBox.shrink();
         final n = names.length;
