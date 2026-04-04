@@ -169,7 +169,7 @@ class _LearnTabState extends State<LearnTab> {
               const SizedBox(height: 16),
               Center(
                 child: SizedBox(
-                  width: 320,
+                  width: 360,
                   child: SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(value: 'approval', label: Text('Approval')),
