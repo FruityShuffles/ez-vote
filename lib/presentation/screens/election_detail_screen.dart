@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../../domain/models/election.dart';
@@ -626,6 +627,28 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
         .showSnackBar(const SnackBar(content: Text('Join link copied!')));
   }
 
+  void _showQrCode(BuildContext context) {
+    final joinUrl =
+        '${Uri.base.origin}/election/${widget.electionId}/join';
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Join QR Code'),
+        content: SizedBox(
+          width: 240,
+          height: 240,
+          child: QrImageView(data: joinUrl, size: 240),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _addVoter(String userId) async {
     setState(() => _loadingIds.add(userId));
     try {
@@ -660,10 +683,22 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
           Text('Invite Voters',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () => _copyJoinLink(context),
-            icon: const Icon(Icons.link),
-            label: const Text('Copy Join Link'),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _copyJoinLink(context),
+                  icon: const Icon(Icons.link),
+                  label: const Text('Copy Join Link'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => _showQrCode(context),
+                icon: const Icon(Icons.qr_code),
+                label: const Text('QR'),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           const Divider(),
