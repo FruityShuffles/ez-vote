@@ -23,6 +23,7 @@ class ElectionDetailScreen extends ConsumerStatefulWidget {
 class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
   Timer? _pollTimer;
   DateTime? _lastResultsUpdatedAt;
+  bool _polling = false;
 
   @override
   void initState() {
@@ -37,36 +38,54 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
   }
 
   Future<void> _poll() async {
-    final election = ref.read(electionProvider(widget.electionId)).valueOrNull;
-    if (election == null || election.status != ElectionStatus.open) return;
+    if (_polling) return; // #66: in-flight guard
+    _polling = true;
+    try {
+      final electionState = ref.read(electionProvider(widget.electionId));
 
-    // Poll for candidate changes (ad-hoc elections)
-    if (election.allowVoterCandidates) {
-      final freshCount = await ref
-          .read(candidateRepositoryProvider)
-          .countForElection(widget.electionId);
-      final cachedCandidates =
-          ref.read(candidatesProvider(widget.electionId)).valueOrNull;
-      if (cachedCandidates != null && freshCount != cachedCandidates.length) {
-        ref.invalidate(candidatesProvider(widget.electionId));
-        // Also refresh the election so candidatesUpdatedAt is current,
-        // which triggers the stale-ballot warning for voters who already voted.
+      // #67: if provider errored, trigger a re-fetch and exit
+      if (electionState.hasError) {
         ref.invalidate(electionProvider(widget.electionId));
+        return;
       }
-    }
 
-    // Poll for results changes (realtime results)
-    if (election.realtimeResults) {
-      final freshUpdatedAt = await ref
-          .read(resultRepositoryProvider)
-          .getResultsUpdatedAt(widget.electionId);
-      if (freshUpdatedAt != null &&
-          _lastResultsUpdatedAt != null &&
-          freshUpdatedAt != _lastResultsUpdatedAt) {
-        ref.invalidate(resultsProvider(widget.electionId));
-        ref.invalidate(ballotCountProvider(widget.electionId));
+      final election = electionState.valueOrNull;
+      if (election == null || election.status != ElectionStatus.open) return;
+
+      // Poll for candidate changes (ad-hoc elections)
+      if (election.allowVoterCandidates) {
+        final freshCount = await ref
+            .read(candidateRepositoryProvider)
+            .countForElection(widget.electionId);
+        final cachedCandidates =
+            ref.read(candidatesProvider(widget.electionId)).valueOrNull;
+        if (cachedCandidates != null && freshCount != cachedCandidates.length) {
+          ref.invalidate(candidatesProvider(widget.electionId));
+          // Also refresh the election so candidatesUpdatedAt is current,
+          // which triggers the stale-ballot warning for voters who already voted.
+          // #68: skip if a modal sheet is currently covering the screen (e.g. _InviteSheet)
+          // to avoid interrupting keyboard focus.
+          if (!mounted || (ModalRoute.of(context)?.isCurrent ?? true)) {
+            ref.invalidate(electionProvider(widget.electionId));
+          }
+        }
       }
-      _lastResultsUpdatedAt = freshUpdatedAt;
+
+      // Poll for results changes (realtime results)
+      if (election.realtimeResults) {
+        final freshUpdatedAt = await ref
+            .read(resultRepositoryProvider)
+            .getResultsUpdatedAt(widget.electionId);
+        if (freshUpdatedAt != null &&
+            _lastResultsUpdatedAt != null &&
+            freshUpdatedAt != _lastResultsUpdatedAt) {
+          ref.invalidate(resultsProvider(widget.electionId));
+          ref.invalidate(ballotCountProvider(widget.electionId));
+        }
+        _lastResultsUpdatedAt = freshUpdatedAt;
+      }
+    } finally {
+      _polling = false;
     }
   }
 
@@ -87,8 +106,7 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (election) {
-          final currentUserId =
-              ref.read(supabaseClientProvider).auth.currentUser?.id;
+          final currentUserId = ref.watch(currentUserProvider)?.id;
           final isOwner = election.ownerId == currentUserId;
           final hasSubmittedBallot =
               existingBallotAsync.valueOrNull != null;
@@ -349,11 +367,19 @@ class _OwnerControls extends ConsumerWidget {
                 if (election.status == ElectionStatus.draft)
                   FilledButton.icon(
                     onPressed: () async {
-                      await ref
-                          .read(electionRepositoryProvider)
-                          .updateStatus(electionId, ElectionStatus.open);
-                      ref.invalidate(electionProvider(electionId));
-                      ref.invalidate(ownedElectionsProvider);
+                      try {
+                        await ref
+                            .read(electionRepositoryProvider)
+                            .updateStatus(electionId, ElectionStatus.open);
+                        ref.invalidate(electionProvider(electionId));
+                        ref.invalidate(ownedElectionsProvider);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error opening election: $e')),
+                          );
+                        }
+                      }
                     },
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('Open Election'),

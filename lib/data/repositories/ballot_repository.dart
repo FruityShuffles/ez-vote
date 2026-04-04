@@ -87,7 +87,6 @@ class BallotRepository {
             'election_id': electionId,
             'voter_id': userId,
             'payload': payload,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
           },
           onConflict: 'election_id,voter_id',
         )
