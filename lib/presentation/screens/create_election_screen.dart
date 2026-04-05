@@ -394,21 +394,18 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
                             onChanged: (v) {
                               setState(() {
                                 _allowVoterCandidates = v;
-                                if (v) _realtimeResults = true;
                               });
                             },
                           ),
                           SwitchListTile(
                             title: const Text('Show real-time results'),
                             subtitle: const Text(
-                              'Results update after each vote (always on when voter candidates enabled)',
+                              'Results update after each vote',
                             ),
                             value: _realtimeResults,
-                            onChanged: _allowVoterCandidates
-                                ? null
-                                : (v) {
-                                    setState(() => _realtimeResults = v);
-                                  },
+                            onChanged: (v) {
+                              setState(() => _realtimeResults = v);
+                            },
                           ),
                           SwitchListTile(
                             title: const Text('Include FPTP comparison'),
