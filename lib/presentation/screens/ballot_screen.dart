@@ -244,7 +244,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
       byScore[score]!.add(id);
     }
     for (final entry in byScore.entries) {
-      if (entry.value.length > 1 && entry.key > 0) {
+      if (entry.value.length > 1) {
         _tieBreaks[entry.key] = entry.value;
       }
     }
@@ -269,7 +269,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
       final group = byScore[score]!;
       if (group.length == 1) {
         result.add(group.first);
-      } else if (score > 0 && _tieBreaks.containsKey(score)) {
+      } else if (_tieBreaks.containsKey(score)) {
         final tieOrder = _tieBreaks[score]!;
         // Use stored order, filtered to only members of this group
         result.addAll(tieOrder.where((id) => group.contains(id)));

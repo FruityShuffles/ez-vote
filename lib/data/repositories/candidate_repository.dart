@@ -13,7 +13,8 @@ class CandidateRepository {
         .select()
         .eq('election_id', electionId)
         .order('position');
-    return data.map((e) => Candidate.fromJson(e)).toList();
+    return data.map((e) => Candidate.fromJson(e)).toList()
+      ..sort((a, b) => a.position.compareTo(b.position));
   }
 
   Future<int> countForElection(String electionId) async {
