@@ -871,8 +871,12 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            Row(
-              children: _buildScoreChipsForReorderable(candidateId, candidates),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: _buildScoreChipsForReorderable(candidateId, candidates),
+              ),
             ),
           ],
         ),
@@ -978,7 +982,11 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             ),
           ]),
           const SizedBox(height: 4),
-          Row(children: _buildScoreChips(c.id, candidates)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(children: _buildScoreChips(c.id, candidates)),
+          ),
         ],
       ),
     );
