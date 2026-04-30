@@ -39,6 +39,29 @@ The `redirect` query param is threaded through the entire flow:
 
 Two separate triggers (`on_auth_user_confirmed` for email flow, `on_auth_user_created` for OAuth) both call the same `handle_new_user()` function. The idempotency guard means double-firing is safe.
 
+## Password Recovery
+
+OTP-based, mirrors the signup flow.
+
+```
+1. ForgotPasswordScreen stage 1: user enters email
+2. AuthRepository.sendPasswordResetEmail(email)
+   → Supabase auth.resetPasswordForEmail() sends OTP email
+3. ForgotPasswordScreen stage 2: user enters 8-digit OTP + new password
+4. AuthRepository.verifyOtp(email, otp, type: OtpType.recovery)
+   → Supabase verifies token, establishes recovery session (user is now signed in)
+5. AuthRepository.updatePassword(newPassword)
+   → Supabase auth.updateUser({password})
+6. authStateProvider emits authenticated state
+7. Router redirects to `redirect` param destination or `/dashboard`
+```
+
+The `redirect` query param is threaded through `/login → /forgot-password → success` the same way it is for signup.
+
+The Supabase **"Reset Password" email template must include `{{ .Token }}`** to render the 8-digit OTP. Without it, recovery emails arrive with only a magic link and the in-app OTP field has no code to enter.
+
+OAuth-only accounts (Google) can also use this flow: `updateUser(password)` on a recovery session will *attach* a password to a previously password-less account, after which the user can sign in with either Google or email/password. This is generally desirable — a user who forgot they signed up via Google can self-rescue — but worth noting since it changes the account's auth methods.
+
 ## Logout
 
 ```

@@ -146,7 +146,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             : const Text('Sign In'),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => context.go(widget.redirect != null
+                            ? '/forgot-password?redirect=${Uri.encodeComponent(widget.redirect!)}'
+                            : '/forgot-password'),
+                        child: const Text('Forgot password?'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         const Expanded(child: Divider()),

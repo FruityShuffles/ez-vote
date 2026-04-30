@@ -54,6 +54,14 @@ class AuthRepository {
     );
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _client.auth.resetPasswordForEmail(email);
+  }
+
+  Future<UserResponse> updatePassword(String newPassword) async {
+    return await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   Future<void> signOut() async {
     await _client.auth.signOut();
   }

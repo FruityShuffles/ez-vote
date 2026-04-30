@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../presentation/screens/landing_screen.dart';
 import '../presentation/screens/login_screen.dart';
 import '../presentation/screens/signup_screen.dart';
+import '../presentation/screens/forgot_password_screen.dart';
 import '../presentation/screens/home_screen.dart';
 import '../presentation/screens/create_election_screen.dart';
 import '../presentation/screens/election_detail_screen.dart';
@@ -36,7 +37,8 @@ GoRouter createRouter() {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
       final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/signup';
+          state.matchedLocation == '/signup' ||
+          state.matchedLocation == '/forgot-password';
       final isPublicRoute = isAuthRoute ||
           state.matchedLocation == '/' ||
           state.matchedLocation == '/privacy' ||
@@ -71,6 +73,12 @@ GoRouter createRouter() {
       GoRoute(
         path: '/signup',
         builder: (context, state) => SignupScreen(
+          redirect: state.uri.queryParameters['redirect'],
+        ),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => ForgotPasswordScreen(
           redirect: state.uri.queryParameters['redirect'],
         ),
       ),
