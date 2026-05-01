@@ -16,12 +16,23 @@ class BallotScreen extends ConsumerStatefulWidget {
   final Ballot? initialBallot;
   final bool viewOnly;
 
+  /// When non-null, the screen renders one ballot from a list of public
+  /// ballots (issue #81 public-ballots feature). Always paired with
+  /// [publicBallots] and forces [viewOnly] to true.
+  final int? publicBallotIndex;
+  final List<PublicBallot>? publicBallots;
+
   const BallotScreen({
     super.key,
     required this.electionId,
     this.initialBallot,
     this.viewOnly = false,
+    this.publicBallotIndex,
+    this.publicBallots,
   });
+
+  bool get isPublicBallotView =>
+      publicBallotIndex != null && publicBallots != null;
 
   @override
   ConsumerState<BallotScreen> createState() => _BallotScreenState();
@@ -73,6 +84,7 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
   }
 
   Future<void> _pollCandidates() async {
+    if (widget.viewOnly || widget.isPublicBallotView) return;
     final election =
         ref.read(electionProvider(widget.electionId)).valueOrNull;
     if (election == null ||
@@ -148,7 +160,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
 
     final currentIds = candidates.map((c) => c.id).toSet();
 
-    final payload = widget.initialBallot?.payload;
+    final payload = widget.isPublicBallotView
+        ? widget.publicBallots![widget.publicBallotIndex!].payload
+        : widget.initialBallot?.payload;
     if (payload != null) {
       if (payload['star'] != null) {
         final raw = payload['star'] as Map<String, dynamic>;
@@ -357,14 +371,34 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
     final electionAsync = ref.watch(electionProvider(widget.electionId));
     final candidatesAsync = ref.watch(candidatesProvider(widget.electionId));
 
+    final publicBallot = widget.isPublicBallotView
+        ? widget.publicBallots![widget.publicBallotIndex!]
+        : null;
+    final publicTotal = widget.publicBallots?.length ?? 0;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.viewOnly
-            ? 'View Ballot'
-            : (widget.initialBallot != null ? 'Edit Ballot' : 'Cast Your Vote')),
+        title: widget.isPublicBallotView
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("${publicBallot!.displayName}'s ballot",
+                      style: const TextStyle(fontSize: 16)),
+                  Text(
+                    '${widget.publicBallotIndex! + 1} of $publicTotal',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              )
+            : Text(widget.viewOnly
+                ? 'View Ballot'
+                : (widget.initialBallot != null
+                    ? 'Edit Ballot'
+                    : 'Cast Your Vote')),
         actions: const [DashboardButton()],
       ),
-      body: electionAsync.when(
+      body: _wrapWithPaging(electionAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (election) {
@@ -399,7 +433,9 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                           child: _buildTemplate(template, candidates, election),
                         ),
                         const SizedBox(height: 16),
-                        if (widget.viewOnly) ...[
+                        if (widget.isPublicBallotView) ...[
+                          // No status banner — election may still be open.
+                        ] else if (widget.viewOnly) ...[
                           Text(
                             'This election is closed. Your ballot is view-only.',
                             style: TextStyle(color: Colors.grey.shade600),
@@ -446,7 +482,87 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
             },
           );
         },
-      ),
+      )),
+    );
+  }
+
+  Widget _wrapWithPaging(Widget body) {
+    if (!widget.isPublicBallotView) return body;
+
+    final list = widget.publicBallots!;
+    final idx = widget.publicBallotIndex!;
+    final hasPrev = idx > 0;
+    final hasNext = idx < list.length - 1;
+
+    void go(int newIdx) {
+      context.replace(
+        '/election/${widget.electionId}/ballot/$newIdx',
+        extra: {
+          'ballots': list,
+          'index': newIdx,
+        },
+      );
+    }
+
+    final isNarrow = MediaQuery.of(context).size.width < 600;
+
+    if (isNarrow) {
+      return Column(
+        children: [
+          Expanded(child: body),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: hasPrev ? () => go(idx - 1) : null,
+                    icon: const Icon(Icons.chevron_left),
+                    label: const Text('Previous'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: hasNext ? () => go(idx + 1) : null,
+                    icon: const Icon(Icons.chevron_right),
+                    label: const Text('Next'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Stack(
+      children: [
+        Positioned.fill(child: body),
+        Positioned(
+          left: 8,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: IconButton.filledTonal(
+              tooltip: 'Previous ballot',
+              icon: const Icon(Icons.chevron_left),
+              onPressed: hasPrev ? () => go(idx - 1) : null,
+            ),
+          ),
+        ),
+        Positioned(
+          right: 8,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: IconButton.filledTonal(
+              tooltip: 'Next ballot',
+              icon: const Icon(Icons.chevron_right),
+              onPressed: hasNext ? () => go(idx + 1) : null,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

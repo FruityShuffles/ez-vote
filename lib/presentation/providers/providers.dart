@@ -5,7 +5,8 @@ import '../../data/repositories/election_repository.dart';
 import '../../data/repositories/candidate_repository.dart';
 import '../../data/repositories/invite_repository.dart';
 import '../../data/repositories/ballot_repository.dart';
-export '../../data/repositories/ballot_repository.dart' show Covoter;
+export '../../data/repositories/ballot_repository.dart'
+    show Covoter, PublicBallot;
 import '../../data/repositories/result_repository.dart';
 import '../../domain/models/election.dart';
 import '../../domain/models/candidate.dart';
@@ -102,6 +103,11 @@ final ballotCountProvider =
 final electionVotersProvider =
     FutureProvider.family<List<String>, String>((ref, electionId) async {
   return ref.read(ballotRepositoryProvider).getVoterNames(electionId);
+});
+
+final publicBallotsProvider =
+    FutureProvider.family<List<PublicBallot>, String>((ref, electionId) async {
+  return ref.read(ballotRepositoryProvider).getPublicBallots(electionId);
 });
 
 final pendingInviteesProvider =

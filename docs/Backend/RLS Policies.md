@@ -22,7 +22,10 @@ Returns true if `auth.uid()` is the owner of the given election. Security-define
 ### `election_allows_voter_candidates(election_id uuid) → boolean`
 Returns the `allow_voter_candidates` flag for the election. Also security-definer for the same reason.
 
-These were added in migration 006 after discovering that inline subqueries in policies caused RLS recursion on `elections`.
+### `election_has_public_ballots(election_id uuid) → boolean`
+Returns the `public_ballots` flag for the election. Used by the new ballots SELECT policy to gate cross-voter visibility. Security-definer to avoid RLS recursion when a `ballots` policy reads `elections`.
+
+These were added in migration 006 after discovering that inline subqueries in policies caused RLS recursion on `elections`. The public-ballots helper was added in migration 020 following the same pattern.
 
 ## Per-Table Policies
 
@@ -53,10 +56,10 @@ The voter-insert case powers ad-hoc candidate addition (the `allowVoterCandidate
 - **DELETE:** Owner only
 
 ### `ballots`
-- **SELECT:** Voter reads own ballot; owner reads all ballots for their elections (needed for result computation)
+- **SELECT:** Voter reads own ballot. When `elections.public_ballots = true`, the owner and joined voters can also read every ballot in that election.
 - **INSERT/UPDATE:** Voter writes own ballot only; enforced by voter_id = auth.uid() check
 
-Voter privacy: voters cannot read each other's ballots. The edge function runs as service role and bypasses RLS entirely.
+Voter privacy: with `public_ballots = false`, no participant — including the owner — can SELECT another voter's ballot. The only paths to read another voter's ballot are (a) the `compute-results` edge function, which uses the service-role key to bypass RLS, and (b) the public-ballots opt-in. The legacy "Owners can read ballots" policy was dropped in migration 020 because it widened the privacy ceiling without being load-bearing for compute (compute already uses service-role).
 
 ### `results`
 - **SELECT:** Owner reads; participants in the election read

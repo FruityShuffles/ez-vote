@@ -23,6 +23,7 @@ Multi-algorithm voting application. Flutter (web) + Supabase backend.
 - [[Features/Realtime Results]] — realtimeResults flag, polling, non-blocking compute calls
 - [[Features/Election Analysis]] — Cross-method insight generation, patterns detected
 - [[Features/FPTP]] — includeFptp flag, per-template behavior, auto-selection
+- [[Features/Public Ballots]] — publicBallots flag, RLS, RPC, ballot paging UI
 
 ## Decisions
 

@@ -15,6 +15,7 @@ import '../presentation/screens/settings_screen.dart';
 import '../presentation/screens/privacy_policy_screen.dart';
 import '../presentation/screens/terms_screen.dart';
 import '../presentation/screens/learn_screen.dart';
+import '../presentation/providers/providers.dart';
 import '../domain/models/ballot.dart';
 
 final routerKey = GlobalKey<NavigatorState>();
@@ -130,6 +131,32 @@ GoRouter createRouter() {
             electionId: state.pathParameters['id']!,
             initialBallot: extra?['ballot'] as Ballot?,
             viewOnly: extra?['viewOnly'] as bool? ?? false,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/election/:id/ballot/:idx',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final electionId = state.pathParameters['id']!;
+          final idx = int.tryParse(state.pathParameters['idx'] ?? '') ?? 0;
+          final ballots = extra?['ballots'] as List<PublicBallot>?;
+          if (ballots == null) {
+            // Deep-link or refresh fallback: return to election detail so the
+            // sheet can be reopened with a fresh fetch.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.go('/election/$electionId');
+            });
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return BallotScreen(
+            key: ValueKey('public-ballot-$electionId-$idx'),
+            electionId: electionId,
+            viewOnly: true,
+            publicBallotIndex: idx,
+            publicBallots: ballots,
           );
         },
       ),

@@ -13,6 +13,20 @@ class Covoter {
   });
 }
 
+class PublicBallot {
+  final String? voterId;
+  final String displayName;
+  final Map<String, dynamic> payload;
+  final DateTime updatedAt;
+
+  const PublicBallot({
+    required this.voterId,
+    required this.displayName,
+    required this.payload,
+    required this.updatedAt,
+  });
+}
+
 class BallotRepository {
   final SupabaseClient _client;
 
@@ -36,6 +50,24 @@ class BallotRepository {
       params: {'p_election_id': electionId},
     ) as List<dynamic>;
     return res.map((row) => (row['display_name'] as String?) ?? '').toList();
+  }
+
+  /// Returns ballot payloads for an election. Server enforces that the caller
+  /// is the owner or a participant of an election with `public_ballots = true`.
+  Future<List<PublicBallot>> getPublicBallots(String electionId) async {
+    final res = await _client.rpc(
+      'get_public_ballots',
+      params: {'p_election_id': electionId},
+    ) as List<dynamic>;
+    return res.map((row) {
+      final m = row as Map<String, dynamic>;
+      return PublicBallot(
+        voterId: m['voter_id'] as String?,
+        displayName: (m['display_name'] as String?) ?? 'Anonymous',
+        payload: (m['payload'] as Map).cast<String, dynamic>(),
+        updatedAt: DateTime.parse(m['updated_at'] as String),
+      );
+    }).toList();
   }
 
   Future<int> getBallotCount(String electionId) async {

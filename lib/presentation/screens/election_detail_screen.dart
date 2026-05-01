@@ -82,6 +82,10 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
             freshUpdatedAt != _lastResultsUpdatedAt) {
           ref.invalidate(resultsProvider(widget.electionId));
           ref.invalidate(ballotCountProvider(widget.electionId));
+          ref.invalidate(electionVotersProvider(widget.electionId));
+          if (election.publicBallots) {
+            ref.invalidate(publicBallotsProvider(widget.electionId));
+          }
         }
         _lastResultsUpdatedAt = freshUpdatedAt;
       }
@@ -270,7 +274,9 @@ class _VoterListSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final votersAsync = ref.watch(electionVotersProvider(electionId));
+    final election = ref.watch(electionProvider(electionId)).valueOrNull;
+    final isPublic = election?.publicBallots ?? false;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
       child: Column(
@@ -279,26 +285,87 @@ class _VoterListSheet extends ConsumerWidget {
         children: [
           Text('Voters', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
-          votersAsync.when(
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
-            error: (e, s) =>
-                const Text('Could not load voters. Please try again.'),
-            data: (names) => names.isEmpty
-                ? const Text('No ballots submitted yet.')
-                : ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: names.length,
-                    separatorBuilder: (_, index) => const Divider(height: 1),
-                    itemBuilder: (_, i) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(names[i]),
-                    ),
-                  ),
-          ),
+          if (isPublic)
+            _PublicBallotList(electionId: electionId)
+          else
+            _VoterNameList(electionId: electionId),
         ],
       ),
+    );
+  }
+}
+
+class _VoterNameList extends ConsumerWidget {
+  final String electionId;
+
+  const _VoterNameList({required this.electionId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final votersAsync = ref.watch(electionVotersProvider(electionId));
+    return votersAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => const Text('Could not load voters. Please try again.'),
+      data: (names) => names.isEmpty
+          ? const Text('No ballots submitted yet.')
+          : ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: names.length,
+              separatorBuilder: (_, index) => const Divider(height: 1),
+              itemBuilder: (_, i) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(names[i]),
+              ),
+            ),
+    );
+  }
+}
+
+class _PublicBallotList extends ConsumerWidget {
+  final String electionId;
+
+  const _PublicBallotList({required this.electionId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ballotsAsync = ref.watch(publicBallotsProvider(electionId));
+    return ballotsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => const Text('Could not load ballots. Please try again.'),
+      data: (ballots) => ballots.isEmpty
+          ? const Text('No ballots submitted yet.')
+          : ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: ballots.length,
+              separatorBuilder: (_, index) => const Divider(height: 1),
+              itemBuilder: (_, i) {
+                final ballot = ballots[i];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(ballot.displayName)),
+                      TextButton.icon(
+                        icon: const Icon(Icons.visibility, size: 18),
+                        label: const Text('View ballot'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          context.push(
+                            '/election/$electionId/ballot/$i',
+                            extra: {
+                              'ballots': ballots,
+                              'index': i,
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }

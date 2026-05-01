@@ -29,6 +29,7 @@ Central entity. One row per election.
 | allow_voter_candidates | boolean | Default false |
 | realtime_results | boolean | Default false |
 | include_fptp | boolean | Default false |
+| public_ballots | boolean | Default false. When true, all participants can view all submitted ballots. |
 | candidates_updated_at | timestamptz | Bumped by trigger on candidate insert |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
@@ -133,3 +134,6 @@ Derived fields (IRV from STAR scores, approval from cutoff/top-K) are computed c
 | 015–016   | Additional RPC functions (prior covoters, pending invitees)                                     |
 | 017       | `include_fptp` flag on elections                                                                |
 | 018       | pg_cron job: delete elections older than 60 days at 3 AM daily                                  |
+| 019       | `bump_ballots_updated_at` trigger so realtime polling reacts to ballot edits                    |
+| 020       | `public_ballots` flag, drops legacy "Owners can read ballots" policy, adds public-ballots RLS + `get_public_ballots()` RPC |
+| 021       | Tightens `get_public_ballots()` to require `public_ballots = true` for *all* callers (including the owner)             |

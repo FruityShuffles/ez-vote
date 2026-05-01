@@ -56,6 +56,15 @@ Returns users who have been invited to this election but haven't joined yet. Dis
 
 ---
 
+### `get_public_ballots(p_election_id uuid) → table(voter_id uuid, display_name text, payload jsonb, updated_at timestamptz)`
+**Called by:** `BallotRepository.getPublicBallots()` → `publicBallotsProvider`
+
+Returns every submitted ballot for the election alongside the voter's display name. Requires `elections.public_ballots = true` (enforced for all callers, owner included) and that the caller is either the owner or a joined voter. Errors with `Election not found`, `Public ballots not enabled`, or `Not a participant` otherwise. Security-definer so it can join `profiles` without exposing the table to direct reads.
+
+Added in migration 020 alongside the public-ballots feature; migration 021 tightened the flag check so owners do not bypass it.
+
+---
+
 ### `get_pending_invitations() → table(election_id uuid, ...)`
 **Called by:** `ElectionRepository.listPendingInvitations()` → `pendingInvitationsProvider`
 

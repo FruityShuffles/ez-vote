@@ -26,6 +26,7 @@ class Election {
   final bool allowVoterCandidates;
   final bool realtimeResults;
   final bool includeFptp;
+  final bool publicBallots;
   final DateTime candidatesUpdatedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -41,6 +42,7 @@ class Election {
     this.allowVoterCandidates = false,
     this.realtimeResults = false,
     this.includeFptp = true,
+    this.publicBallots = false,
     required this.candidatesUpdatedAt,
     required this.createdAt,
     required this.updatedAt,
