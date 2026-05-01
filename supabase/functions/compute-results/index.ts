@@ -390,7 +390,7 @@ serve(async (req: Request) => {
       if (!isOwner) {
         const { data: voter } = await adminClient
           .from("election_voters")
-          .select("id")
+          .select("user_id")
           .eq("election_id", election_id)
           .eq("user_id", user.id)
           .maybeSingle();
