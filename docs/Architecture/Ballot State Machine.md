@@ -54,6 +54,31 @@ Score-0 candidates are always placed at the bottom of the derived ranking in nat
 
 Called after a drag reorder in Templates F/G. Rebuilds the entire `_tieBreaks` map from the new list order instead of incrementally patching it. Used when the user manually drags a candidate.
 
+## Drag-reorder score adjustment (Templates F/G)
+
+When the user drags a candidate in Templates F/G, the `onReorder` handler picks one of two branches before calling `_rebuildTieBreaksFromOrder`:
+
+```
+draggedScore = _scores[draggedId] ?? 0
+aboveIds = reordered[0 .. newIndex)
+hasZeroAbove = any id in aboveIds with score 0
+
+If draggedScore == 0 and not hasZeroAbove:
+  // 0-score candidate placed above every other 0-score candidate:
+  // bump it to the highest value that doesn't tie any candidate above.
+  newScore = aboveIds.isEmpty
+               ? 5
+               : clamp(min(aboveIds.scores) - 1, 0, 5)
+Else:
+  // Already-scored candidate (or 0-score still below other 0s):
+  // keep the dragged score consistent with its new neighbours.
+  aboveScore = newIndex > 0 ? scores[reordered[newIndex - 1]] : 5
+  belowScore = newIndex < len - 1 ? scores[reordered[newIndex + 1]] : 0
+  newScore = clamp(draggedScore, belowScore, aboveScore)
+```
+
+The first branch supports the "rank first, score later" workflow: a voter can drag every candidate into preference order before assigning any scores, and each drag implicitly produces a descending score (5, 4, 3, …) that survives the next resort.
+
 ## `_deriveRanking() → List<String>`
 
 Produces the IRV ranking from scores and tie-breaks. Used in Templates F and G.

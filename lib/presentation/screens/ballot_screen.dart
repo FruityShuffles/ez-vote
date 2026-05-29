@@ -892,15 +892,33 @@ class _BallotScreenState extends ConsumerState<BallotScreen> {
                   final draggedId = reordered.removeAt(oldIndex);
                   reordered.insert(newIndex, draggedId);
 
-                  // Adjust score to fit between neighbors
-                  final aboveScore = newIndex > 0
-                      ? (_scores[reordered[newIndex - 1]] ?? 0)
-                      : 5;
-                  final belowScore = newIndex < reordered.length - 1
-                      ? (_scores[reordered[newIndex + 1]] ?? 0)
-                      : 0;
                   final currentScore = _scores[draggedId] ?? 0;
-                  _scores[draggedId] = currentScore.clamp(belowScore, aboveScore);
+                  final aboveIds = reordered.sublist(0, newIndex);
+                  final hasZeroAbove =
+                      aboveIds.any((id) => (_scores[id] ?? 0) == 0);
+
+                  if (currentScore == 0 && !hasZeroAbove) {
+                    // Issue #83: a not-yet-scored candidate dragged above every
+                    // other 0-score candidate gets auto-bumped so the user's
+                    // drag-first-then-score flow survives the next resort.
+                    final newScore = aboveIds.isEmpty
+                        ? 5
+                        : (aboveIds
+                                    .map((id) => _scores[id] ?? 0)
+                                    .reduce((a, b) => a < b ? a : b) -
+                                1)
+                            .clamp(0, 5);
+                    _scores[draggedId] = newScore;
+                  } else {
+                    final aboveScore = newIndex > 0
+                        ? (_scores[reordered[newIndex - 1]] ?? 0)
+                        : 5;
+                    final belowScore = newIndex < reordered.length - 1
+                        ? (_scores[reordered[newIndex + 1]] ?? 0)
+                        : 0;
+                    _scores[draggedId] =
+                        currentScore.clamp(belowScore, aboveScore);
+                  }
 
                   _rebuildTieBreaksFromOrder(reordered);
                 });
