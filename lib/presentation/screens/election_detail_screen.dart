@@ -82,6 +82,7 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
           ref.invalidate(resultsProvider(widget.electionId));
           ref.invalidate(ballotCountProvider(widget.electionId));
           ref.invalidate(electionVotersProvider(widget.electionId));
+          ref.invalidate(pendingInviteesProvider(widget.electionId));
           if (election.publicBallots) {
             ref.invalidate(publicBallotsProvider(widget.electionId));
           }
