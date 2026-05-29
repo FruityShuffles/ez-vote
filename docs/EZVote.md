@@ -29,3 +29,7 @@ Multi-algorithm voting application. Flutter (web) + Supabase backend.
 
 - [[Decisions/Algorithm Design]] — Why these algorithms, tie handling philosophy, cleanup policy
 - [[Decisions/Client-Side Derivation]] — Why derivation runs client-side, not server-side
+
+## Migration
+
+- [[Migration/Overview]] — Flutter → React migration plan: rationale, phased approach, parallel build with controlled cutover, proposed GitHub issues (M1–M22)

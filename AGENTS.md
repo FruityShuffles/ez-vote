@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Project documentation lives in `docs/`. Before working on any issue or task, always check `docs/` for relevant files and read them. After making changes that affect architecture, schema, features, or the ballot screen, update the relevant docs.
 
+## Active Migration
+
+A Flutter → React migration is planned. See `docs/Migration/Overview.md` for the full plan, phased approach, and proposed issue list (M1–M22). The migration has not started yet — work on existing issues continues against the Flutter app until M1 is filed and picked up.
+
 ## GitHub Issues Workflow
 
 Use `gh` CLI (authenticated) to manage work from the GitHub issue tracker at `https://github.com/FruityShuffles/ez-vote`.
