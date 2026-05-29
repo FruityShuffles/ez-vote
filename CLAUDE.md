@@ -8,7 +8,7 @@ Project documentation lives in `docs/`. Before working on any issue or task, alw
 
 ## Active Migration
 
-A Flutter → React migration is the active priority. See `docs/Migration/Overview.md` for the full plan, phased approach, and risks. Issues M1–M22 are filed as GitHub #87–#108 under the "React migration" milestone. **M1 (#87) is the immediate next step** — it extracts the voting algorithms from `compute-results` into a shared helper that both stacks call, and is prerequisite for most of the rest of the plan. Until cutover (M19), the live Flutter app remains in production and Flutter-side bugs are still fixed against it.
+A Flutter → React migration is underway. See `docs/Migration/Overview.md` for the plan; issues are filed under the "React migration" milestone. Until cutover, the Flutter app remains in production and Flutter-side bugs are still fixed against it.
 
 ## GitHub Issues Workflow
 
