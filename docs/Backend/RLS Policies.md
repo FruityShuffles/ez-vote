@@ -2,6 +2,8 @@
 
 Row-Level Security enforces access control at the database layer. Every table has RLS enabled. Policies are defined in migration 002 and extended by later migrations.
 
+> **As of Oct 30, 2026**, RLS alone no longer exposes a table through the Data API — each new table in `public` also needs explicit `GRANT` statements per role. See [Schema.md → Data API Access & Grants](Schema.md#data-api-access--grants) for the table-creation template. The seven tables that already exist keep their current grants and are unaffected.
+
 ## The Core Access Question
 
 For most tables, the access question is: **is this user an owner or a participant?**

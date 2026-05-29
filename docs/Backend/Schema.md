@@ -137,3 +137,39 @@ Derived fields (IRV from STAR scores, approval from cutoff/top-K) are computed c
 | 019       | `bump_ballots_updated_at` trigger so realtime polling reacts to ballot edits                    |
 | 020       | `public_ballots` flag, drops legacy "Owners can read ballots" policy, adds public-ballots RLS + `get_public_ballots()` RPC |
 | 021       | Tightens `get_public_ballots()` to require `public_ballots = true` for *all* callers (including the owner)             |
+
+## Data API Access & Grants
+
+Supabase is changing how `public`-schema tables are exposed to the Data API (PostgREST, supabase-js, GraphQL):
+
+- **May 30, 2026** — new projects no longer auto-grant access to tables in `public`.
+- **October 30, 2026** — same enforcement extends to all existing projects, including this one (created Feb 18, 2026).
+
+After enforcement, a table without explicit role grants is unreachable through the REST API and PostgREST returns error `42501` with the exact missing `GRANT` statement. **RLS is still required but is no longer sufficient on its own.**
+
+**Existing tables are unaffected.** Per Supabase's announcement, existing tables keep their current grants. The seven tables already in `public` (`profiles`, `elections`, `candidates`, `invites`, `ballots`, `results`, `election_voters`) need no backfill migration.
+
+**New tables must include explicit grants.** Use this template when adding a table in `public`:
+
+```sql
+create table public.foo (
+  -- columns...
+);
+
+alter table public.foo enable row level security;
+
+-- Grant Data API access per role. Tailor to actual needs:
+--   anon: usually nothing, or `select` for public-readable tables only.
+--   authenticated: covers client (supabase-js) reads/writes.
+--   service_role: covers the edge function and any server-side bypass.
+grant select on public.foo to anon;
+grant select, insert, update, delete on public.foo to authenticated;
+grant select, insert, update, delete on public.foo to service_role;
+
+-- Then RLS policies (see RLS Policies.md)
+create policy "..." on public.foo for select to authenticated using (...);
+```
+
+The grants determine *which verbs are reachable through the API*; RLS policies determine *which rows each authenticated caller may touch*. Both layers are needed.
+
+If you see `42501` from PostgREST in a deployed environment, the error body contains the precise grant statement to add — copy it into a new migration rather than guessing.
