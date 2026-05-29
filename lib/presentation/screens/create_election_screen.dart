@@ -424,7 +424,7 @@ class _CreateElectionScreenState extends ConsumerState<CreateElectionScreen> {
                           SwitchListTile(
                             title: const Text('Public ballots'),
                             subtitle: const Text(
-                              'Anyone in the election can see how each voter voted. Cannot be changed after the election opens.',
+                              'Anyone in the election can see how each voter voted.',
                             ),
                             value: _publicBallots,
                             onChanged: (v) {

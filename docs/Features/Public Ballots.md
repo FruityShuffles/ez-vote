@@ -7,7 +7,7 @@ When enabled, every participant in an election (the owner and all joined voters)
 ## Owner-facing UX
 
 - Toggle lives in the **Settings** section of `CreateElectionScreen` (next to *Allow voters to add candidates*, *Show real-time results*, *Include FPTP comparison*).
-- Subtitle: *"Anyone in the election can see how each voter voted. Cannot be changed after the election opens."*
+- Subtitle: *"Anyone in the election can see how each voter voted."*
 - Editing of an election is gated by `status == draft` in the existing UI flow (Edit button only appears for drafts), so the toggle is effectively locked once the election leaves draft.
 
 ## Voter-facing UX
