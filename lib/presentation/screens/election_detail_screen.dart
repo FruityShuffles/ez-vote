@@ -78,7 +78,6 @@ class _ElectionDetailScreenState extends ConsumerState<ElectionDetailScreen> {
             .read(resultRepositoryProvider)
             .getResultsUpdatedAt(widget.electionId);
         if (freshUpdatedAt != null &&
-            _lastResultsUpdatedAt != null &&
             freshUpdatedAt != _lastResultsUpdatedAt) {
           ref.invalidate(resultsProvider(widget.electionId));
           ref.invalidate(ballotCountProvider(widget.electionId));
