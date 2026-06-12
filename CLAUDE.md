@@ -8,7 +8,7 @@ Project documentation lives in `docs/`. Before working on any issue or task, alw
 
 ## Active Migration
 
-A Flutter → React migration is underway. See `docs/Migration/Overview.md` for the plan; issues are filed under the "React migration" milestone. Until cutover, the Flutter app remains in production and Flutter-side bugs are still fixed against it.
+A Flutter → React migration is underway. See `docs/Migration/Overview.md` for the plan; issues are filed under the "React migration" milestone. The Flutter app is frozen — no further Flutter development (no bug fixes, no features); all work happens on the React side. Flutter stays deployed only as the parity reference until cutover; bugs found in it are recorded in the parity checklist, not patched in Dart.
 
 ## GitHub Issues Workflow
 
