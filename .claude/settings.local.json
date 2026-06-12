@@ -47,7 +47,17 @@
       "Skill(update-config)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); f=d.get\\('tool_input',{}\\).get\\('file_path',''\\); import re; print\\('{\\\\\"hookSpecificOutput\\\\\":{\\\\\"hookEventName\\\\\":\\\\\"PostToolUse\\\\\",\\\\\"additionalContext\\\\\":\\\\\"Reminder: check docs/ for documentation that may need updating.\\\\\"}}'\\) if re.search\\(r'supabase/migrations|supabase/functions|ballot_screen\\\\\\\\.dart|election_analysis', f\\) else None\")",
       "Bash(python3:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter pub:*)",
+      "Bash(codex exec --skip-git-repo-check --sandbox read-only 'Review my pending password recovery implementation for issue #79. Files changed: *)",
+      "Bash(supabase --help)",
+      "Bash(where psql *)",
+      "Bash(where supabase *)",
+      "PowerShell(gh issue *)",
+      "Bash(codex exec *)",
+      "PowerShell(git push *)",
+      "PowerShell(gh repo view FruityShuffles/ez-vote --json visibility,isPrivate)"
     ]
   }
 }
