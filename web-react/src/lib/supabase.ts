@@ -16,4 +16,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Auth options are pinned explicitly rather than inherited so the behaviours M6
+// depends on are intentional: persistSession + autoRefreshToken keep the user
+// signed in across reloads (session persistence), and detectSessionInUrl lets
+// the OAuth callback establish the session from the redirect URL. These match
+// supabase-js defaults today, but the auth flow relies on them by contract.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  },
+})
