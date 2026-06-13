@@ -77,12 +77,12 @@ Template dispatch and derivation reference [[Architecture/Ballot Templates]] and
 
 ## 5. Election creation / edit — M11
 
-- [ ] 🔴 **CRT-01** — Candidates are **persisted** in entry order (root cause of #77 was insertion ordering, not just display). _Source:_ #77. _Verify:_ create in a known order → stored `position` matches entry order.
-- [ ] 🔴 **CRT-02** — Duplicate-candidate detection uses the stable Postgres unique-violation **error code `23505`**, not a string match on the index name. _Source:_ #73. _Verify:_ add a duplicate name → friendly message; rename the index in a test → message still works.
-- [ ] 🟡 **CRT-03** — Feature flags are independently settable: `include_fptp`, `realtime_results`, `public_ballots`, `allow_voter_candidates`; realtime-results and ad-hoc-candidates are **decoupled** (not a single toggle). _Source:_ #75, #55, #81. _Verify:_ toggle each independently.
-- [ ] 🎨 **CRT-04** — The `public_ballots` option does **not** carry the "Cannot be changed after the election opens" helper text singling it out (that constraint applies to all such options and is assumed). _Source:_ #86. _Verify:_ create screen copy.
-- [ ] 🟡 **CRT-05** — Draft elections are editable; leaving with unsaved changes prompts a discard-changes confirmation. _Source:_ #30, #29. _Verify:_ edit a draft, navigate away → confirm prompt.
-- [ ] 🟡 **CRT-06** — Title/subtitle render correctly on the create/edit flow (the #86 cluster). _Source:_ #86. _Verify:_ side-by-side with Flutter.
+- [x] 🔴 **CRT-01** — Candidates are **persisted** in entry order (root cause of #77 was insertion ordering, not just display). _Source:_ #77. _Verify:_ create in a known order → stored `position` matches entry order. _(M11: `buildCandidateRows` writes explicit zero-based positions; unit-tested in `elections.test.ts` and form reorder submission in `ElectionForm.test.tsx`.)_
+- [x] 🔴 **CRT-02** — Duplicate-candidate detection uses the stable Postgres unique-violation **error code `23505`**, not a string match on the index name. _Source:_ #73. _Verify:_ add a duplicate name → friendly message; rename the index in a test → message still works. _(M11: client validation plus `isUniqueViolation`; code-based behavior covered in `errors.test.ts`.)_
+- [x] 🟡 **CRT-03** — Feature flags are independently settable: `include_fptp`, `realtime_results`, `public_ballots`, `allow_voter_candidates`; realtime-results and ad-hoc-candidates are **decoupled** (not a single toggle). _Source:_ #75, #55, #81. _Verify:_ toggle each independently. _(M11: four separate switches and payload fields; covered in `ElectionForm.test.tsx`.)_
+- [x] 🎨 **CRT-04** — The `public_ballots` option does **not** carry the "Cannot be changed after the election opens" helper text singling it out (that constraint applies to all such options and is assumed). _Source:_ #86. _Verify:_ create screen copy. _(M11: corrected subtitle render-tested.)_
+- [x] 🟡 **CRT-05** — Draft elections are editable; leaving with unsaved changes prompts a discard-changes confirmation. _Source:_ #30, #29. _Verify:_ edit a draft, navigate away → confirm prompt. _(M11: React Router blocker plus `beforeunload`; dialog behavior render-tested.)_
+- [x] 🟡 **CRT-06** — Title/subtitle render correctly on the create/edit flow (the #86 cluster). _Source:_ #86. _Verify:_ side-by-side with Flutter. _(M11: create/edit headings and settings copy render-tested; final visual comparison remains part of M18.)_
 
 ---
 

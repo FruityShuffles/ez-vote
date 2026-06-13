@@ -18,8 +18,7 @@ import { signOut } from '@/lib/auth'
 
 // The election-list dashboard (M9), ported from Flutter `HomeScreen`. Two tabs —
 // My Elections (owned) and My Votes (pending invitations + voted) — replacing
-// the M6 placeholder. The Learn tab is M13; create/edit are M11, so "New
-// Election" links to /create (NotFound until then). No polling: tab switches
+// the M6 placeholder. The Learn tab is M13. No polling: tab switches
 // refetch on demand, realtime is M15.
 
 type Tab = 'owned' | 'votes'

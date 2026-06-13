@@ -49,6 +49,20 @@ export interface Ballot {
   updated_at: string
 }
 
+export type VotingAlgorithm = 'approval' | 'irv' | 'star'
+
+export interface ElectionFormInput {
+  title: string
+  description: string | null
+  algorithms: VotingAlgorithm[]
+  allow_voter_candidates: boolean
+  realtime_results: boolean
+  include_fptp: boolean
+  public_ballots: boolean
+  candidates: string[]
+  open: boolean
+}
+
 // --- Query keys -------------------------------------------------------------
 
 export const electionKeys = {
@@ -128,6 +142,7 @@ export function usePendingInvitations() {
 export function useElection(electionId: string) {
   return useQuery({
     queryKey: electionKeys.detail(electionId),
+    enabled: electionId !== '',
     queryFn: async (): Promise<Election> => {
       const { data, error } = await supabase
         .from('elections')
@@ -143,6 +158,7 @@ export function useElection(electionId: string) {
 export function useCandidates(electionId: string) {
   return useQuery({
     queryKey: electionKeys.candidates(electionId),
+    enabled: electionId !== '',
     queryFn: async (): Promise<Candidate[]> => {
       const { data, error } = await supabase
         .from('candidates')
@@ -151,6 +167,83 @@ export function useCandidates(electionId: string) {
         .order('position', { ascending: true })
       if (error) throw error
       return (data ?? []) as Candidate[]
+    },
+  })
+}
+
+export function buildCandidateRows(electionId: string, names: string[]) {
+  return names.map((name, position) => ({
+    election_id: electionId,
+    name,
+    position,
+  }))
+}
+
+async function replaceCandidates(electionId: string, names: string[]) {
+  const { error: deleteError } = await supabase
+    .from('candidates')
+    .delete()
+    .eq('election_id', electionId)
+  if (deleteError) throw deleteError
+
+  const { error: insertError } = await supabase
+    .from('candidates')
+    .insert(buildCandidateRows(electionId, names))
+  if (insertError) throw insertError
+}
+
+export function useSaveElection(electionId?: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: ElectionFormInput): Promise<string> => {
+      const electionFields = {
+        title: input.title,
+        description: input.description,
+        algorithms: input.algorithms,
+        allow_voter_candidates: input.allow_voter_candidates,
+        realtime_results: input.realtime_results,
+        include_fptp: input.include_fptp,
+        public_ballots: input.public_ballots,
+        ...(input.open ? { status: 'open' as const } : {}),
+      }
+
+      if (electionId) {
+        const { data, error } = await supabase
+          .from('elections')
+          .update(electionFields)
+          .eq('id', electionId)
+          .select('id')
+          .single()
+        if (error) throw error
+        await replaceCandidates(electionId, input.candidates)
+        return data.id as string
+      }
+
+      const userId = await requireUserId()
+      const { data, error } = await supabase
+        .from('elections')
+        .insert({
+          ...electionFields,
+          owner_id: userId,
+          status: input.open ? 'open' : 'draft',
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+
+      const createdId = data.id as string
+      try {
+        await replaceCandidates(createdId, input.candidates)
+      } catch (candidateError) {
+        await supabase.from('elections').delete().eq('id', createdId)
+        throw candidateError
+      }
+      return createdId
+    },
+    onSuccess: (savedId) => {
+      qc.invalidateQueries({ queryKey: electionKeys.owned })
+      qc.invalidateQueries({ queryKey: electionKeys.detail(savedId) })
+      qc.invalidateQueries({ queryKey: electionKeys.candidates(savedId) })
     },
   })
 }

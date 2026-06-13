@@ -8,6 +8,7 @@ import { Dashboard } from '@/routes/Dashboard'
 import { Design } from '@/routes/Design'
 import { ElectionDetail } from '@/components/elections/ElectionDetail'
 import { Ballot } from '@/routes/Ballot'
+import { ElectionForm } from '@/routes/ElectionForm'
 import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
 
 // Browser (history-API) routing. The Cloudflare Pages `_redirects` SPA fallback
@@ -52,6 +53,22 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <Dashboard />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/create',
+    element: (
+      <RequireAuth>
+        <ElectionForm />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/election/:id/edit',
+    element: (
+      <RequireAuth>
+        <ElectionForm />
       </RequireAuth>
     ),
   },

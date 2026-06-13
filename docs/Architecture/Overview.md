@@ -15,7 +15,7 @@ Scaffolded in M5 per the [[Migration/Tech Stack]] decisions. A client-rendered S
 | Components / a11y | Material widgets | shadcn + Base UI primitives (owned source) |
 | Env / credentials | `--dart-define` → `SUPABASE_*` | Vite build-time `import.meta.env.VITE_SUPABASE_*` |
 
-Layout: routing in `src/router.tsx`; routes in `src/routes/`; Supabase client in `src/lib/supabase.ts`; Zustand stores in `src/stores/`; owned shadcn components in `src/components/ui/`. CI (`.github/workflows/web-react-ci.yml`) runs lint + type-check + Vitest + build on `web-react/**` changes. Staging deploys to the `ez-vote-react` Cloudflare Pages project. Auth/session wiring is M6; surface ports are M8+.
+Layout: routing in `src/router.tsx`; routes in `src/routes/`; Supabase client in `src/lib/supabase.ts`; Zustand stores in `src/stores/`; owned shadcn components in `src/components/ui/`. CI (`.github/workflows/web-react-ci.yml`) runs lint + type-check + Vitest + build on `web-react/**` changes. Staging deploys to the `ez-vote-react` Cloudflare Pages project. Auth/session wiring is M6; the implemented surface ports include results, election detail, ballots, and election creation/editing (M8-M11).
 
 ## Three-Layer Clean Architecture
 
