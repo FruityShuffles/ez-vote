@@ -33,3 +33,4 @@ Multi-algorithm voting application. Flutter (web) + Supabase backend.
 ## Migration
 
 - [[Migration/Overview]] — Flutter → React migration plan: rationale, phased approach, parallel build with controlled cutover, proposed GitHub issues (M1–M22)
+- [[Migration/Parity Checklist]] — behaviors the React app must preserve, sourced from closed bugs and design decisions; the test plan for each surface port
