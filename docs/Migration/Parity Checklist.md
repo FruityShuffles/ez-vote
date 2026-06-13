@@ -29,12 +29,12 @@ These live in `supabase/functions/_shared/tabulate.ts` and are **shared, not por
 
 ## 2. Public results view — M8
 
-- [ ] 🔴 **RES-01** — Algorithm display order is always **Approval → IRV → STAR → FPTP**, enforced client-side (not DB order); FPTP is always last. _Source:_ #65, [[Decisions/Algorithm Design]]. _Verify:_ election with algorithms entered out of order + `include_fptp` renders in canonical order.
-- [ ] 🔴 **RES-02** — The full `result_data` shape is rendered field-by-field per algorithm: IRV per-round `rounds` with eliminations, STAR `scores` + `runoff`, Approval/FPTP `tallies`. Shape drift is a parity bug even when winners match. _Source:_ [[Backend/Edge Function]], M2 scope note. _Verify:_ render every golden fixture; diff against Flutter.
-- [ ] 🟡 **RES-03** — Tied winners are displayed as equals, not with one arbitrarily promoted. _Source:_ #1, [[Decisions/Algorithm Design]]. _Verify:_ render a tie fixture; both names shown co-equal.
-- [ ] 🟡 **RES-04** — Overall election winner shown when one candidate wins a majority/plurality of the selected algorithms ("overall winner"). _Source:_ #2. _Verify:_ multi-algorithm election where one candidate wins most methods.
-- [ ] 🎨 **RES-05** — Per-algorithm results are laid out **side-by-side** (not stacked, which implies precedence), and remain usable on mobile. _Source:_ #44. _Verify:_ desktop + narrow viewport.
-- [ ] 🟡 **RES-06** — Results render above the candidate list on the detail surface. _Source:_ #41. _Verify:_ closed election detail ordering.
+- [x] 🔴 **RES-01** — Algorithm display order is always **Approval → IRV → STAR → FPTP**, enforced client-side (not DB order); FPTP is always last. _Source:_ #65, [[Decisions/Algorithm Design]]. _Verify:_ election with algorithms entered out of order + `include_fptp` renders in canonical order. _(M8: `sortResults` in `web-react/src/lib/results.ts`; covered by `ResultsView.test.tsx`.)_
+- [x] 🔴 **RES-02** — The full `result_data` shape is rendered field-by-field per algorithm: IRV per-round `rounds` with eliminations, STAR `scores` + `runoff`, Approval/FPTP `tallies`. Shape drift is a parity bug even when winners match. _Source:_ [[Backend/Edge Function]], M2 scope note. _Verify:_ render every golden fixture; diff against Flutter. _(M8: `ResultsView.test.tsx` renders golden fixtures and asserts every field; full side-by-side diff still happens in M18.)_
+- [x] 🟡 **RES-03** — Tied winners are displayed as equals, not with one arbitrarily promoted. _Source:_ #1, [[Decisions/Algorithm Design]]. _Verify:_ render a tie fixture; both names shown co-equal. _(M8: `ResultsView.test.tsx`, `approval-tie` fixture renders "Tied: Alice & Bob".)_
+- [x] 🟡 **RES-04** — Overall election winner shown when one candidate wins a majority/plurality of the selected algorithms ("overall winner"). _Source:_ #2. _Verify:_ multi-algorithm election where one candidate wins most methods. _(M8: `OverallWinnerCard` + `ResultsView.test.tsx`.)_
+- [ ] 🎨 **RES-05** — Per-algorithm results are laid out **side-by-side** (not stacked, which implies precedence), and remain usable on mobile. _Source:_ #44. _Verify:_ desktop + narrow viewport. _(M8: responsive grid implemented; visual side-by-side confirmation deferred to M18.)_
+- [ ] 🟡 **RES-06** — Results render above the candidate list on the detail surface. _Source:_ #41. _Verify:_ closed election detail ordering. _(Detail-surface ordering belongs to M9 — the M8 component is a standalone widget.)_
 
 ---
 
