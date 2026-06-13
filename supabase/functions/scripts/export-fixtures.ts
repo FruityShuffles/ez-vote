@@ -168,8 +168,7 @@ async function main() {
       supabase
         .from("results")
         .select("algorithm, result_data")
-        .eq("election_id", electionId)
-        .order("algorithm", { ascending: true }),
+        .eq("election_id", electionId),
     ]);
 
     if (!resultRows || resultRows.length === 0) {
@@ -200,9 +199,31 @@ async function main() {
     const algorithms: string[] = (election.algorithms as string[]) ?? [];
     const includeFptp = Boolean(election.include_fptp);
 
-    const expected = resultRows.map((r) => ({
-      algorithm: r.algorithm as string,
-      result_data: (r.result_data ?? {}) as Record<string, unknown>,
+    // Order `expected` to match tabulate()'s output exactly: one entry per
+    // configured algorithm (in `algorithms` order), then a trailing fptp entry
+    // when include_fptp is set. Stored rows arrive in arbitrary order, so we
+    // can't rely on the query order — the golden test compares the full ordered
+    // array, so mismatched ordering would fail an otherwise-correct fixture.
+    const resultByAlgo = new Map<string, Record<string, unknown>>();
+    for (const r of resultRows) {
+      resultByAlgo.set(
+        r.algorithm as string,
+        (r.result_data ?? {}) as Record<string, unknown>,
+      );
+    }
+    const orderedAlgos = [...algorithms, ...(includeFptp ? ["fptp"] : [])];
+    const missing = orderedAlgos.filter((a) => !resultByAlgo.has(a));
+    if (missing.length > 0) {
+      console.warn(
+        `  - ${electionId}: missing stored result(s) for ${
+          missing.join(", ")
+        } — would never match tabulate(), skipping.`,
+      );
+      continue;
+    }
+    const expected = orderedAlgos.map((algo) => ({
+      algorithm: algo,
+      result_data: resultByAlgo.get(algo)!,
     }));
 
     // Sanity check: the current helper should already reproduce the stored
