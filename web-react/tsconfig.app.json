@@ -8,7 +8,8 @@
     "skipLibCheck": true,
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["../supabase/functions/_shared/*"]
     },
 
     /* Bundler mode */

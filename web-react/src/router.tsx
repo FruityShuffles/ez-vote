@@ -7,6 +7,7 @@ import { ForgotPassword } from '@/routes/ForgotPassword'
 import { Dashboard } from '@/routes/Dashboard'
 import { Design } from '@/routes/Design'
 import { ElectionDetail } from '@/components/elections/ElectionDetail'
+import { Ballot } from '@/routes/Ballot'
 import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
 
 // Browser (history-API) routing. The Cloudflare Pages `_redirects` SPA fallback
@@ -59,6 +60,16 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <ElectionDetail />
+      </RequireAuth>
+    ),
+  },
+  {
+    // Ballot / voting flow (M10). Reached from the detail surface; renders
+    // read-only when the election is closed (the "View Ballot" affordance).
+    path: '/election/:id/vote',
+    element: (
+      <RequireAuth>
+        <Ballot />
       </RequireAuth>
     ),
   },

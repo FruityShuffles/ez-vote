@@ -11,7 +11,18 @@ export default defineConfig({
     alias: {
       // ESM-safe absolute path to src/ (avoids the CJS __dirname global).
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // The shared ballot-derivation module (M23) lives with the edge functions
+      // so both stacks derive identically. M10 imports it in place — one source
+      // of truth, no vendored copy — via this alias.
+      '@shared': fileURLToPath(
+        new URL('../supabase/functions/_shared', import.meta.url),
+      ),
     },
+  },
+  server: {
+    // Allow Vite to serve the sibling `supabase/functions/_shared` dir, which is
+    // outside this project root (the `@shared` import above).
+    fs: { allow: ['..'] },
   },
   test: {
     globals: true,
