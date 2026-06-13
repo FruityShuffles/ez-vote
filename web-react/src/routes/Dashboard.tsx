@@ -1,11 +1,22 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { AppShell } from '@/components/ui/app-shell'
+import { H1 } from '@/components/ui/typography'
+import { Stack } from '@/components/ui/layout'
 import { useAuth } from '@/auth/context'
 import { signOut } from '@/lib/auth'
 
-// Minimal protected placeholder for M6: it exercises the RequireAuth guard,
-// session persistence (survives reload), and sign-out. The real dashboard is the
-// election list ported in M9.
+// Protected placeholder for M6, now wrapped in the M7 AppShell to dogfood the
+// layout primitive. It still only exercises the RequireAuth guard, session
+// persistence (survives reload), and sign-out — the real election-list dashboard
+// is ported in M9, which owns the full layout.
 export function Dashboard() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
@@ -17,22 +28,30 @@ export function Dashboard() {
   }
 
   return (
-    <main className="grid min-h-svh place-items-center p-6">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 text-center shadow-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Signed in as {user?.email ?? 'unknown'}
-        </p>
-        <Button
-          variant="outline"
-          size="lg"
-          className="mt-6 w-full"
-          disabled={loading}
-          onClick={handleSignOut}
-        >
+    <AppShell
+      width="md"
+      actions={
+        <Button variant="outline" disabled={loading} onClick={handleSignOut}>
           {loading ? 'Signing out…' : 'Sign out'}
         </Button>
-      </div>
-    </main>
+      }
+    >
+      <Stack gap={6}>
+        <H1>Dashboard</H1>
+        <Card>
+          <CardHeader>
+            <CardTitle>Your elections</CardTitle>
+            <CardDescription>
+              Signed in as {user?.email ?? 'unknown'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Your elections will appear here once the dashboard is ported (M9).
+            </p>
+          </CardContent>
+        </Card>
+      </Stack>
+    </AppShell>
   )
 }

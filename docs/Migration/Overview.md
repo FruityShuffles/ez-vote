@@ -134,6 +134,7 @@ With no active user traffic, cutover is low-stakes; this phase is about discipli
 
 - `docs/Migration/Parity Checklist.md` (M3) — behaviors that must be preserved, sourced from closed bugs and design decisions.
 - `docs/Migration/Tech Stack.md` (M4) — framework / library / styling decisions and rationale.
+- `docs/Migration/Design System.md` (M7) — design tokens (the indigo M3 palette mapped to shadcn roles), the shared component inventory, and the a11y posture.
 - `docs/Migration/Cutover Plan.md` (M17) — verification protocol, exit criteria, rollback procedure.
 
 **To be updated:**

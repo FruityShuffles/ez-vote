@@ -1,17 +1,27 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { sendPasswordResetEmail, signOut, updatePassword, verifyOtp } from '@/lib/auth'
+import { Input } from '@/components/ui/input'
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
+import { AuthCard } from '@/components/AuthCard'
+import {
+  sendPasswordResetEmail,
+  signOut,
+  updatePassword,
+  verifyOtp,
+} from '@/lib/auth'
 import { friendlyAuthError } from '@/auth/errors'
 import { withRedirect } from '@/auth/redirect'
 
-// Functional M6 password-recovery screen (two phases: request code → OTP + new
-// password), porting `forgot_password_screen.dart` (AUTH-03). verifyOtp(recovery)
-// establishes a recovery session, updatePassword sets the new password, and
-// RedirectIfAuthed routes to the `redirect=` destination. Functional styling only.
-
-const inputClass =
-  'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+// Password-recovery screen (two phases: request code → OTP + new password),
+// restyled onto the M7 design system. Behavior is unchanged from M6 (AUTH-03):
+// verifyOtp(recovery) establishes a recovery session, updatePassword sets the new
+// password, and RedirectIfAuthed routes to the `redirect=` destination.
 
 export function ForgotPassword() {
   const [params] = useSearchParams()
@@ -64,80 +74,48 @@ export function ForgotPassword() {
 
   if (codeSent) {
     return (
-      <main className="grid min-h-svh place-items-center p-6">
-        <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 text-center shadow-sm">
-          <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Enter the 8-digit code we sent to {email.trim()} and choose a new password.
-          </p>
-          <form className="mt-6 flex flex-col gap-4" onSubmit={handleReset}>
-            <input
-              inputMode="numeric"
-              maxLength={8}
-              required
-              aria-label="Confirmation code"
-              className={`${inputClass} text-center tracking-widest`}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-            />
-            <input
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={6}
-              aria-label="New password"
-              placeholder="New password"
-              className={inputClass}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" size="lg" className="w-full" disabled={loading}>
+      <AuthCard
+        title="Check your email"
+        subtitle={`Enter the 8-digit code we sent to ${email.trim()} and choose a new password.`}
+      >
+        <form onSubmit={handleReset}>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="otp">Confirmation code</FieldLabel>
+              <Input
+                id="otp"
+                inputMode="numeric"
+                maxLength={8}
+                required
+                className="text-center tracking-widest"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="new-password">New password</FieldLabel>
+              <Input
+                id="new-password"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </Field>
+            {error && <FieldError>{error}</FieldError>}
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={loading}
+            >
               {loading ? 'Resetting…' : 'Reset password'}
             </Button>
-          </form>
-          <p className="mt-4 text-sm">
-            <Link
-              to={withRedirect('/login', redirect)}
-              className="text-primary underline-offset-4 hover:underline"
-            >
-              Back to sign in
-            </Link>
-          </p>
-        </div>
-      </main>
-    )
-  }
-
-  return (
-    <main className="grid min-h-svh place-items-center p-6">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-center text-2xl font-semibold tracking-tight">Reset password</h1>
-        <p className="mt-2 text-center text-sm text-muted-foreground">
-          Enter your email and we&apos;ll send you a recovery code.
-        </p>
-
-        <form className="mt-6 flex flex-col gap-4" onSubmit={handleSendCode}>
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            Email
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              className={inputClass}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button type="submit" size="lg" className="w-full" disabled={loading}>
-            {loading ? 'Sending…' : 'Send recovery code'}
-          </Button>
+          </FieldGroup>
         </form>
-
-        <p className="mt-4 text-center text-sm">
+        <p className="text-center text-sm">
           <Link
             to={withRedirect('/login', redirect)}
             className="text-primary underline-offset-4 hover:underline"
@@ -145,7 +123,45 @@ export function ForgotPassword() {
             Back to sign in
           </Link>
         </p>
-      </div>
-    </main>
+      </AuthCard>
+    )
+  }
+
+  return (
+    <AuthCard
+      title="Reset password"
+      subtitle="Enter your email and we'll send you a recovery code."
+    >
+      <form onSubmit={handleSendCode}>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </Field>
+
+          {error && <FieldError>{error}</FieldError>}
+
+          <Button type="submit" size="lg" className="w-full" disabled={loading}>
+            {loading ? 'Sending…' : 'Send recovery code'}
+          </Button>
+        </FieldGroup>
+      </form>
+
+      <p className="text-center text-sm">
+        <Link
+          to={withRedirect('/login', redirect)}
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          Back to sign in
+        </Link>
+      </p>
+    </AuthCard>
   )
 }

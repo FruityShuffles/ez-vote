@@ -5,6 +5,7 @@ import { Login } from '@/routes/Login'
 import { Signup } from '@/routes/Signup'
 import { ForgotPassword } from '@/routes/ForgotPassword'
 import { Dashboard } from '@/routes/Dashboard'
+import { Design } from '@/routes/Design'
 import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
 
 // Browser (history-API) routing. The Cloudflare Pages `_redirects` SPA fallback
@@ -51,6 +52,13 @@ export const router = createBrowserRouter([
         <Dashboard />
       </RequireAuth>
     ),
+  },
+  {
+    // Internal design-system gallery (M7). Not linked from the app nav; it has no
+    // data and no auth guard, and exists for visual verification of the shared
+    // components against Flutter (and the M18 side-by-side review).
+    path: '/design',
+    element: <Design />,
   },
   {
     path: '*',

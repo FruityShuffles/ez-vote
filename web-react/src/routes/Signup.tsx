@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from '@/components/ui/field'
+import { AuthCard } from '@/components/AuthCard'
 import { signInWithGoogle, signUp, verifyOtp } from '@/lib/auth'
 import { friendlyAuthError } from '@/auth/errors'
 import { withRedirect } from '@/auth/redirect'
 
-// Functional M6 signup screen (two phases: register → OTP verification), porting
-// `signup_screen.dart`. On OTP success the session is established and
-// RedirectIfAuthed routes to the `redirect=` destination (AUTH-01). Styling is
-// functional-only; M7/M13 refine it.
-
-const inputClass =
-  'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+// Signup screen (two phases: register → OTP verification), restyled onto the M7
+// design system. Behavior is unchanged from M6: on OTP success the session is
+// established and RedirectIfAuthed routes to the `redirect=` destination (AUTH-01).
 
 export function Signup() {
   const [params] = useSearchParams()
@@ -65,107 +70,117 @@ export function Signup() {
 
   if (emailSent) {
     return (
-      <main className="grid min-h-svh place-items-center p-6">
-        <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 text-center shadow-sm">
-          <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Enter the 8-digit code we sent to {email.trim()}.
-          </p>
-          <form className="mt-6 flex flex-col gap-4" onSubmit={handleVerify}>
-            <input
-              inputMode="numeric"
-              maxLength={8}
-              required
-              aria-label="Confirmation code"
-              className={`${inputClass} text-center tracking-widest`}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-            />
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" size="lg" className="w-full" disabled={loading}>
+      <AuthCard
+        title="Check your email"
+        subtitle={`Enter the 8-digit code we sent to ${email.trim()}.`}
+      >
+        <form onSubmit={handleVerify}>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="otp">Confirmation code</FieldLabel>
+              <Input
+                id="otp"
+                inputMode="numeric"
+                maxLength={8}
+                required
+                className="text-center tracking-widest"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+              />
+            </Field>
+            {error && <FieldError>{error}</FieldError>}
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={loading}
+            >
               {loading ? 'Confirming…' : 'Confirm'}
             </Button>
-          </form>
-          <p className="mt-4 text-sm">
-            <Link
-              to={withRedirect('/login', redirect)}
-              className="text-primary underline-offset-4 hover:underline"
-            >
-              Back to sign in
-            </Link>
-          </p>
-        </div>
-      </main>
-    )
-  }
-
-  return (
-    <main className="grid min-h-svh place-items-center p-6">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-center text-2xl font-semibold tracking-tight">Create account</h1>
-
-        <form className="mt-6 flex flex-col gap-4" onSubmit={handleSignUp}>
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            Display name (optional)
-            <input
-              type="text"
-              autoComplete="name"
-              className={inputClass}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            Email
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              className={inputClass}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            Password
-            <input
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={6}
-              className={inputClass}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button type="submit" size="lg" className="w-full" disabled={loading}>
-            {loading ? 'Creating…' : 'Sign Up'}
-          </Button>
+          </FieldGroup>
         </form>
-
-        <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <Button variant="outline" size="lg" className="w-full" disabled={loading} onClick={handleGoogle}>
-          Continue with Google
-        </Button>
-
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Already have an account?{' '}
+        <p className="text-center text-sm">
           <Link
             to={withRedirect('/login', redirect)}
             className="text-primary underline-offset-4 hover:underline"
           >
-            Sign in
+            Back to sign in
           </Link>
         </p>
-      </div>
-    </main>
+      </AuthCard>
+    )
+  }
+
+  return (
+    <AuthCard title="Create account">
+      <form onSubmit={handleSignUp}>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="displayName">
+              Display name (optional)
+            </FieldLabel>
+            <Input
+              id="displayName"
+              type="text"
+              autoComplete="name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Field>
+
+          {error && <FieldError>{error}</FieldError>}
+
+          <Button type="submit" size="lg" className="w-full" disabled={loading}>
+            {loading ? 'Creating…' : 'Sign Up'}
+          </Button>
+
+          <FieldSeparator>or</FieldSeparator>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            disabled={loading}
+            onClick={handleGoogle}
+          >
+            Continue with Google
+          </Button>
+        </FieldGroup>
+      </form>
+
+      <p className="text-center text-sm text-muted-foreground">
+        Already have an account?{' '}
+        <Link
+          to={withRedirect('/login', redirect)}
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          Sign in
+        </Link>
+      </p>
+    </AuthCard>
   )
 }

@@ -57,7 +57,10 @@
       "PowerShell(gh issue *)",
       "Bash(codex exec *)",
       "PowerShell(git push *)",
-      "PowerShell(gh repo view FruityShuffles/ez-vote --json visibility,isPrivate)"
+      "PowerShell(gh repo view FruityShuffles/ez-vote --json visibility,isPrivate)",
+      "Bash(supabase --version)",
+      "Bash(deno --version)",
+      "Bash(npm --version)"
     ]
   }
 }

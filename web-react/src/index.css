@@ -48,73 +48,80 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Tokens are the Material 3 ColorScheme.fromSeed(Colors.indigo) palette (seed
+   #3F51B5) — the exact scheme the frozen Flutter app renders (lib/app.dart) —
+   mapped to shadcn's semantic roles so the React cutover is non-jarring (M7).
+   Values were generated from @material/material-color-utilities; the seed and
+   role→token mapping are documented in docs/Migration/Design System.md, which is
+   the source of truth for regenerating them. Flutter is light-only; the .dark
+   block is the M3 dark scheme retained for a future toggle (no toggle today). */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.9834 0.0097 305.41);
+  --foreground: oklch(0.2248 0.0116 285.43);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --card-foreground: oklch(0.2248 0.0116 285.43);
+  --popover: oklch(0.9657 0.0111 303.11);
+  --popover-foreground: oklch(0.2248 0.0116 285.43);
+  --primary: oklch(0.4877 0.0891 274.79);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.9162 0.0325 283.84);
+  --secondary-foreground: oklch(0.3991 0.0322 277.81);
+  --muted: oklch(0.9318 0.0109 297.62);
+  --muted-foreground: oklch(0.3975 0.015 285.7);
+  --accent: oklch(0.9162 0.0325 283.84);
+  --accent-foreground: oklch(0.3991 0.0322 277.81);
+  --destructive: oklch(0.506 0.1927 27.7);
+  --border: oklch(0.8283 0.0153 294.41);
+  --input: oklch(0.8283 0.0153 294.41);
+  --ring: oklch(0.4877 0.0891 274.79);
+  --chart-1: oklch(0.4877 0.0891 274.79);
+  --chart-2: oklch(0.4899 0.061 337.06);
+  --chart-3: oklch(0.4845 0.0337 280.78);
+  --chart-4: oklch(0.506 0.1927 27.7);
+  --chart-5: oklch(0.9147 0.0422 282.6);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.9657 0.0111 303.11);
+  --sidebar-foreground: oklch(0.2248 0.0116 285.43);
+  --sidebar-primary: oklch(0.4877 0.0891 274.79);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.9162 0.0325 283.84);
+  --sidebar-accent-foreground: oklch(0.3991 0.0322 277.81);
+  --sidebar-border: oklch(0.8283 0.0153 294.41);
+  --sidebar-ring: oklch(0.4877 0.0891 274.79);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.1879 0.0103 276.44);
+  --foreground: oklch(0.9144 0.0112 303.1);
+  --card: oklch(0.1651 0.0106 276.28);
+  --card-foreground: oklch(0.9144 0.0112 303.1);
+  --popover: oklch(0.2248 0.0116 285.43);
+  --popover-foreground: oklch(0.9144 0.0112 303.1);
+  --primary: oklch(0.8312 0.0848 277.76);
+  --primary-foreground: oklch(0.3163 0.0942 271.92);
+  --secondary: oklch(0.3991 0.0322 277.81);
+  --secondary-foreground: oklch(0.9162 0.0325 283.84);
+  --muted: oklch(0.2834 0.0109 285.68);
+  --muted-foreground: oklch(0.8283 0.0153 294.41);
+  --accent: oklch(0.3991 0.0322 277.81);
+  --accent-foreground: oklch(0.9162 0.0325 283.84);
+  --destructive: oklch(0.8383 0.0891 26.76);
+  --border: oklch(0.3975 0.015 285.7);
+  --input: oklch(0.3975 0.015 285.7);
+  --ring: oklch(0.8312 0.0848 277.76);
+  --chart-1: oklch(0.8312 0.0848 277.76);
+  --chart-2: oklch(0.8363 0.0631 339.06);
+  --chart-3: oklch(0.8294 0.0335 281.86);
+  --chart-4: oklch(0.8383 0.0891 26.76);
+  --chart-5: oklch(0.4018 0.0914 273.68);
+  --sidebar: oklch(0.2248 0.0116 285.43);
+  --sidebar-foreground: oklch(0.9144 0.0112 303.1);
+  --sidebar-primary: oklch(0.8312 0.0848 277.76);
+  --sidebar-primary-foreground: oklch(0.3163 0.0942 271.92);
+  --sidebar-accent: oklch(0.3991 0.0322 277.81);
+  --sidebar-accent-foreground: oklch(0.9162 0.0325 283.84);
+  --sidebar-border: oklch(0.3975 0.015 285.7);
+  --sidebar-ring: oklch(0.8312 0.0848 277.76);
 }
 
 @layer base {
