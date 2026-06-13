@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Muted } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import { useElectionResults } from '@/lib/results'
+import { useElectionResults, winnersOf } from '@/lib/results'
 import type { ElectionResult, IrvRound, ResultData } from '@/lib/results'
 
 // Read-only port of `lib/presentation/widgets/results_view.dart` (M8). Renders
@@ -259,10 +259,4 @@ function StarDetails({ data }: { data: ResultData }) {
       )}
     </div>
   )
-}
-
-/** Winner names for a result: explicit `winners`, else the single `winner`. */
-function winnersOf(data: ResultData): string[] {
-  if (data.winners != null) return data.winners
-  return data.winner != null ? [data.winner] : []
 }

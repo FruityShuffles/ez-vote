@@ -56,6 +56,36 @@ export function sortResults(results: ElectionResult[]): ElectionResult[] {
   return [...results].sort((a, b) => rank(a.algorithm) - rank(b.algorithm))
 }
 
+/** Winner names for a result: explicit `winners`, else the single `winner`. */
+export function winnersOf(data: ResultData): string[] {
+  if (data.winners != null) return data.winners
+  return data.winner != null ? [data.winner] : []
+}
+
+/**
+ * Short winner summary for a closed election across its scored algorithms
+ * ("Winner: Alice" / "Tied: Alice & Bob"), or null when nothing is decided.
+ * FPTP is excluded — it's a reference comparison, not a scored method. Ported
+ * from `_winnersLabel` in `lib/presentation/screens/home_screen.dart`; used on
+ * the dashboard election cards.
+ */
+export function winnersLabel(results: ElectionResult[]): string | null {
+  const wins: Record<string, number> = {}
+  for (const r of results) {
+    if (r.algorithm === 'fptp') continue
+    for (const name of winnersOf(r.result_data)) {
+      wins[name] = (wins[name] ?? 0) + 1
+    }
+  }
+  const names = Object.keys(wins)
+  if (names.length === 0) return null
+  const maxWins = Math.max(...names.map((n) => wins[n]))
+  const leaders = names.filter((n) => wins[n] === maxWins)
+  return leaders.length === 1
+    ? `Winner: ${leaders[0]}`
+    : `Tied: ${leaders.join(' & ')}`
+}
+
 export const resultsQueryKey = (electionId: string) =>
   ['results', electionId] as const
 
@@ -64,7 +94,10 @@ export const resultsQueryKey = (electionId: string) =>
  * Read-only: RLS already restricts `results` reads to election viewers, so this
  * surface is implicitly auth-gated.
  */
-export function useElectionResults(electionId: string) {
+export function useElectionResults(
+  electionId: string,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: resultsQueryKey(electionId),
     queryFn: async (): Promise<ElectionResult[]> => {
@@ -75,5 +108,9 @@ export function useElectionResults(electionId: string) {
       if (error) throw error
       return sortResults((data ?? []) as ElectionResult[])
     },
+    // Lets the dashboard cards skip the fetch for non-closed elections, which
+    // have no results yet (parity with Flutter watching `resultsProvider` only
+    // when closed). Undefined ⇒ enabled, so the M8 results view is unaffected.
+    enabled: options?.enabled,
   })
 }

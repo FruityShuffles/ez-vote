@@ -6,7 +6,7 @@ import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { ResultsList } from '@/components/results/ResultsView'
-import { sortResults } from '@/lib/results'
+import { sortResults, winnersLabel } from '@/lib/results'
 import type { ElectionResult } from '@/lib/results'
 
 // Parity tests for the M8 results view (parity checklist §2: RES-01…RES-04,
@@ -68,6 +68,30 @@ describe('sortResults — RES-01 canonical order', () => {
       'fptp',
       'mystery',
     ])
+  })
+})
+
+describe('winnersLabel — dashboard card summary', () => {
+  it('labels a single overall winner, excluding FPTP', () => {
+    const results = [
+      makeResult('approval', { winner: 'Alice', winners: ['Alice'] }),
+      makeResult('irv', { winner: 'Alice', winners: ['Alice'] }),
+      makeResult('fptp', { winner: 'Bob', winners: ['Bob'] }),
+    ]
+    expect(winnersLabel(results)).toBe('Winner: Alice')
+  })
+
+  it('joins a tie across methods with " & "', () => {
+    const results = [
+      makeResult('approval', { winners: ['Alice'] }),
+      makeResult('irv', { winners: ['Bob'] }),
+    ]
+    expect(winnersLabel(results)).toBe('Tied: Alice & Bob')
+  })
+
+  it('returns null when there are no scored winners', () => {
+    expect(winnersLabel([makeResult('fptp', { winner: 'Bob' })])).toBeNull()
+    expect(winnersLabel([])).toBeNull()
   })
 })
 
