@@ -1,0 +1,28 @@
+{
+  "name": "build-payload-A",
+  "op": "buildPayload",
+  "description": "Template A: direct IRV rankings only.",
+  "input": {
+    "template": "A",
+    "state": {
+      "rankings": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": false
+  },
+  "expected": {
+    "irv": [
+      "a",
+      "b",
+      "c"
+    ]
+  }
+}

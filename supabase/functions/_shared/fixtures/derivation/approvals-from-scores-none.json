@@ -1,0 +1,17 @@
+{
+  "name": "approvals-from-scores-none",
+  "op": "deriveApprovalsFromScores",
+  "description": "Nobody meets the cutoff → empty.",
+  "input": {
+    "scores": {
+      "a": 1,
+      "b": 2
+    },
+    "candidateIds": [
+      "a",
+      "b"
+    ],
+    "cutoff": 3
+  },
+  "expected": []
+}

@@ -1,0 +1,17 @@
+{
+  "name": "approvals-from-ranking-normal",
+  "op": "deriveApprovalsFromRanking",
+  "description": "Approve the first topK of the ranking.",
+  "input": {
+    "ranking": [
+      "a",
+      "b",
+      "c"
+    ],
+    "topK": 2
+  },
+  "expected": [
+    "a",
+    "b"
+  ]
+}

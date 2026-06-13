@@ -1,0 +1,23 @@
+{
+  "name": "derive-ranking-zeros-at-bottom",
+  "op": "deriveRanking",
+  "description": "Zero-scored candidates sort last in candidate order.",
+  "input": {
+    "scores": {
+      "a": 5,
+      "b": 0,
+      "c": 0
+    },
+    "tieBreaks": {},
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": [
+    "a",
+    "b",
+    "c"
+  ]
+}

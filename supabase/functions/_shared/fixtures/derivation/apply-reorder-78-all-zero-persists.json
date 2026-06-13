@@ -1,0 +1,38 @@
+{
+  "name": "apply-reorder-78-all-zero-persists",
+  "op": "applyReorder",
+  "description": "#78 ex.1: reordering all-zero candidates now persists (carried in tieBreaks[0]).",
+  "input": {
+    "scores": {
+      "a": 0,
+      "b": 0,
+      "c": 0
+    },
+    "displayOrder": [
+      "a",
+      "b",
+      "c"
+    ],
+    "oldIndex": 0,
+    "newIndex": 2
+  },
+  "expected": {
+    "scores": {
+      "a": 0,
+      "b": 0,
+      "c": 0
+    },
+    "tieBreaks": {
+      "0": [
+        "b",
+        "a",
+        "c"
+      ]
+    },
+    "order": [
+      "b",
+      "a",
+      "c"
+    ]
+  }
+}

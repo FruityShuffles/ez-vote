@@ -1,0 +1,24 @@
+{
+  "name": "sync-tiebreaks-new-tie",
+  "op": "syncTieBreaks",
+  "description": "A newly-formed tie group is recorded.",
+  "input": {
+    "tieBreaks": {},
+    "scores": {
+      "a": 4,
+      "b": 4,
+      "c": 1
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": {
+    "4": [
+      "a",
+      "b"
+    ]
+  }
+}

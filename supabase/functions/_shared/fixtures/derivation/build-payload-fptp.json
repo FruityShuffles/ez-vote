@@ -1,0 +1,26 @@
+{
+  "name": "build-payload-fptp",
+  "op": "buildPayload",
+  "description": "includeFptp with a chosen candidate appends fptp.",
+  "input": {
+    "template": "B",
+    "state": {
+      "scores": {
+        "a": 5
+      },
+      "fptpChoice": "a"
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": true
+  },
+  "expected": {
+    "star": {
+      "a": 5
+    },
+    "fptp": "a"
+  }
+}

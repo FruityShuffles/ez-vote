@@ -1,0 +1,26 @@
+{
+  "name": "build-payload-C",
+  "op": "buildPayload",
+  "description": "Template C: direct approval set only.",
+  "input": {
+    "template": "C",
+    "state": {
+      "approvals": [
+        "a",
+        "c"
+      ]
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": false
+  },
+  "expected": {
+    "approval": [
+      "a",
+      "c"
+    ]
+  }
+}

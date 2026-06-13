@@ -1,0 +1,23 @@
+{
+  "name": "derive-ranking-clean",
+  "op": "deriveRanking",
+  "description": "Distinct scores sort by score descending.",
+  "input": {
+    "scores": {
+      "a": 5,
+      "b": 3,
+      "c": 1
+    },
+    "tieBreaks": {},
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": [
+    "a",
+    "b",
+    "c"
+  ]
+}

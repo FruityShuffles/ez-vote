@@ -1,0 +1,14 @@
+{
+  "name": "approvals-from-ranking-topk0",
+  "op": "deriveApprovalsFromRanking",
+  "description": "topK <= 0 yields no approvals.",
+  "input": {
+    "ranking": [
+      "a",
+      "b",
+      "c"
+    ],
+    "topK": 0
+  },
+  "expected": []
+}

@@ -2,6 +2,8 @@
 
 Internal state and algorithms for `lib/presentation/screens/ballot_screen.dart`. See [[Ballot Templates]] for what each template looks like to the user.
 
+> **Cross-stack note (M23):** the derivation and tie-break logic documented below — `_deriveRanking`, `_deriveApprovalsFromScores`/`FromRanking`, `_syncTieBreaks`, `_rebuildTieBreaksFromOrder`, the drag-reorder score adjustment, and `_autoFptpFromScores` — is mirrored in a pure TypeScript module, `supabase/functions/_shared/derive.ts`, locked to this Dart implementation by cross-language fixtures (`tool/derive_fixtures.dart` → `fixtures/derivation/`). The React ballot port (M10) consumes that module instead of re-deriving. See [[Decisions/Client-Side Derivation]] → "Cross-Stack Source of Truth".
+
 ## State Variables
 
 ```dart

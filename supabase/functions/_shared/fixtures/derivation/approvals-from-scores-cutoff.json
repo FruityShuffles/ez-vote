@@ -1,0 +1,22 @@
+{
+  "name": "approvals-from-scores-cutoff",
+  "op": "deriveApprovalsFromScores",
+  "description": "Approve candidates at or above the cutoff, in candidate order.",
+  "input": {
+    "scores": {
+      "a": 3,
+      "b": 2,
+      "c": 5
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "cutoff": 3
+  },
+  "expected": [
+    "a",
+    "c"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "auto-fptp-tie-null",
+  "op": "autoFptpFromScores",
+  "description": "A tie at the top with no choice stays null.",
+  "input": {
+    "scores": {
+      "a": 5,
+      "b": 5
+    },
+    "candidateIds": [
+      "a",
+      "b"
+    ],
+    "currentChoice": null
+  },
+  "expected": null
+}

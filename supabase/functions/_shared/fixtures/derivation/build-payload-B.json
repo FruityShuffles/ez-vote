@@ -1,0 +1,26 @@
+{
+  "name": "build-payload-B",
+  "op": "buildPayload",
+  "description": "Template B: direct STAR scores only.",
+  "input": {
+    "template": "B",
+    "state": {
+      "scores": {
+        "a": 5,
+        "b": 3
+      }
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": false
+  },
+  "expected": {
+    "star": {
+      "a": 5,
+      "b": 3
+    }
+  }
+}

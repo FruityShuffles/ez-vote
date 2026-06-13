@@ -1,0 +1,24 @@
+{
+  "name": "sync-tiebreaks-group-dissolves",
+  "op": "syncTieBreaks",
+  "description": "A group that is no longer tied is removed.",
+  "input": {
+    "tieBreaks": {
+      "4": [
+        "a",
+        "b"
+      ]
+    },
+    "scores": {
+      "a": 4,
+      "b": 2,
+      "c": 1
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": {}
+}

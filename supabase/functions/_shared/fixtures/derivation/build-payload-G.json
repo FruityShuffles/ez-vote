@@ -1,0 +1,44 @@
+{
+  "name": "build-payload-G",
+  "op": "buildPayload",
+  "description": "Template G: scores + derived ranking + top-K of that ranking.",
+  "input": {
+    "template": "G",
+    "state": {
+      "scores": {
+        "a": 5,
+        "b": 3,
+        "c": 3
+      },
+      "tieBreaks": {
+        "3": [
+          "c",
+          "b"
+        ]
+      },
+      "approvalTopK": 2
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": false
+  },
+  "expected": {
+    "star": {
+      "a": 5,
+      "b": 3,
+      "c": 3
+    },
+    "irv": [
+      "a",
+      "c",
+      "b"
+    ],
+    "approval": [
+      "a",
+      "c"
+    ]
+  }
+}

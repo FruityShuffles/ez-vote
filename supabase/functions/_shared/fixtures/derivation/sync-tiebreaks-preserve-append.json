@@ -1,0 +1,30 @@
+{
+  "name": "sync-tiebreaks-preserve-append",
+  "op": "syncTieBreaks",
+  "description": "Existing order preserved; newly-tied member appended at the end.",
+  "input": {
+    "tieBreaks": {
+      "4": [
+        "b",
+        "a"
+      ]
+    },
+    "scores": {
+      "a": 4,
+      "b": 4,
+      "c": 4
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": {
+    "4": [
+      "b",
+      "a",
+      "c"
+    ]
+  }
+}

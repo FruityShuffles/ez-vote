@@ -1,0 +1,25 @@
+{
+  "name": "build-payload-fptp-null",
+  "op": "buildPayload",
+  "description": "includeFptp with no choice omits fptp.",
+  "input": {
+    "template": "B",
+    "state": {
+      "scores": {
+        "a": 5
+      },
+      "fptpChoice": null
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": true
+  },
+  "expected": {
+    "star": {
+      "a": 5
+    }
+  }
+}

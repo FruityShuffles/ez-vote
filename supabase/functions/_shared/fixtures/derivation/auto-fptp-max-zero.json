@@ -1,0 +1,17 @@
+{
+  "name": "auto-fptp-max-zero",
+  "op": "autoFptpFromScores",
+  "description": "No nonzero scores → no eligible FPTP candidate.",
+  "input": {
+    "scores": {
+      "a": 0,
+      "b": 0
+    },
+    "candidateIds": [
+      "a",
+      "b"
+    ],
+    "currentChoice": null
+  },
+  "expected": null
+}

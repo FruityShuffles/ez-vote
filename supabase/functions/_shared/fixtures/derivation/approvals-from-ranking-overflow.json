@@ -1,0 +1,16 @@
+{
+  "name": "approvals-from-ranking-overflow",
+  "op": "deriveApprovalsFromRanking",
+  "description": "topK beyond length returns the whole ranking.",
+  "input": {
+    "ranking": [
+      "a",
+      "b"
+    ],
+    "topK": 5
+  },
+  "expected": [
+    "a",
+    "b"
+  ]
+}

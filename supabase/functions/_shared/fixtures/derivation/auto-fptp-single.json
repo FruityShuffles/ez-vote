@@ -1,0 +1,17 @@
+{
+  "name": "auto-fptp-single",
+  "op": "autoFptpFromScores",
+  "description": "A single top scorer is auto-selected.",
+  "input": {
+    "scores": {
+      "a": 5,
+      "b": 3
+    },
+    "candidateIds": [
+      "a",
+      "b"
+    ],
+    "currentChoice": null
+  },
+  "expected": "a"
+}

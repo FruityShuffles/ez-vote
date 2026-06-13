@@ -1,0 +1,33 @@
+{
+  "name": "build-payload-D",
+  "op": "buildPayload",
+  "description": "Template D: direct rankings + top-K approvals.",
+  "input": {
+    "template": "D",
+    "state": {
+      "rankings": [
+        "a",
+        "b",
+        "c"
+      ],
+      "approvalTopK": 2
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": false
+  },
+  "expected": {
+    "irv": [
+      "a",
+      "b",
+      "c"
+    ],
+    "approval": [
+      "a",
+      "b"
+    ]
+  }
+}

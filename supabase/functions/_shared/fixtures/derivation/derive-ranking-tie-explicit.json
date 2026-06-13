@@ -1,0 +1,28 @@
+{
+  "name": "derive-ranking-tie-explicit",
+  "op": "deriveRanking",
+  "description": "A tracked tie group uses the stored tie-break order.",
+  "input": {
+    "scores": {
+      "a": 4,
+      "b": 4,
+      "c": 1
+    },
+    "tieBreaks": {
+      "4": [
+        "b",
+        "a"
+      ]
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": [
+    "b",
+    "a",
+    "c"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "approvals-from-scores-all",
+  "op": "deriveApprovalsFromScores",
+  "description": "Cutoff 0 approves everyone.",
+  "input": {
+    "scores": {
+      "a": 5,
+      "b": 4
+    },
+    "candidateIds": [
+      "a",
+      "b"
+    ],
+    "cutoff": 0
+  },
+  "expected": [
+    "a",
+    "b"
+  ]
+}

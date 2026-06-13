@@ -1,0 +1,39 @@
+{
+  "name": "build-payload-F",
+  "op": "buildPayload",
+  "description": "Template F: scores + score-derived IRV ranking.",
+  "input": {
+    "template": "F",
+    "state": {
+      "scores": {
+        "a": 5,
+        "b": 3,
+        "c": 3
+      },
+      "tieBreaks": {
+        "3": [
+          "c",
+          "b"
+        ]
+      }
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": false
+  },
+  "expected": {
+    "star": {
+      "a": 5,
+      "b": 3,
+      "c": 3
+    },
+    "irv": [
+      "a",
+      "c",
+      "b"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "apply-reorder-clamp-between",
+  "op": "applyReorder",
+  "description": "A scored candidate dragged between neighbours is clamped to their range.",
+  "input": {
+    "scores": {
+      "a": 5,
+      "b": 3,
+      "c": 1
+    },
+    "displayOrder": [
+      "a",
+      "b",
+      "c"
+    ],
+    "oldIndex": 2,
+    "newIndex": 1
+  },
+  "expected": {
+    "scores": {
+      "a": 5,
+      "b": 3,
+      "c": 3
+    },
+    "tieBreaks": {
+      "3": [
+        "c",
+        "b"
+      ]
+    },
+    "order": [
+      "a",
+      "c",
+      "b"
+    ]
+  }
+}

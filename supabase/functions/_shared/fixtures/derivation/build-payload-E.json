@@ -1,0 +1,33 @@
+{
+  "name": "build-payload-E",
+  "op": "buildPayload",
+  "description": "Template E: scores + cutoff-derived approvals.",
+  "input": {
+    "template": "E",
+    "state": {
+      "scores": {
+        "a": 4,
+        "b": 2,
+        "c": 5
+      },
+      "approvalCutoff": 3
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ],
+    "includeFptp": false
+  },
+  "expected": {
+    "star": {
+      "a": 4,
+      "b": 2,
+      "c": 5
+    },
+    "approval": [
+      "a",
+      "c"
+    ]
+  }
+}

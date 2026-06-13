@@ -1,0 +1,17 @@
+{
+  "name": "auto-fptp-tie-preserve",
+  "op": "autoFptpFromScores",
+  "description": "A tie at the top preserves an explicit current choice.",
+  "input": {
+    "scores": {
+      "a": 5,
+      "b": 5
+    },
+    "candidateIds": [
+      "a",
+      "b"
+    ],
+    "currentChoice": "a"
+  },
+  "expected": "a"
+}

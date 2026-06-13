@@ -1,0 +1,23 @@
+{
+  "name": "rebuild-tiebreaks-basic",
+  "op": "rebuildTieBreaksFromOrder",
+  "description": "Rebuild groups from an explicit order.",
+  "input": {
+    "order": [
+      "b",
+      "a",
+      "c"
+    ],
+    "scores": {
+      "a": 4,
+      "b": 4,
+      "c": 1
+    }
+  },
+  "expected": {
+    "4": [
+      "b",
+      "a"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "auto-fptp-clear",
+  "op": "autoFptpFromScores",
+  "description": "The current choice is cleared when it is no longer top.",
+  "input": {
+    "scores": {
+      "a": 3,
+      "b": 5
+    },
+    "candidateIds": [
+      "a",
+      "b"
+    ],
+    "currentChoice": "a"
+  },
+  "expected": "b"
+}

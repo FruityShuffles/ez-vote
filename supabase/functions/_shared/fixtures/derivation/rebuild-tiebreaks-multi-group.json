@@ -1,0 +1,29 @@
+{
+  "name": "rebuild-tiebreaks-multi-group",
+  "op": "rebuildTieBreaksFromOrder",
+  "description": "Multiple tie groups rebuilt from order.",
+  "input": {
+    "order": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "scores": {
+      "a": 4,
+      "b": 4,
+      "c": 2,
+      "d": 2
+    }
+  },
+  "expected": {
+    "4": [
+      "a",
+      "b"
+    ],
+    "2": [
+      "c",
+      "d"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "derive-ranking-untracked-tie",
+  "op": "deriveRanking",
+  "description": "A tie with no tie-break entry falls back to original candidate order.",
+  "input": {
+    "scores": {
+      "a": 4,
+      "b": 4,
+      "c": 1
+    },
+    "tieBreaks": {},
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": [
+    "a",
+    "b",
+    "c"
+  ]
+}

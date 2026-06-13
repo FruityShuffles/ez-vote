@@ -1,0 +1,32 @@
+{
+  "name": "apply-reorder-83-next-under-top",
+  "op": "applyReorder",
+  "description": "#83: the next 0-score candidate dragged just under the 5 becomes 4.",
+  "input": {
+    "scores": {
+      "c": 5,
+      "a": 0,
+      "b": 0
+    },
+    "displayOrder": [
+      "c",
+      "a",
+      "b"
+    ],
+    "oldIndex": 2,
+    "newIndex": 1
+  },
+  "expected": {
+    "scores": {
+      "c": 5,
+      "a": 0,
+      "b": 4
+    },
+    "tieBreaks": {},
+    "order": [
+      "c",
+      "b",
+      "a"
+    ]
+  }
+}

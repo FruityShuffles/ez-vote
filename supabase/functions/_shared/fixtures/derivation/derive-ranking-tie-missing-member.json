@@ -1,0 +1,28 @@
+{
+  "name": "derive-ranking-tie-missing-member",
+  "op": "deriveRanking",
+  "description": "Tie-break order missing a group member appends it in candidate order.",
+  "input": {
+    "scores": {
+      "a": 4,
+      "b": 4,
+      "c": 4
+    },
+    "tieBreaks": {
+      "4": [
+        "c",
+        "a"
+      ]
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": [
+    "c",
+    "a",
+    "b"
+  ]
+}

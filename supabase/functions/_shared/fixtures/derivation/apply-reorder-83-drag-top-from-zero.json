@@ -1,0 +1,37 @@
+{
+  "name": "apply-reorder-83-drag-top-from-zero",
+  "op": "applyReorder",
+  "description": "#83: dragging a 0-score candidate to the top from all-zero bumps it to 5.",
+  "input": {
+    "scores": {
+      "a": 0,
+      "b": 0,
+      "c": 0
+    },
+    "displayOrder": [
+      "a",
+      "b",
+      "c"
+    ],
+    "oldIndex": 2,
+    "newIndex": 0
+  },
+  "expected": {
+    "scores": {
+      "a": 0,
+      "b": 0,
+      "c": 5
+    },
+    "tieBreaks": {
+      "0": [
+        "a",
+        "b"
+      ]
+    },
+    "order": [
+      "c",
+      "a",
+      "b"
+    ]
+  }
+}

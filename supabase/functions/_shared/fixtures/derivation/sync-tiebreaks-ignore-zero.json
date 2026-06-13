@@ -1,0 +1,17 @@
+{
+  "name": "sync-tiebreaks-ignore-zero",
+  "op": "syncTieBreaks",
+  "description": "Score-0 ties are not tracked.",
+  "input": {
+    "tieBreaks": {},
+    "scores": {
+      "a": 0,
+      "b": 0
+    },
+    "candidateIds": [
+      "a",
+      "b"
+    ]
+  },
+  "expected": {}
+}

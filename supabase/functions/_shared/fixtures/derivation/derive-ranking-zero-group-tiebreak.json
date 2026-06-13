@@ -1,0 +1,28 @@
+{
+  "name": "derive-ranking-zero-group-tiebreak",
+  "op": "deriveRanking",
+  "description": "A tie-break entry for score 0 (e.g. from a drag rebuild) is honored.",
+  "input": {
+    "scores": {
+      "a": 5,
+      "b": 0,
+      "c": 0
+    },
+    "tieBreaks": {
+      "0": [
+        "c",
+        "b"
+      ]
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": [
+    "a",
+    "c",
+    "b"
+  ]
+}

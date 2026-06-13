@@ -1,0 +1,30 @@
+{
+  "name": "sync-tiebreaks-member-leaves",
+  "op": "syncTieBreaks",
+  "description": "A candidate that left the score keeps the group but is dropped from it.",
+  "input": {
+    "tieBreaks": {
+      "4": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    "scores": {
+      "a": 4,
+      "b": 4,
+      "c": 1
+    },
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": {
+    "4": [
+      "a",
+      "b"
+    ]
+  }
+}

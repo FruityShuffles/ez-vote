@@ -1,0 +1,23 @@
+{
+  "name": "rebuild-tiebreaks-includes-zero",
+  "op": "rebuildTieBreaksFromOrder",
+  "description": "Unlike sync, rebuild keeps a score-0 tie group (preserves drag order).",
+  "input": {
+    "order": [
+      "a",
+      "c",
+      "b"
+    ],
+    "scores": {
+      "a": 5,
+      "b": 0,
+      "c": 0
+    }
+  },
+  "expected": {
+    "0": [
+      "c",
+      "b"
+    ]
+  }
+}

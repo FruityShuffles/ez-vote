@@ -1,0 +1,19 @@
+{
+  "name": "derive-ranking-all-zero",
+  "op": "deriveRanking",
+  "description": "All-zero scores keep original candidate order (no tie-break for 0).",
+  "input": {
+    "scores": {},
+    "tieBreaks": {},
+    "candidateIds": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "expected": [
+    "a",
+    "b",
+    "c"
+  ]
+}
