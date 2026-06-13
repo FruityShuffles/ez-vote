@@ -99,9 +99,22 @@ function BallotForm({
   // Soft zero-approval warning fires once per ballot session (BAL-12).
   const zeroWarnedRef = useRef(false)
 
+  // Keep the in-progress ballot in sync with the live candidate list (BAL-10).
+  // Keyed off the candidate *ids*, not a count, so it fires however the list
+  // changes — the ad-hoc poll below, a background refetch on window focus, or the
+  // pre-submit gate's `setQueryData`. `merge` preserves the voter's work.
+  const merge = ballot.merge
+  const candidateKey = candidates.map((c) => c.id).join(',')
+  const syncedKeyRef = useRef(candidateKey)
+  useEffect(() => {
+    if (candidateKey === syncedKeyRef.current) return
+    syncedKeyRef.current = candidateKey
+    merge(candidateKey === '' ? [] : candidateKey.split(','))
+  }, [candidateKey, merge])
+
   // Ad-hoc candidate polling (BAL-10): while an open election accepts
-  // voter-suggested candidates, poll the count and merge any change into the
-  // in-progress ballot without discarding work. (Realtime is M15.)
+  // voter-suggested candidates, poll the count and, on a change, pull the fresh
+  // list (the sync effect above merges it) and notify. (Realtime is M15.)
   const adHoc =
     election.allow_voter_candidates && election.status === 'open' && !viewOnly
   const countQuery = useCandidateCount(election.id, { enabled: adHoc })
@@ -109,19 +122,11 @@ function BallotForm({
 
   useEffect(() => {
     if (!adHoc || polledCount == null || polledCount === candidates.length) return
-    let cancelled = false
-    void fetchCandidates(election.id).then((fresh) => {
-      if (cancelled) return
-      ballot.merge(fresh.map((c) => c.id))
-      qc.setQueryData(electionKeys.candidates(election.id), fresh)
-      toast('Candidates have been updated — your ballot has been adjusted')
+    void qc.invalidateQueries({
+      queryKey: electionKeys.candidates(election.id),
     })
-    return () => {
-      cancelled = true
-    }
-    // Re-run only when the polled count diverges from the rendered list.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [polledCount, candidates.length, adHoc, election.id])
+    toast('Candidates have been updated — your ballot has been adjusted')
+  }, [polledCount, candidates.length, adHoc, election.id, qc])
 
   const title = viewOnly
     ? 'View Ballot'
@@ -148,29 +153,35 @@ function BallotForm({
       return
     }
 
-    // 3. Pre-submit candidate gate (BAL-11): if candidates changed since the
-    // ballot was built, merge + warn and do NOT submit — the voter reviews first.
-    if (election.allow_voter_candidates) {
-      const fresh = await fetchCandidates(election.id)
-      const freshIds = new Set(fresh.map((c) => c.id))
-      const current = candidates.map((c) => c.id)
-      const changed =
-        fresh.length !== current.length || current.some((cid) => !freshIds.has(cid))
-      if (changed) {
-        ballot.merge(fresh.map((c) => c.id))
-        qc.setQueryData(electionKeys.candidates(election.id), fresh)
-        toast('New candidates were added — please review your ballot before submitting')
-        return
-      }
-    }
-
-    // 4. Persist, then optionally recompute realtime results (skipped when the
-    // payload is unchanged — BAL-13).
-    const payload = ballot.getPayload()
-    const changed = !payloadsEqual(payload, existingBallot?.payload ?? null)
     try {
+      // 3. Pre-submit candidate gate (BAL-11): if candidates changed since the
+      // ballot was built, refresh + warn and do NOT submit — the sync effect
+      // merges the new list and the voter reviews before re-submitting.
+      if (election.allow_voter_candidates) {
+        const fresh = await fetchCandidates(election.id)
+        const freshIds = new Set(fresh.map((c) => c.id))
+        const current = candidates.map((c) => c.id)
+        const changed =
+          fresh.length !== current.length ||
+          current.some((cid) => !freshIds.has(cid))
+        if (changed) {
+          qc.setQueryData(electionKeys.candidates(election.id), fresh)
+          toast(
+            'New candidates were added — please review your ballot before submitting',
+          )
+          return
+        }
+      }
+
+      // 4. Persist, then optionally recompute realtime results (skipped when the
+      // payload is unchanged — BAL-13).
+      const payload = ballot.getPayload()
+      const payloadChanged = !payloadsEqual(
+        payload,
+        existingBallot?.payload ?? null,
+      )
       await upsert.mutateAsync(payload)
-      if (election.realtime_results && changed) {
+      if (election.realtime_results && payloadChanged) {
         void triggerRealtimeCompute(election.id)
       }
       toast.success('Your ballot has been submitted')

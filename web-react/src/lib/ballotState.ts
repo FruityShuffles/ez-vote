@@ -4,6 +4,7 @@ import {
   buildPayload,
   deriveApprovalsFromScores,
   deriveRanking,
+  rebuildTieBreaksFromOrder,
   syncTieBreaks,
   type Payload,
   type Scores,
@@ -136,7 +137,18 @@ export function initialBallotState(
   }
 
   if (hasStar) {
-    state.tieBreaks = syncTieBreaks(state.tieBreaks, state.scores, candidateIds)
+    if (payload.irv != null) {
+      // Restore the manual tie-break order from the saved ranking so view-only
+      // mode shows exactly what was submitted, and an untouched re-submit can't
+      // silently flip a tie. (The Flutter reference rebuilt tie-breaks from
+      // candidate order here, losing the voter's saved order — fixed in React.)
+      // Candidates missing from the saved ranking are appended in candidate order.
+      const order = payload.irv.filter((id) => currentIds.has(id))
+      for (const id of candidateIds) if (!order.includes(id)) order.push(id)
+      state.tieBreaks = rebuildTieBreaksFromOrder(order, state.scores)
+    } else {
+      state.tieBreaks = syncTieBreaks(state.tieBreaks, state.scores, candidateIds)
+    }
   }
 
   return state
@@ -333,6 +345,10 @@ export function buildSubmitPayload(
   candidateIds: string[],
   includeFptp: boolean,
 ): Payload {
+  // FPTP is only carried by templates B/C/E — the picker is shown and validated
+  // only there. IRV templates (A/D/F/G) derive first choice from the ranking, so
+  // a score-driven `fptpChoice` must never leak into their payloads (BAL-06).
+  const emitFptp = includeFptp && ['B', 'C', 'E'].includes(template)
   return buildPayload(
     template,
     {
@@ -345,6 +361,6 @@ export function buildSubmitPayload(
       fptpChoice: state.fptpChoice,
     },
     candidateIds,
-    includeFptp,
+    emitFptp,
   )
 }

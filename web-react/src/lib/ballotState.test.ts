@@ -69,6 +69,27 @@ describe('derivation rules per template (BAL-02)', () => {
     expect(payload.irv).toEqual(['a', 'b', 'c'])
     expect(payload.approval).toEqual(['a'])
   })
+
+  it('never emits a score-driven FPTP for IRV templates F/G (BAL-06)', () => {
+    let s = initialBallotState(IDS, ['star', 'irv'])
+    s = setScore(s, 'a', 5, IDS) // autoFptp sets fptpChoice internally
+    expect(s.fptpChoice).toBe('a')
+    // include_fptp is on, but template F must derive first choice from irv[0].
+    expect(buildSubmitPayload(s, 'F', IDS, true).fptp).toBeUndefined()
+    // B still carries it.
+    expect(buildSubmitPayload(s, 'B', IDS, true).fptp).toBe('a')
+  })
+})
+
+describe('edit restores the saved tie-break order for F/G (BAL-03)', () => {
+  it('rebuilds the manual ranking from the saved irv, not candidate order', () => {
+    // b and a tie at 3; the saved ranking put b before a.
+    const s = initialBallotState(IDS, ['star', 'irv'], {
+      star: { a: 3, b: 3, c: 5 },
+      irv: ['c', 'b', 'a'],
+    })
+    expect(displayRanking(s, IDS)).toEqual(['c', 'b', 'a'])
+  })
 })
 
 describe('manual tie-break survives later score change (BAL-03)', () => {
