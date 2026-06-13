@@ -1,5 +1,22 @@
 # Architecture Overview
 
+> **A Flutter → React migration is in progress** ([[Migration/Overview]]). The Flutter app described below is the frozen parity reference and remains deployed until cutover. The React app being built to parity lives in `web-react/` (see "React App" below). This document describes the Flutter architecture; it will be reframed around React at decommission (M22).
+
+## React App (`web-react/`)
+
+Scaffolded in M5 per the [[Migration/Tech Stack]] decisions. A client-rendered SPA that deploys as static assets to Cloudflare Pages exactly like the Flutter build (own `_redirects` SPA fallback + `_headers`), against the **same** Supabase backend.
+
+| Concern | Flutter | React (`web-react/`) |
+|---|---|---|
+| Build / rendering | Flutter web (CanvasKit) | Vite + React Router SPA |
+| Server state | Riverpod `FutureProvider`s (see Provider Taxonomy) | TanStack Query (one key per provider) |
+| Client state | Riverpod notifiers | Zustand (minimal — chiefly the ballot draft) |
+| Styling | Flutter theme | Tailwind CSS |
+| Components / a11y | Material widgets | shadcn + Base UI primitives (owned source) |
+| Env / credentials | `--dart-define` → `SUPABASE_*` | Vite build-time `import.meta.env.VITE_SUPABASE_*` |
+
+Layout: routing in `src/router.tsx`; routes in `src/routes/`; Supabase client in `src/lib/supabase.ts`; Zustand stores in `src/stores/`; owned shadcn components in `src/components/ui/`. CI (`.github/workflows/web-react-ci.yml`) runs lint + type-check + Vitest + build on `web-react/**` changes. Staging deploys to the `ez-vote-react` Cloudflare Pages project. Auth/session wiring is M6; surface ports are M8+.
+
 ## Three-Layer Clean Architecture
 
 ```

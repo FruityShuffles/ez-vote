@@ -12,7 +12,7 @@ The framework, data, styling, and component decisions for the React build of EZV
 | Server state | **TanStack Query** |
 | Client state | **Zustand** (kept minimal — primarily the in-progress ballot) |
 | Styling | **Tailwind CSS** |
-| Components / a11y | **Radix UI primitives + shadcn** (components copied into the repo and owned) |
+| Components / a11y | **shadcn + headless primitives** (components copied into the repo and owned) — now **Base UI** (`@base-ui/react`), see note in Decision 4 |
 
 All of these libraries are free and open-source — there are no licensing costs, and cost did not drive any choice except hosting (see Decision 1).
 
@@ -75,9 +75,11 @@ The single capability a pure SPA cannot provide is **per-URL server-rendered HTM
 
 ---
 
-## Decision 4 — Components & accessibility: Radix primitives + shadcn
+## Decision 4 — Components & accessibility: shadcn + headless primitives
 
-**Decision:** **Radix UI** headless primitives, assembled via **shadcn** (component source copied into the repo and owned, styled with Tailwind).
+**Decision:** **shadcn**-assembled headless primitives (component source copied into the repo and owned, styled with Tailwind), for expert-grade accessibility we style ourselves.
+
+> **Implementation note (added during M5 scaffold, 2026-06-13):** the actual decision here is the *posture* — **headless primitives + owned source via shadcn**, chosen over a full styled kit (MUI/Mantine) and over fully-custom headless-only. The RFC named **Radix** as those primitives because "shadcn" had been synonymous with Radix-based for years. When `npx shadcn@latest` (v4.11) was first run in M5, its current default style (`base-nova`) is built on **Base UI** (`@base-ui/react`) — the headless library from a maintainer team overlapping Radix/Floating UI, i.e. Radix's spiritual successor — not Radix. We adopted Base UI rather than pinning an older shadcn major to force Radix, because it stays on shadcn's maintained/default path and satisfies the same a11y rationale below verbatim. The ballot's hardest interactions (drag-reorder, tie-breaks, auto-score-zero — checklist §4) are custom and do not ride on these primitives regardless of which library backs them. The text below reads "Radix" historically; "Base UI" is the concrete library in the repo.
 
 ### Why
 

@@ -1,0 +1,53 @@
+name: web-react CI
+
+# Gates the React migration app (web-react/, scaffolded in M5). Type-checks,
+# lints, runs the Vitest suite, and proves a production build succeeds. Scoped
+# to web-react/ so it stays independent of the Deno algorithm tests
+# (tabulate-tests.yml) and the frozen Flutter app.
+
+on:
+  push:
+    paths:
+      - "web-react/**"
+      - ".github/workflows/web-react-ci.yml"
+  pull_request:
+    paths:
+      - "web-react/**"
+      - ".github/workflows/web-react-ci.yml"
+
+defaults:
+  run:
+    working-directory: web-react
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web-react/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test:run
+
+      - name: Build
+        # Dummy Supabase values: Vite inlines VITE_* at build time, so the build
+        # only needs them present and well-formed. Real values are injected by
+        # the Cloudflare Pages build env for staging/production deploys.
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-dummy-anon-key
+        run: npm run build
