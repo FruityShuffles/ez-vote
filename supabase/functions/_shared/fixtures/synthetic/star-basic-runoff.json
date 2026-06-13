@@ -1,0 +1,32 @@
+{
+  "name": "star-basic-runoff",
+  "description": "STAR: top two by score advance, runoff decided by per-ballot preference.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["star"],
+    "include_fptp": false,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 },
+      { "id": "cand-3", "name": "Carol", "position": 2 }
+    ],
+    "ballots": [
+      { "payload": { "star": { "cand-1": 5, "cand-2": 3, "cand-3": 1 } } },
+      { "payload": { "star": { "cand-1": 4, "cand-2": 2, "cand-3": 0 } } },
+      { "payload": { "star": { "cand-1": 5, "cand-2": 4, "cand-3": 2 } } },
+      { "payload": { "star": { "cand-1": 1, "cand-2": 5, "cand-3": 3 } } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "star",
+      "result_data": {
+        "winners": ["Alice"],
+        "winner": "Alice",
+        "runner_up": "Bob",
+        "scores": { "Alice": 15, "Bob": 14, "Carol": 6 },
+        "runoff": { "Alice": 3, "Bob": 1 }
+      }
+    }
+  ]
+}

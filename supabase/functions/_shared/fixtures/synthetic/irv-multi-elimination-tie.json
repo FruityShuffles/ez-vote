@@ -1,0 +1,43 @@
+{
+  "name": "irv-multi-elimination-tie",
+  "description": "Two candidates tied for fewest votes are eliminated together in one round; their transfers decide a later-round majority winner.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["irv"],
+    "include_fptp": false,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 },
+      { "id": "cand-3", "name": "Carol", "position": 2 },
+      { "id": "cand-4", "name": "Dave", "position": 3 }
+    ],
+    "ballots": [
+      { "payload": { "irv": ["cand-1"] } },
+      { "payload": { "irv": ["cand-1"] } },
+      { "payload": { "irv": ["cand-1"] } },
+      { "payload": { "irv": ["cand-1"] } },
+      { "payload": { "irv": ["cand-2", "cand-1"] } },
+      { "payload": { "irv": ["cand-2", "cand-1"] } },
+      { "payload": { "irv": ["cand-2", "cand-1"] } },
+      { "payload": { "irv": ["cand-3", "cand-1"] } },
+      { "payload": { "irv": ["cand-4", "cand-2"] } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "irv",
+      "result_data": {
+        "winners": ["Alice"],
+        "winner": "Alice",
+        "runner_up": "Bob",
+        "rounds": [
+          {
+            "counts": { "Alice": 4, "Bob": 3, "Carol": 1, "Dave": 1 },
+            "eliminated": ["Carol", "Dave"]
+          },
+          { "counts": { "Alice": 5, "Bob": 4 }, "eliminated": null }
+        ]
+      }
+    }
+  ]
+}

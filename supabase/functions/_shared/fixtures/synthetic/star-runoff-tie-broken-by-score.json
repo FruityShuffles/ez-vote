@@ -1,0 +1,32 @@
+{
+  "name": "star-runoff-tie-broken-by-score",
+  "description": "STAR runoff ends in a preference tie; total score breaks it in the higher-scorer's favor.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["star"],
+    "include_fptp": false,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 },
+      { "id": "cand-3", "name": "Carol", "position": 2 }
+    ],
+    "ballots": [
+      { "payload": { "star": { "cand-1": 5, "cand-2": 3, "cand-3": 0 } } },
+      { "payload": { "star": { "cand-1": 4, "cand-2": 5, "cand-3": 1 } } },
+      { "payload": { "star": { "cand-1": 2, "cand-2": 4, "cand-3": 5 } } },
+      { "payload": { "star": { "cand-1": 5, "cand-2": 2, "cand-3": 3 } } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "star",
+      "result_data": {
+        "winners": ["Alice"],
+        "winner": "Alice",
+        "runner_up": "Bob",
+        "scores": { "Alice": 16, "Bob": 14, "Carol": 9 },
+        "runoff": { "Alice": 2, "Bob": 2 }
+      }
+    }
+  ]
+}

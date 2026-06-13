@@ -1,0 +1,30 @@
+name: Tabulation golden tests
+
+# Guards the shared voting-tabulation helper against behavioral drift (M2).
+# Runs the golden corpus (synthetic + committed historical fixtures) on the
+# same Deno runtime the edge function uses in production.
+
+on:
+  push:
+    paths:
+      - "supabase/functions/**"
+      - ".github/workflows/tabulate-tests.yml"
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - ".github/workflows/tabulate-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run tabulation golden tests
+        working-directory: supabase/functions
+        run: deno task test

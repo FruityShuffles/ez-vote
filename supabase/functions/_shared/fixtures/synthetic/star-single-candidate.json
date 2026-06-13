@@ -1,0 +1,28 @@
+{
+  "name": "star-single-candidate",
+  "description": "STAR with only one candidate: no runoff is possible (runoff null), the sole candidate wins.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["star"],
+    "include_fptp": false,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 }
+    ],
+    "ballots": [
+      { "payload": { "star": { "cand-1": 4 } } },
+      { "payload": { "star": { "cand-1": 2 } } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "star",
+      "result_data": {
+        "winners": ["Alice"],
+        "winner": "Alice",
+        "runner_up": null,
+        "scores": { "Alice": 6 },
+        "runoff": null
+      }
+    }
+  ]
+}

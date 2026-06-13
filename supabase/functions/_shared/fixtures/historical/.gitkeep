@@ -1,0 +1,3 @@
+# Historical golden fixtures land here when you run `deno task export-fixtures`
+# against production. The directory is intentionally tracked but empty until
+# then; the test suite tolerates an empty/absent historical/ dir.

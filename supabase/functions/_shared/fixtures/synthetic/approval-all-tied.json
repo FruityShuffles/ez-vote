@@ -1,0 +1,30 @@
+{
+  "name": "approval-all-tied",
+  "description": "Every candidate has the same tally: all are winners, runner_up is null.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["approval"],
+    "include_fptp": false,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 },
+      { "id": "cand-3", "name": "Carol", "position": 2 }
+    ],
+    "ballots": [
+      { "payload": { "approval": ["cand-1"] } },
+      { "payload": { "approval": ["cand-2"] } },
+      { "payload": { "approval": ["cand-3"] } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "approval",
+      "result_data": {
+        "winners": ["Alice", "Bob", "Carol"],
+        "winner": "Alice",
+        "runner_up": null,
+        "tallies": { "Alice": 1, "Bob": 1, "Carol": 1 }
+      }
+    }
+  ]
+}

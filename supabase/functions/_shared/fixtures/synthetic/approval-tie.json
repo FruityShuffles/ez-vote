@@ -1,0 +1,30 @@
+{
+  "name": "approval-tie",
+  "description": "Two candidates tied for the top tally are co-winners; runner_up is the next-highest.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["approval"],
+    "include_fptp": false,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 },
+      { "id": "cand-3", "name": "Carol", "position": 2 }
+    ],
+    "ballots": [
+      { "payload": { "approval": ["cand-1", "cand-2"] } },
+      { "payload": { "approval": ["cand-1", "cand-2"] } },
+      { "payload": { "approval": ["cand-3"] } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "approval",
+      "result_data": {
+        "winners": ["Alice", "Bob"],
+        "winner": "Alice",
+        "runner_up": "Carol",
+        "tallies": { "Alice": 2, "Bob": 2, "Carol": 1 }
+      }
+    }
+  ]
+}

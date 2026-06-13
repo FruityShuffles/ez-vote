@@ -1,0 +1,34 @@
+{
+  "name": "irv-majority-first-round",
+  "description": "A candidate has an outright first-round majority; no elimination occurs.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["irv"],
+    "include_fptp": false,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 },
+      { "id": "cand-3", "name": "Carol", "position": 2 }
+    ],
+    "ballots": [
+      { "payload": { "irv": ["cand-1", "cand-2", "cand-3"] } },
+      { "payload": { "irv": ["cand-1", "cand-3"] } },
+      { "payload": { "irv": ["cand-1"] } },
+      { "payload": { "irv": ["cand-2", "cand-1"] } },
+      { "payload": { "irv": ["cand-3", "cand-2"] } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "irv",
+      "result_data": {
+        "winners": ["Alice"],
+        "winner": "Alice",
+        "runner_up": "Bob",
+        "rounds": [
+          { "counts": { "Alice": 3, "Bob": 1, "Carol": 1 }, "eliminated": null }
+        ]
+      }
+    }
+  ]
+}

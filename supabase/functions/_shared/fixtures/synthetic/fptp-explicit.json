@@ -1,0 +1,31 @@
+{
+  "name": "fptp-explicit",
+  "description": "FPTP (include_fptp flag) tallying explicit payload.fptp first choices.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": [],
+    "include_fptp": true,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 },
+      { "id": "cand-3", "name": "Carol", "position": 2 }
+    ],
+    "ballots": [
+      { "payload": { "fptp": "cand-1" } },
+      { "payload": { "fptp": "cand-1" } },
+      { "payload": { "fptp": "cand-2" } },
+      { "payload": { "fptp": "cand-3" } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "fptp",
+      "result_data": {
+        "winners": ["Alice"],
+        "winner": "Alice",
+        "runner_up": "Bob",
+        "tallies": { "Alice": 2, "Bob": 1, "Carol": 1 }
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "irv-empty-ballots",
+  "description": "No ballots cast: every candidate sits at zero and ties for last, so all are co-winners.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["irv"],
+    "include_fptp": false,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 }
+    ],
+    "ballots": []
+  },
+  "expected": [
+    {
+      "algorithm": "irv",
+      "result_data": {
+        "winners": ["Alice", "Bob"],
+        "winner": "Alice",
+        "runner_up": null,
+        "rounds": [
+          { "counts": { "Alice": 0, "Bob": 0 }, "eliminated": null }
+        ]
+      }
+    }
+  ]
+}

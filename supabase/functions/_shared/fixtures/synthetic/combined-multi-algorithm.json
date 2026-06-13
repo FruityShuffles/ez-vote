@@ -1,0 +1,56 @@
+{
+  "name": "combined-multi-algorithm",
+  "description": "Orchestrator runs approval + irv and appends an FPTP comparison (falling back to irv[0]). Locks the full multi-result assembly and ordering.",
+  "source": "synthetic",
+  "input": {
+    "algorithms": ["approval", "irv"],
+    "include_fptp": true,
+    "candidates": [
+      { "id": "cand-1", "name": "Alice", "position": 0 },
+      { "id": "cand-2", "name": "Bob", "position": 1 },
+      { "id": "cand-3", "name": "Carol", "position": 2 }
+    ],
+    "ballots": [
+      { "payload": { "approval": ["cand-1", "cand-2"], "irv": ["cand-1", "cand-2", "cand-3"] } },
+      { "payload": { "approval": ["cand-1"], "irv": ["cand-1", "cand-3"] } },
+      { "payload": { "approval": ["cand-2", "cand-3"], "irv": ["cand-2", "cand-1"] } },
+      { "payload": { "approval": ["cand-1", "cand-3"], "irv": ["cand-3", "cand-2"] } },
+      { "payload": { "approval": ["cand-2"], "irv": ["cand-2", "cand-3"] } }
+    ]
+  },
+  "expected": [
+    {
+      "algorithm": "approval",
+      "result_data": {
+        "winners": ["Alice", "Bob"],
+        "winner": "Alice",
+        "runner_up": "Carol",
+        "tallies": { "Alice": 3, "Bob": 3, "Carol": 2 }
+      }
+    },
+    {
+      "algorithm": "irv",
+      "result_data": {
+        "winners": ["Bob"],
+        "winner": "Bob",
+        "runner_up": "Alice",
+        "rounds": [
+          {
+            "counts": { "Alice": 2, "Bob": 2, "Carol": 1 },
+            "eliminated": ["Carol"]
+          },
+          { "counts": { "Alice": 2, "Bob": 3 }, "eliminated": null }
+        ]
+      }
+    },
+    {
+      "algorithm": "fptp",
+      "result_data": {
+        "winners": ["Alice", "Bob"],
+        "winner": "Alice",
+        "runner_up": "Carol",
+        "tallies": { "Alice": 2, "Bob": 2, "Carol": 1 }
+      }
+    }
+  ]
+}
