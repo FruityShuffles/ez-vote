@@ -1,7 +1,10 @@
 # Edge Function: compute-results
 
 **Location:** `supabase/functions/compute-results/index.ts` (Deno)
+**Tabulation logic:** `supabase/functions/_shared/tabulate.ts` (pure TypeScript, no imports)
 **Deploy:** `supabase functions deploy compute-results --no-verify-jwt`
+
+The endpoint is a thin wrapper: load election/candidates/ballots → call the shared `tabulate()` helper → persist results → close (if requested). All algorithm code lives in `_shared/tabulate.ts`, which exports the four algorithm functions plus a `tabulate(algorithms, includeFptp, candidates, ballots)` orchestrator that owns algorithm dispatch and the FPTP→IRV fallback wiring. The module deliberately has zero Deno/network imports so it can be imported from any TypeScript runtime — it is the single source of truth that the future `simulate-counterfactual` function and the golden-test corpus also consume (see `docs/Migration/Overview.md`).
 
 The `--no-verify-jwt` flag is required because the Supabase gateway rejects ES256 user JWTs. Auth is verified inside the function itself via `supabase.auth.getUser()`.
 
@@ -23,10 +26,10 @@ Two call paths:
    If close=false: verify uid is in election_voters OR owns election
 5. Fetch all candidates for election
 6. Fetch all ballots for election (service-role client, bypasses RLS)
-7. For each algorithm in election.algorithms:
-     compute result → upsert into results table
-8. If election.include_fptp:
-     compute FPTP result → upsert
+7. Call tabulate(algorithms, include_fptp, candidates, ballots)
+     → one { algorithm, result_data } entry per algorithm,
+       plus a trailing fptp entry when include_fptp is set
+8. Upsert each entry into the results table
 9. If close=true:
      UPDATE elections SET status='closed' WHERE id=election_id
 10. Return { success: true, results: [...] }
@@ -35,6 +38,8 @@ Two call paths:
 Step 6 uses the service-role key (set via Supabase secrets, not in client bundle) to read all ballots regardless of voter ownership — required because voters can't read each other's ballots via RLS.
 
 ## Algorithm Implementations
+
+All implemented in `supabase/functions/_shared/tabulate.ts`.
 
 ### Approval
 
