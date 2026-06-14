@@ -29,5 +29,14 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
     css: true,
+    // Dummy Supabase env for tests. `src/lib/supabase.ts` fails loud when these
+    // are unset, so any suite whose import graph reaches the client needs them —
+    // this makes the suite run with no local `.env` and no CI secrets (the CI
+    // `test:run` step has none; only `build` gets dummies). The client is
+    // constructed but never hits the network in tests.
+    env: {
+      VITE_SUPABASE_URL: 'https://example.supabase.co',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    },
   },
 })
