@@ -23,3 +23,16 @@ Tapping "QR" opens an `AlertDialog` containing a 240×240 QR code (`QrImageView`
 ## Add from Prior Elections
 
 The sheet also shows a searchable list of users who have co-voted with the owner in past elections (`priorCovotersProvider`). Selecting a user calls `BallotRepository.addVoterToElection()`, which inserts a row into `election_voters` and invalidates `pendingInviteesProvider`.
+
+## React port (M12)
+
+The React app reproduces this flow against the same RPCs (`join_election`,
+`get_prior_covoters`, `add_voter_to_election`). The owner sheet is
+`web-react/src/components/elections/InviteVotersDialog.tsx` (opened from the
+"Invite Voters" button in `ElectionDetail`'s owner controls), and the join deep
+link is `web-react/src/routes/JoinElection.tsx` at `/election/:id/join`. The data
+hooks (`usePriorCovoters`, `useAddVoterToElection`, `useJoinElection`) live in
+`web-react/src/lib/elections.ts`. The QR code uses `qrcode.react`. The live
+refresh of the pending-invitees / submitted-voters lists as people vote
+(INV-02/INV-03) lands with realtime in M15; the add-time invalidation is wired
+here.

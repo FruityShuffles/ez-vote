@@ -9,6 +9,7 @@ import { Design } from '@/routes/Design'
 import { ElectionDetail } from '@/components/elections/ElectionDetail'
 import { Ballot } from '@/routes/Ballot'
 import { ElectionForm } from '@/routes/ElectionForm'
+import { JoinElection } from '@/routes/JoinElection'
 import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
 
 // Browser (history-API) routing. The Cloudflare Pages `_redirects` SPA fallback
@@ -87,6 +88,17 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <Ballot />
+      </RequireAuth>
+    ),
+  },
+  {
+    // Join via an invite link / QR (M12). RequireAuth threads `redirect=` so an
+    // unauthenticated visitor lands back here after login/signup (INV-04). The
+    // screen joins and forwards to the election detail.
+    path: '/election/:id/join',
+    element: (
+      <RequireAuth>
+        <JoinElection />
       </RequireAuth>
     ),
   },

@@ -24,6 +24,7 @@ import { StatusBadge } from '@/components/elections/StatusBadge'
 import { BallotCountRow } from '@/components/elections/BallotCountRow'
 import { PendingInviteesRow } from '@/components/elections/PendingInviteesRow'
 import { AddCandidateField } from '@/components/elections/AddCandidateField'
+import { InviteVotersDialog } from '@/components/elections/InviteVotersDialog'
 import { useAuth } from '@/auth/context'
 import {
   useCandidates,
@@ -273,18 +274,20 @@ function OwnerControls({ election }: { election: Election }) {
             </>
           )}
           {election.status === 'open' && (
-            // Invite voters (sheet, QR, prior co-voters) is M12 — not rendered here.
-            <Button
-              variant="destructive"
-              disabled={closeElection.isPending}
-              onClick={() => void close()}
-            >
-              {closeElection.isPending
-                ? 'Closing…'
-                : election.realtime_results
-                  ? 'Close Election'
-                  : 'Close & Compute Results'}
-            </Button>
+            <>
+              <InviteVotersDialog electionId={election.id} />
+              <Button
+                variant="destructive"
+                disabled={closeElection.isPending}
+                onClick={() => void close()}
+              >
+                {closeElection.isPending
+                  ? 'Closing…'
+                  : election.realtime_results
+                    ? 'Close Election'
+                    : 'Close & Compute Results'}
+              </Button>
+            </>
           )}
         </div>
       </CardContent>

@@ -39,6 +39,18 @@ export interface Candidate {
   created_at: string
 }
 
+/**
+ * A prior co-voter — someone who voted in another election the current user
+ * owns, and is not already in this election's voters. Returned by
+ * `get_prior_covoters` and offered in the invite sheet (M12). Mirrors the
+ * Flutter `Covoter` model in `lib/data/repositories/ballot_repository.dart`.
+ */
+export interface Covoter {
+  user_id: string
+  display_name: string
+  election_count: number
+}
+
 /** The current user's own ballot row. `updated_at` is server-set (BAL-14). */
 export interface Ballot {
   id: string
@@ -75,6 +87,7 @@ export const electionKeys = {
   existingBallot: (id: string) => ['existing-ballot', id] as const,
   voters: (id: string) => ['voters', id] as const,
   pendingInvitees: (id: string) => ['pending-invitees', id] as const,
+  priorCovoters: (id: string) => ['prior-covoters', id] as const,
 }
 
 /** Resolve the signed-in user id, or throw — every list below is user-scoped. */
@@ -311,6 +324,37 @@ export function usePendingInvitees(electionId: string) {
   })
 }
 
+/**
+ * Prior co-voters the owner can add to this election: users who voted in the
+ * owner's other elections and aren't already a voter here. The RPC excludes
+ * already-added users, so once a voter is added they drop off this list on the
+ * next refetch — that exclusion (not local UI state) is what makes the add
+ * "stick" across sheet close/reopen (INV-01). Ports `getPriorCovoters`.
+ */
+export function usePriorCovoters(electionId: string) {
+  return useQuery({
+    queryKey: electionKeys.priorCovoters(electionId),
+    enabled: electionId !== '',
+    queryFn: async (): Promise<Covoter[]> => {
+      const { data, error } = await supabase.rpc('get_prior_covoters', {
+        p_election_id: electionId,
+      })
+      if (error) throw error
+      return (
+        (data ?? []) as Array<{
+          user_id: string
+          display_name: string | null
+          election_count: number | null
+        }>
+      ).map((row) => ({
+        user_id: row.user_id,
+        display_name: row.display_name ?? '',
+        election_count: row.election_count ?? 1,
+      }))
+    },
+  })
+}
+
 // --- Mutations --------------------------------------------------------------
 
 /** Draft → Open. Just flips status; no compute. */
@@ -385,6 +429,48 @@ export function useAddCandidate(electionId: string) {
       // Refresh the election so `candidates_updated_at` advances, which drives
       // the voter stale-ballot warning (DET-06).
       qc.invalidateQueries({ queryKey: electionKeys.detail(electionId) })
+    },
+  })
+}
+
+/**
+ * Owner adds a prior co-voter directly to this election (invite sheet, M12).
+ * Idempotent server-side (`add_voter_to_election` … `ON CONFLICT DO NOTHING`).
+ * Invalidates both the prior-covoters list (so the added user drops off — the
+ * INV-01 persistence mechanism) and the pending-invitees list (the #84 fix:
+ * a freshly-added voter is pending until they submit). Mirrors the Flutter
+ * `_addVoter` double-invalidate.
+ */
+export function useAddVoterToElection(electionId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (voterId: string) => {
+      const { error } = await supabase.rpc('add_voter_to_election', {
+        p_election_id: electionId,
+        p_voter_id: voterId,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: electionKeys.priorCovoters(electionId) })
+      qc.invalidateQueries({ queryKey: electionKeys.pendingInvitees(electionId) })
+    },
+  })
+}
+
+/**
+ * Join an election as the current user (the `/election/:id/join` deep link).
+ * Idempotent — `join_election` ignores re-joins — so the join screen can fire
+ * it blindly on mount and fall through to the detail page. Ports
+ * `ElectionRepository.joinElection`.
+ */
+export function useJoinElection() {
+  return useMutation({
+    mutationFn: async (electionId: string) => {
+      const { error } = await supabase.rpc('join_election', {
+        p_election_id: electionId,
+      })
+      if (error) throw error
     },
   })
 }
