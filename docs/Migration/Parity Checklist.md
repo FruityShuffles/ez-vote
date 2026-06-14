@@ -127,7 +127,7 @@ These were Flutter polling bugs; the React port **keeps polling** (a 10s `useEle
 
 ## 10. Election analysis card — M16
 
-- [ ] 🟡 **ANL-01** — Cross-method comparison insights (where the algorithms agree/disagree, etc.) are generated and shown on results. Behavior currently in `lib/domain/services/election_analysis_service.dart`. _Source:_ #56, [[Features/Election Analysis]]. _Verify:_ multi-algorithm closed election → analysis card matches Flutter's insights.
+- [x] 🟡 **ANL-01** — Cross-method comparison insights (where the algorithms agree/disagree, etc.) are generated and shown on results. Behavior currently in `lib/domain/services/election_analysis_service.dart`. _Source:_ #56, [[Features/Election Analysis]]. _Verify:_ multi-algorithm closed election → analysis card matches Flutter's insights. _(M16: ported client-side to `web-react/src/lib/analysis.ts` — a verbatim port of `analyzeResults` (verdict detection + the five conditional insights) — and rendered by `AnalysisCard` in `web-react/src/components/results/ResultsView.tsx`, above the per-algorithm cards. Hidden when multiple results produce no insights (the overall-winner card already shows the consensus), matching Flutter. Branch-by-branch unit tests in `web-react/src/lib/analysis.test.ts`.)_
 
 ---
 

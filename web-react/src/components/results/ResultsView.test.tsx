@@ -152,6 +152,23 @@ describe('RES-02 — full result_data rendered field-by-field', () => {
   })
 })
 
+describe('ANL-01 — analysis card renders alongside the results', () => {
+  it('shows headline, summary, and an expandable detail list when insights exist', () => {
+    const results = [
+      makeResult('approval', { winner: 'Alice', tallies: { Alice: 8, Bob: 5 } }),
+      makeResult('fptp', { winner: 'Bob', tallies: { Bob: 6, Alice: 4 } }),
+    ]
+    render(<ResultsList results={results} />)
+    // Verdict headline (two methods disagree, no clear consensus).
+    expect(screen.getByText('Methods partially agree')).toBeInTheDocument()
+    // The approval-breadth insight is behind the disclosure.
+    expect(screen.getByText('View detailed analysis')).toBeInTheDocument()
+    expect(
+      screen.getByText('Broad support vs. first-choice support'),
+    ).toBeInTheDocument()
+  })
+})
+
 describe('RES-03 — ties shown as co-equals', () => {
   it('joins tied winners with " & " and does not promote one', () => {
     render(<ResultsList results={loadResults('synthetic', 'approval-tie')} />)

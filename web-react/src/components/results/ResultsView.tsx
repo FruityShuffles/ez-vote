@@ -1,4 +1,15 @@
-import { Award, Scale, Trophy } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  ArrowUpDown,
+  Award,
+  BarChart3,
+  GitCompare,
+  PieChart,
+  Scale,
+  Trophy,
+  UserMinus,
+  type LucideIcon,
+} from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Stack } from '@/components/ui/layout'
@@ -6,14 +17,16 @@ import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Muted } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
+import { analyzeResults, type InsightIcon } from '@/lib/analysis'
 import { useElectionResults, winnersOf } from '@/lib/results'
 import type { ElectionResult, IrvRound, ResultData } from '@/lib/results'
 
-// Read-only port of `lib/presentation/widgets/results_view.dart` (M8). Renders
-// each algorithm's `result_data` field-by-field (RES-02), in canonical order
-// (RES-01, enforced by the data hook), plus an overall-winner summary (RES-04).
-// The cross-method analysis card is intentionally **not** ported here — it is
-// M16 (ANL-01). All keys in `result_data` are candidate names, not UUIDs (TAB-06).
+// Read-only port of `lib/presentation/widgets/results_view.dart` (M8 + M16).
+// Renders each algorithm's `result_data` field-by-field (RES-02), in canonical
+// order (RES-01, enforced by the data hook), an overall-winner summary (RES-04),
+// and the cross-method analysis card (M16, ANL-01 — see `AnalysisCard` below; the
+// derivation lives in `@/lib/analysis`). All keys in `result_data` are candidate
+// names, not UUIDs (TAB-06).
 
 const ALGORITHM_LABELS: Record<string, string> = {
   approval: 'Approval Voting',
@@ -61,6 +74,7 @@ export function ResultsList({ results }: { results: ElectionResult[] }) {
   return (
     <Stack gap={4}>
       {multiple && <OverallWinnerCard results={results} />}
+      <AnalysisCard results={results} />
       {multiple ? (
         <div className={cn('grid grid-cols-1 items-start gap-4 sm:grid-cols-2', columns)}>
           {results.map((r) => (
@@ -115,6 +129,70 @@ function OverallWinnerCard({ results }: { results: ElectionResult[] }) {
             <span className="text-[13px] text-muted-foreground">{subtitle}</span>
           </div>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** lucide component for each insight's icon key. */
+const INSIGHT_ICONS: Record<InsightIcon, LucideIcon> = {
+  'compare-arrows': ArrowLeftRight,
+  'group-remove': UserMinus,
+  'swap-vert': ArrowUpDown,
+  'pie-chart': PieChart,
+  compare: GitCompare,
+}
+
+/**
+ * Cross-method comparison insights (M16, ANL-01). Ports `_AnalysisCard` from
+ * `results_view.dart`: headline + summary, plus an expandable detail list of
+ * conditional insights. Derivation lives in `@/lib/analysis`. When there are
+ * multiple results but no insights, the OverallWinnerCard already conveys the
+ * consensus, so this card is hidden (parity gate).
+ */
+function AnalysisCard({ results }: { results: ElectionResult[] }) {
+  const analysis = analyzeResults(results)
+
+  if (results.length > 1 && analysis.insights.length === 0) return null
+
+  return (
+    <Card className="border-slate-200 bg-slate-50 ring-slate-200">
+      <CardContent>
+        <Stack gap={2}>
+          <div className="flex items-center gap-2.5">
+            <BarChart3 className="size-7 shrink-0 text-slate-700" aria-hidden />
+            <span className="font-heading font-bold text-slate-800">
+              {analysis.headline}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">{analysis.summary}</p>
+          {analysis.insights.length > 0 && (
+            <details className="group/analysis">
+              <summary className="cursor-pointer list-none text-sm font-medium text-slate-700 marker:content-none [&::-webkit-details-marker]:hidden">
+                View detailed analysis
+              </summary>
+              <Stack gap={3} className="pt-3">
+                {analysis.insights.map((insight) => {
+                  const Icon = INSIGHT_ICONS[insight.icon]
+                  return (
+                    <div key={insight.title} className="flex items-start gap-2.5">
+                      <Icon
+                        className="mt-0.5 size-5 shrink-0 text-slate-600"
+                        aria-hidden
+                      />
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-bold">{insight.title}</span>
+                        <span className="text-[13px] text-muted-foreground">
+                          {insight.body}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </Stack>
+            </details>
+          )}
+        </Stack>
       </CardContent>
     </Card>
   )
