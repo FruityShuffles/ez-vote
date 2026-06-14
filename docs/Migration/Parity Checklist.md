@@ -107,7 +107,7 @@ Template dispatch and derivation reference [[Architecture/Ballot Templates]] and
 
 ## 8. Settings / account — M14
 
-- [ ] 🟡 **SET-01** — Account deletion flow removes the user and cascades per schema. _Source:_ #15. _Verify:_ delete account → user + owned data removed.
+- [x] 🟡 **SET-01** — Account deletion flow removes the user and cascades per schema. _Source:_ #15. _Verify:_ delete account → user + owned data removed. _(M14: `Settings.tsx` confirm dialog → `deleteAccount()` (`delete_current_user` RPC) → `signOut()` (AuthProvider clears the query cache) → redirect to `/login`. Flutter dialog wording matched; flow render-tested in `Settings.test.tsx`; the schema cascade is unchanged from Flutter and verified end-to-end in M18.)_
 
 ---
 

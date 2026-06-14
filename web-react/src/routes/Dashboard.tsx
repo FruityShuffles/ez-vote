@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Settings } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { AppShell } from '@/components/ui/app-shell'
@@ -40,6 +40,14 @@ export function Dashboard() {
         <>
           <Button onClick={() => navigate('/create')}>
             <Plus /> New Election
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Settings"
+            onClick={() => navigate('/settings')}
+          >
+            <Settings />
           </Button>
           <Button
             variant="outline"

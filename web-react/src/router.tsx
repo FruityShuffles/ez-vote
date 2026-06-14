@@ -13,6 +13,7 @@ import { ElectionDetail } from '@/components/elections/ElectionDetail'
 import { Ballot } from '@/routes/Ballot'
 import { ElectionForm } from '@/routes/ElectionForm'
 import { JoinElection } from '@/routes/JoinElection'
+import { Settings } from '@/routes/Settings'
 import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
 
 // Browser (history-API) routing. The Cloudflare Pages `_redirects` SPA fallback
@@ -118,6 +119,16 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <JoinElection />
+      </RequireAuth>
+    ),
+  },
+  {
+    // Settings / account management (M14). Auth-gated, matching the Flutter
+    // GoRoute('/settings') reached from the dashboard's settings affordance.
+    path: '/settings',
+    element: (
+      <RequireAuth>
+        <Settings />
       </RequireAuth>
     ),
   },

@@ -58,5 +58,11 @@ export async function signOut() {
   if (error) throw error
 }
 
-// Account deletion (delete_current_user RPC) belongs to the Settings surface;
-// the full flow is ported in M14.
+// Account deletion (delete_current_user RPC) — the Settings surface (M14) calls
+// this, then signOut, then redirects to /login. Mirrors
+// `AuthRepository.deleteAccount()`. The RPC cascades per schema (owned elections
+// + open-election votes); see parity item SET-01.
+export async function deleteAccount() {
+  const { error } = await supabase.rpc('delete_current_user')
+  if (error) throw error
+}
