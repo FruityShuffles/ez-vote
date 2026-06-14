@@ -1,5 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { Home } from '@/routes/Home'
+import { Learn } from '@/routes/Learn'
+import { Privacy } from '@/routes/Privacy'
+import { Terms } from '@/routes/Terms'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
 import { Signup } from '@/routes/Signup'
@@ -24,6 +27,22 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <Home />,
+  },
+  {
+    // Public info pages (M13). Unguarded — these are hit by external links and
+    // must render for signed-out visitors. Paths match the Flutter routes
+    // (/learn, /privacy, /tos in lib/config/router.dart) to keep deep links
+    // stable across the cutover.
+    path: '/learn',
+    element: <Learn />,
+  },
+  {
+    path: '/privacy',
+    element: <Privacy />,
+  },
+  {
+    path: '/tos',
+    element: <Terms />,
   },
   {
     path: '/login',
