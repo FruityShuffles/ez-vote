@@ -90,6 +90,27 @@ export const resultsQueryKey = (electionId: string) =>
   ['results', electionId] as const
 
 /**
+ * Cheap timestamp-only read of the most recent `results.updated_at` for an
+ * election, or null when nothing has been computed yet. The realtime poll
+ * (M15) compares this against its last-seen value and only invalidates the
+ * heavier results/voters/invitees queries when it changes (RTM-06). Ports
+ * `getResultsUpdatedAt` from `lib/data/repositories/result_repository.dart`.
+ */
+export async function fetchResultsUpdatedAt(
+  electionId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('results')
+    .select('updated_at')
+    .eq('election_id', electionId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = (data ?? [])[0] as { updated_at: string } | undefined
+  return row?.updated_at ?? null
+}
+
+/**
  * Fetch the computed results for an election, in canonical algorithm order.
  * Read-only: RLS already restricts `results` reads to election viewers, so this
  * surface is implicitly auth-gated.

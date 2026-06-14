@@ -46,6 +46,10 @@ The `updated_at` column on `results` (added in migration 014) makes this lightwe
 
 When the owner closes the election (calls edge function with `close=true`), the same compute logic runs once more — final results are committed and the `status` flips to `'closed'`. After close, realtime polling stops because `ElectionDetailScreen` only polls while `status == 'open' && realtimeResults`.
 
+## React App (post-migration)
+
+The React port keeps the same **10s polling** mechanism rather than switching to Supabase Realtime channels — polling needs no backend change (no `ALTER PUBLICATION` / `REPLICA IDENTITY`) and stays mechanism-identical to the Flutter reference during parity verification. The detail-screen poll lives in `web-react/src/lib/useElectionRealtime.ts` (`useElectionRealtime` hook + a pure `runRealtimePoll` core): it reads the cheap `results.updated_at` (and, for ad-hoc elections, the candidate count) and invalidates the dependent TanStack Query caches only when something actually changed. The non-blocking compute-after-submit lives in `web-react/src/lib/ballot.ts` (`triggerRealtimeCompute`). Migrating to Supabase Realtime channels is tracked as a post-cutover follow-up issue.
+
 ## Authorization
 
 Realtime compute calls (`close=false`) are allowed for any election participant, not just the owner. The edge function verifies that the caller is either the owner or is in `election_voters`. Close calls (`close=true`) are owner-only.

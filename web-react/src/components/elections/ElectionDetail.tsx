@@ -34,6 +34,7 @@ import {
   useOpenElection,
 } from '@/lib/elections'
 import type { Ballot, Candidate, Election } from '@/lib/elections'
+import { useElectionRealtime } from '@/lib/useElectionRealtime'
 import { friendlyError } from '@/lib/errors'
 
 // Election detail surface (M9), ported from Flutter `ElectionDetailScreen`.
@@ -42,9 +43,8 @@ import { friendlyError } from '@/lib/errors'
 // Container/view split mirrors `ResultsView`/`ResultsList`: the container does
 // the fetching, the view takes resolved data so the role/transition/stale logic
 // is unit-testable without Supabase. Realtime auto-refresh (the Flutter 10s
-// poll) is intentionally NOT ported here — it's M15 (parity §9). The vote/edit
-// destinations are wired to their canonical routes; they resolve to NotFound
-// until M10/M11 land.
+// poll) lives in the container via `useElectionRealtime` (M15, parity §9), which
+// keeps the view pure.
 
 /** Route entry: resolves `:id`, fetches the election, owns loading/error. */
 export function ElectionDetail() {
@@ -55,6 +55,11 @@ export function ElectionDetail() {
   const candidatesQuery = useCandidates(electionId)
   const ballotQuery = useExistingBallot(electionId)
   const { user } = useAuth()
+
+  // Live auto-refresh while the election is open (results, voters, invitees,
+  // ad-hoc candidates). No-ops for closed/draft elections and those without a
+  // live-updating surface.
+  useElectionRealtime(electionQuery.data)
 
   return (
     <AppShell width="md">
@@ -103,7 +108,8 @@ export function ElectionDetailView({
   const hasSubmittedBallot = ballot != null
 
   // Results show when the election is closed, or live for a voter who has
-  // submitted in a realtime-results election (won't auto-refresh until M15).
+  // submitted in a realtime-results election (auto-refreshed by the container's
+  // useElectionRealtime poll — M15).
   const showResults =
     isClosed ||
     (election.realtime_results &&
