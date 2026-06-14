@@ -9,6 +9,7 @@ The behaviors the React app must preserve to reach parity with the frozen Flutte
 - **Observable behavior, not mechanism.** Many bugs were Flutter/Riverpod-specific (provider invalidation, `Timer.periodic` races). React will use different mechanisms (Supabase realtime subscriptions, TanStack Query, etc.). What must survive is the *observable behavior and the edge case the incident exposed* — re-test the scenario, don't port the implementation.
 - Check a box (`- [ ]` → `- [x]`) when the React surface is verified against that behavior, ideally with an automated test or a recorded side-by-side run against Flutter (M18).
 - Tabulation invariants (§1) are already machine-guarded by the **M2 golden corpus**; client-side derivation (§4, marked ⟐) is guarded by **M23**. Those sections cross-reference their guard rather than duplicating it.
+- **Holistic sign-off** of this checklist is driven by [[Migration/Cutover Plan]] (M17): M18 walks the cutover plan's test-election matrix side-by-side against Flutter and ticks these boxes; the cutover gate is "every 🔴 box checked, every 🟡 checked or with a recorded divergence."
 
 Legend: 🔴 high-risk (core voting correctness or a hard-won incident) · 🟡 behavioral but lower-stakes · 🎨 visual/UX polish that still counts as parity.
 
