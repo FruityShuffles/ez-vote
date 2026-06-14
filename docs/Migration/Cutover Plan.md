@@ -190,3 +190,59 @@ M17 delivers: this protocol, plus a `next.ez-vote.org` staging deployment with a
 in place. **M18 (#104)** executes Track C against the §4 matrix, diffs each flow against
 Flutter, ticks the [[Migration/Parity Checklist]] boxes, and records the §5 sign-off. M19
 (#105) is unblocked only when every §5 criterion is met.
+
+---
+
+## Appendix A — Operator runbook (deploy & config)
+
+The exact steps to stand up / refresh the staging app, split by what is automatable (CI or a
+maintainer with `wrangler` + the build `.env`) versus what requires a dashboard. Run shell
+commands from `web-react/`.
+
+### A.1 — Automatable: build & deploy
+
+Prereqs: `web-react/.env` holds the **same** `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
+as the Flutter app (root `.env`); `wrangler` authenticated to the account owning the
+`ez-vote.org` zone (`npx wrangler whoami`).
+
+```
+npm ci                  # clean install (skip if node_modules current)
+npm run build           # tsc -b && vite build  →  dist/  (Supabase creds inlined here)
+npx wrangler pages deploy dist --project-name ez-vote-react --branch main --commit-dirty=true
+```
+
+> **`--branch main` is mandatory.** `wrangler` otherwise infers the branch from the checked-out
+> git branch and publishes a *preview* deployment, leaving the bare `ez-vote-react.pages.dev`
+> production URL on the old build (or 404 "Deployment Not Found").
+
+Verify (no dashboard needed):
+
+```
+curl -s -o /dev/null -w "%{http_code}\n" https://ez-vote-react.pages.dev/        # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://ez-vote-react.pages.dev/login    # 200 (SPA _redirects)
+curl -s https://ez-vote-react.pages.dev/ | grep -o '/assets/index-[^"]*\.js'      # matches local build hash
+```
+
+The app is usable for Track C on `ez-vote-react.pages.dev` immediately after this — the
+friendly domain (A.2) is a convenience, not a blocker.
+
+### A.2 — Dashboard-only: domain binding & auth config
+
+These need credentials/scopes the build pipeline lacks (a `wrangler` OAuth/CI token is
+typically `pages (write)` + `zone (read)` — no DNS-write — and there is no Supabase
+management or Google Cloud token on hand, only the anon key). Perform once, by hand:
+
+1. **Bind `next.ez-vote.org`** — Cloudflare → Workers & Pages → `ez-vote-react` → **Custom
+   domains** → add `next.ez-vote.org`. Same-account zone, so Cloudflare auto-creates the
+   `CNAME next → ez-vote-react.pages.dev` (proxied) and provisions the cert. If not
+   auto-created, add it manually under **DNS → Records**.
+2. **Supabase redirect allow-list** — Supabase → Authentication → URL Configuration →
+   Redirect URLs → add `https://next.ez-vote.org/**` (keep existing Flutter/localhost entries).
+3. **Google OAuth** — Google Cloud Console → APIs & Services → Credentials → the OAuth 2.0
+   client → confirm Authorized redirect URI `https://<project>.supabase.co/auth/v1/callback`
+   is present (project-level; usually already set from Flutter — just verify).
+4. **Email-template links** — during Track C, click a real confirm/recovery link from a test
+   signup and confirm it resolves to the staging origin (re-check for prod at M19).
+
+After A.2, confirm `https://next.ez-vote.org/` and a deep link both return 200 (cert may take
+a couple of minutes to go Active).
