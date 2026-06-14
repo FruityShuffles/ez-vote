@@ -21,10 +21,9 @@ Use `gh` CLI (authenticated) to manage work from the GitHub issue tracker at `ht
 2. `gh issue view <N>` to read the issue body and check the `comments:` count. If that count is > 0, also run `gh issue view <N> --comments` to read the follow-up posts (the `--comments` flag prints **only** comments, not the body, and produces empty output when the count is 0).
 3. Enter plan mode for non-trivial work — pause and wait for user approval before touching code
 4. Implement the changes
-5. **Codex review**: for non-trivial changes (new features, refactors, security-sensitive code, or anything touching core voting logic), run `codex` with a prompt describing what changed and asking for a review of correctness, edge cases, and bugs. Address any issues found before committing.
-6. Commit referencing the issue (e.g., `Fix #4: ...`)
-7. Close the issue with `gh issue close <N> -c "Fixed in <commit-sha>"` — no need to ask
-8. Loop back to step 1 and continue with the next issue without waiting for the user
+5. Commit with the GitHub closing keyword: `Fix #N: ...`.
+6. Immediately push the commit. Pushing `Fix #N: ...` to `main` auto-closes the referenced issue.
+7. Loop back to step 1 and continue with the next issue without waiting for the user
 
 **Only stop when**: plan approval is needed, you hit an ambiguity that requires a decision, or there are no more open issues.
 
