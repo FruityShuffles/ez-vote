@@ -60,7 +60,16 @@
       "PowerShell(gh repo view FruityShuffles/ez-vote --json visibility,isPrivate)",
       "Bash(supabase --version)",
       "Bash(deno --version)",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(npx playwright *)",
+      "Bash(git check-ignore *)",
+      "Bash(claude mcp *)",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_close"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "playwright"
+  ]
 }
