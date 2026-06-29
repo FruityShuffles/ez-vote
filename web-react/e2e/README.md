@@ -37,6 +37,13 @@ needed.
   edge-function-computed results render with the expected winner. FPTP is turned
   off so the ballot is one method; the winner is made deterministic (one voter
   approves only "Alice").
+- `invite-join-flow.spec.ts` — two-user flow across separate browser contexts:
+  the owner shares the join link, User 2 joins via that link and votes, both
+  approve Alice, and the closed-election tally shows `Alice: 2` — proving both
+  sessions' ballots were counted.
+
+`helpers.ts` provides `createOpenApprovalElection()` and `castApprovalVote()`,
+shared by the two flows above.
 
 ## Test accounts
 
@@ -79,7 +86,7 @@ opt in — the default has no storageState.
 
 ## Authed flows still to cover
 
-Building on the saved sessions and the core flow above: STAR and IRV ballots
+Building on the saved sessions and the flows above: STAR and IRV ballots
 (IRV ranking is drag-and-drop via `@dnd-kit` — the one tricky bit to automate),
-the invite → join multi-user path (two contexts, realtime results), edit/draft
+realtime results (one context watches while another votes), edit/draft
 elections, validation/error states, and settings.

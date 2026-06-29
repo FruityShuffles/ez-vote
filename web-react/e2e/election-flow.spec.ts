@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { castApprovalVote, createOpenApprovalElection } from './helpers'
 import { TEST_USER_1 } from './test-users'
 
 // Core product flow as a single signed-in user (the owner): create an election,
@@ -18,35 +19,11 @@ test('owner creates an approval election, votes, closes, and sees results', asyn
   const title = `E2E Approval ${Date.now()}`
 
   // ── 1. Create & open ────────────────────────────────────────────────────────
-  await page.goto('/create')
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Create Election' }),
-  ).toBeVisible()
-
-  await page.getByLabel('Election Title').fill(title)
-  // `exact` so these don't also match the "Move candidate 1 up/down" buttons.
-  await page.getByLabel('Candidate 1', { exact: true }).fill('Alice')
-  await page.getByLabel('Candidate 2', { exact: true }).fill('Bob')
-  // Approval stays checked by default; drop FPTP to keep this to one method.
-  await page.getByRole('switch', { name: 'Include FPTP comparison' }).click()
-  await page.getByRole('button', { name: 'Save & Open' }).click()
-
-  // Lands on the new election's detail page (status: open).
-  await expect(page).toHaveURL(/\/election\/[0-9a-f-]+$/)
+  await createOpenApprovalElection(page, { title, candidates: ['Alice', 'Bob'] })
   await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
 
   // ── 2. Cast a ballot ────────────────────────────────────────────────────────
-  await page.getByRole('button', { name: 'Cast Your Vote' }).click()
-  await expect(page).toHaveURL(/\/vote$/)
-
-  await page.getByRole('checkbox', { name: 'Alice' }).check()
-  await page.getByRole('button', { name: 'Submit Ballot' }).click()
-
-  // Back on the detail page with the ballot recorded.
-  await expect(page).toHaveURL(/\/election\/[0-9a-f-]+$/)
-  await expect(
-    page.getByText('You have already submitted your ballot.'),
-  ).toBeVisible()
+  await castApprovalVote(page, 'Alice')
 
   // ── 3. Close & compute results ──────────────────────────────────────────────
   await page.getByRole('button', { name: 'Close & Compute Results' }).click()
