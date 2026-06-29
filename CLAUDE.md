@@ -27,6 +27,19 @@ Use `gh` CLI (authenticated) to manage work from the GitHub issue tracker at `ht
 
 **Only stop when**: plan approval is needed, you hit an ambiguity that requires a decision, or there are no more open issues.
 
+## Testing & QA
+
+The React app (`web-react/`) has two browser-based QA workflows against the
+deployed staging site (`ez-vote-react.pages.dev`), each with a skill:
+
+- **`/e2e-test`** — automated, assertion-based Playwright specs (`npm run e2e`
+  from `web-react/`).
+- **`/ux-review`** — interactive heuristic UX review via the Playwright MCP
+  browser (configured in `.mcp.json`; loads at startup, so restart after
+  changes).
+
+Shared setup and conventions for both: `docs/Playwright-QA-Reference.md`.
+
 ## Build & Development Commands
 
 ```bash

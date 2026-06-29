@@ -36,8 +36,12 @@ migrate_working_dir/
 # Environment
 .env
 
-# Claude Code
-.claude/
+# Claude Code (ignore everything except shared project skills)
+.claude/*
+!.claude/skills/
+
+# Playwright MCP output (traces/screenshots saved to disk during UX review)
+.playwright-mcp/
 
 # Local notes
 EZVote Todo.txt
