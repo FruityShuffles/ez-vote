@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test'
+import type { VotingAlgorithm } from '@/lib/elections'
 import type { TestUser } from './test-users'
 
 // Sign in through the real login UI and wait for the post-auth redirect.
@@ -18,7 +19,13 @@ export async function login(page: Page, user: TestUser): Promise<void> {
 // and a hidden input for switches/checkboxes, so we target them by role.
 export async function createOpenApprovalElection(
   page: Page,
-  opts: { title: string; candidates: [string, string] },
+  opts: {
+    title: string
+    candidates: [string, string]
+    includeFptp?: boolean
+    algorithms?: VotingAlgorithm[]
+    allowVoterCandidates?: boolean
+  },
 ): Promise<string> {
   await page.goto('/create')
   await expect(
@@ -29,7 +36,32 @@ export async function createOpenApprovalElection(
   // `exact` so these don't also match the "Move candidate N up/down" buttons.
   await page.getByLabel('Candidate 1', { exact: true }).fill(opts.candidates[0])
   await page.getByLabel('Candidate 2', { exact: true }).fill(opts.candidates[1])
-  await page.getByRole('switch', { name: 'Include FPTP comparison' }).click()
+
+  const algorithms = opts.algorithms ?? ['approval']
+  const algorithmLabels: Record<VotingAlgorithm, string> = {
+    approval: 'Approval Voting',
+    irv: 'Instant Runoff Voting (IRV)',
+    star: 'STAR Voting',
+  }
+  for (const algorithm of ['approval', 'irv', 'star'] as VotingAlgorithm[]) {
+    const checkbox = page.getByRole('checkbox', {
+      name: algorithmLabels[algorithm],
+    })
+    if (algorithms.includes(algorithm) !== (algorithm === 'approval')) {
+      await checkbox.click()
+    }
+  }
+
+  if (!opts.includeFptp) {
+    await page
+      .getByRole('switch', { name: 'Include FPTP comparison' })
+      .click()
+  }
+  if (opts.allowVoterCandidates) {
+    await page
+      .getByRole('switch', { name: 'Allow voters to add candidates' })
+      .click()
+  }
   await page.getByRole('button', { name: 'Save & Open' }).click()
 
   await expect(page).toHaveURL(/\/election\/[0-9a-f-]+$/)

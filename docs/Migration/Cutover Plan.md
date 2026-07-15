@@ -165,6 +165,27 @@ All of the following must hold before M19 flips DNS:
 Verified by: ____________   Date: __________   Staging build SHA: __________
 ```
 
+### M18 execution record — 2026-07-14
+
+- **Track A:** `deno task test` passed all 57 tabulation and derivation fixtures.
+- **Track B:** `npm run test:run` passed 177 tests in 21 files; `typecheck`, `lint`,
+  and `build` passed.
+- **Deployed staging smoke/E2E:** 10 Playwright tests passed against
+  `https://ez-vote-react.pages.dev`: public SPA deep links, authenticated sessions,
+  election creation, ballot submission, invite/join across two users, close/compute,
+  and results rendering.
+- **Expanded M18 E2E:** the full Playwright suite later passed 13 tests, adding
+  Approval/STAR FPTP-eligibility coverage and the pre-submit candidate gate.
+- **Visual review:** the public landing flow and text match the Flutter reference. The
+  review found that React used a generic checkmark in place of the established logo;
+  the corrected branding was deployed to the `ez-vote-react` production branch and
+  its public smoke suite passed again.
+- **Manual candidate gate:** the pre-submit warning toast was confirmed in production.
+
+The M18 sign-off remains open: the remaining Track C matrix rows, the auth-provider
+configuration checks, and a final side-by-side review of the deployed branding fix
+must be completed before M19.
+
 ---
 
 ## 6. Rollback procedure

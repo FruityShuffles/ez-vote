@@ -29,6 +29,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
     css: true,
+    // Playwright owns the browser specs under e2e/. Without this boundary,
+    // Vitest imports them as unit tests and fails before the React suite runs.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
     // Dummy Supabase env for tests. `src/lib/supabase.ts` fails loud when these
     // are unset, so any suite whose import graph reaches the client needs them —
     // this makes the suite run with no local `.env` and no CI secrets (the CI

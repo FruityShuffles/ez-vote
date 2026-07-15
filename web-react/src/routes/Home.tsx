@@ -3,7 +3,6 @@ import { CheckSquare, ListOrdered, Star } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { buttonVariants } from '@/components/ui/button'
-import { EZVoteMark } from '@/components/EZVoteLogo'
 import { H1, Lead } from '@/components/ui/typography'
 import { useAuth } from '@/auth/context'
 import { cn } from '@/lib/utils'
@@ -34,7 +33,12 @@ export function Home() {
   return (
     <main className="min-h-svh">
       <div className="mx-auto flex max-w-xl flex-col items-center px-8 py-16">
-        <EZVoteMark className="size-24 text-primary" />
+        <img
+          src="/ezvote-logo-large.png"
+          alt=""
+          aria-hidden="true"
+          className="size-[120px] object-contain"
+        />
         <H1 className="mt-6 text-4xl font-bold">EZVote</H1>
         <Lead className="mt-3 text-center">
           Run fair, transparent elections with modern voting methods.
