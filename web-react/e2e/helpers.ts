@@ -25,6 +25,8 @@ export async function createOpenApprovalElection(
     includeFptp?: boolean
     algorithms?: VotingAlgorithm[]
     allowVoterCandidates?: boolean
+    realtimeResults?: boolean
+    publicBallots?: boolean
   },
 ): Promise<string> {
   await page.goto('/create')
@@ -61,6 +63,12 @@ export async function createOpenApprovalElection(
     await page
       .getByRole('switch', { name: 'Allow voters to add candidates' })
       .click()
+  }
+  if (opts.realtimeResults) {
+    await page.getByRole('switch', { name: 'Show real-time results' }).click()
+  }
+  if (opts.publicBallots) {
+    await page.getByRole('switch', { name: 'Public ballots' }).click()
   }
   await page.getByRole('button', { name: 'Save & Open' }).click()
 

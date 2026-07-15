@@ -1,4 +1,5 @@
 import { CircleAlert, Vote } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 import {
   Dialog,
@@ -9,7 +10,12 @@ import {
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
 import { Muted } from '@/components/ui/typography'
-import { useBallotCount, useElectionVoters } from '@/lib/elections'
+import { Button } from '@/components/ui/button'
+import {
+  useBallotCount,
+  useElectionVoters,
+  usePublicBallots,
+} from '@/lib/elections'
 
 // Ballot-count affordance ported from Flutter `_BallotCountRow`. Two parity
 // guarantees ride on it:
@@ -19,7 +25,13 @@ import { useBallotCount, useElectionVoters } from '@/lib/elections'
 //     irreversible). So `isError` renders a marker rather than falling through.
 // Tapping opens the voter-name list (Flutter's bottom sheet → a Dialog here).
 
-export function BallotCountRow({ electionId }: { electionId: string }) {
+export function BallotCountRow({
+  electionId,
+  publicBallots,
+}: {
+  electionId: string
+  publicBallots: boolean
+}) {
   const { data, isPending, isError } = useBallotCount(electionId)
 
   // Match Flutter: nothing while the first fetch is in flight (avoids a flash).
@@ -54,14 +66,55 @@ export function BallotCountRow({ electionId }: { electionId: string }) {
         <DialogHeader>
           <DialogTitle>Voters</DialogTitle>
         </DialogHeader>
-        <VotersList electionId={electionId} />
+        {publicBallots ? (
+          <PublicBallotsList electionId={electionId} />
+        ) : (
+          <VotersList electionId={electionId} />
+        )}
       </DialogContent>
     </Dialog>
   )
 }
 
-/** Read-only list of voters who have submitted. Public-ballot viewing (opening
- *  an individual ballot) is deferred to the ballot-screen port (M10/M12). */
+function PublicBallotsList({ electionId }: { electionId: string }) {
+  const { data, isPending, isError } = usePublicBallots(electionId)
+  const navigate = useNavigate()
+
+  if (isPending) {
+    return (
+      <div className="flex justify-center py-4">
+        <Spinner className="size-5 text-muted-foreground" />
+      </div>
+    )
+  }
+  if (isError) {
+    return <Muted role="alert">Couldn't load public ballots. Please try again.</Muted>
+  }
+  if (data.length === 0) {
+    return <Muted>No ballots submitted yet.</Muted>
+  }
+  return (
+    <ul className="divide-y divide-border">
+      {data.map((ballot, index) => (
+        <li
+          key={ballot.voter_id}
+          className="flex items-center justify-between gap-3 py-2 text-sm"
+        >
+          <span>{ballot.display_name || 'Unnamed voter'}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/election/${electionId}/ballot/${index}`)}
+          >
+            View ballot
+          </Button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Read-only voter list when an election has not opted into public ballots. */
 function VotersList({ electionId }: { electionId: string }) {
   const { data, isPending, isError } = useElectionVoters(electionId)
 

@@ -23,10 +23,14 @@ export function JoinElection() {
   useEffect(() => {
     if (started.current || electionId === '') return
     started.current = true
-    joinElection.mutate(electionId, {
+    // `mutate` callbacks are tied to a MutationObserver. React StrictMode
+    // temporarily unmounts that observer during its development-only effect
+    // replay, so an `onSettled` callback can be lost even though the RPC
+    // succeeded. The promise itself survives that replay.
+    void joinElection
+      .mutateAsync(electionId)
       // Ignore errors (e.g. already a member) — fall through to detail.
-      onSettled: () => navigate(`/election/${electionId}`, { replace: true }),
-    })
+      .finally(() => navigate(`/election/${electionId}`, { replace: true }))
   }, [electionId, joinElection, navigate])
 
   return (

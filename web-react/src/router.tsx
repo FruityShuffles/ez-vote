@@ -11,6 +11,7 @@ import { Dashboard } from '@/routes/Dashboard'
 import { Design } from '@/routes/Design'
 import { ElectionDetail } from '@/components/elections/ElectionDetail'
 import { Ballot } from '@/routes/Ballot'
+import { PublicBallot } from '@/routes/PublicBallot'
 import { ElectionForm } from '@/routes/ElectionForm'
 import { JoinElection } from '@/routes/JoinElection'
 import { Settings } from '@/routes/Settings'
@@ -108,6 +109,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <Ballot />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/election/:id/ballot/:index',
+    element: (
+      <RequireAuth>
+        <PublicBallot />
       </RequireAuth>
     ),
   },

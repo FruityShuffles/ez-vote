@@ -52,6 +52,21 @@ Errors with `Election not found`, `Public ballots not enabled`, or `Not a partic
 
 The Flutter side calls it through `BallotRepository.getPublicBallots()` and exposes it via `publicBallotsProvider(electionId)`.
 
+## React port (M18)
+
+`BallotCountRow` switches from the submitted-voter list to the protected public
+ballot list when the election opt-in is enabled. Each participant can open
+`/election/:id/ballot/:index`, which renders the stored payload through the
+shared `BallotView` in read-only mode and provides Previous/Next paging. The
+route always gets its records from `usePublicBallots()` / `get_public_ballots`;
+it never reads other voters' ballot rows directly. A denied request does not
+retry, so a guessed protected URL promptly presents a generic error rather than
+remaining on a loading spinner.
+
 ## Realtime polling integration
 
 When `realtimeResults` is also enabled, `ElectionDetailScreen._poll()` invalidates `publicBallotsProvider` and `electionVotersProvider` on the same tick that triggers `resultsProvider` invalidation, so the ballot list stays fresh as new ballots come in.
+
+The React `useElectionRealtime` hook likewise invalidates its public-ballots
+query alongside the results, submitted-count, voter, and pending-invitee
+queries.

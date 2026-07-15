@@ -7,7 +7,7 @@ import { JoinElection } from '@/routes/JoinElection'
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  mutate: vi.fn<(id: string, opts: { onSettled: () => void }) => void>(),
+  mutateAsync: vi.fn<(id: string) => Promise<void>>(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -16,7 +16,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 vi.mock('@/lib/elections', () => ({
-  useJoinElection: () => ({ mutate: mocks.mutate }),
+  useJoinElection: () => ({ mutateAsync: mocks.mutateAsync }),
 }))
 
 function renderAt(strict = false) {
@@ -32,17 +32,17 @@ function renderAt(strict = false) {
 
 beforeEach(() => {
   mocks.navigate.mockReset()
-  mocks.mutate.mockReset()
+  mocks.mutateAsync.mockReset()
 })
 
 describe('JoinElection', () => {
   it('joins the election and forwards to the detail page on settle', async () => {
     // join_election is idempotent; the screen only cares that it settles.
-    mocks.mutate.mockImplementation((_id, opts) => opts.onSettled())
+    mocks.mutateAsync.mockResolvedValue()
     renderAt()
 
-    expect(mocks.mutate).toHaveBeenCalledTimes(1)
-    expect(mocks.mutate.mock.calls[0][0]).toBe('e1')
+    expect(mocks.mutateAsync).toHaveBeenCalledTimes(1)
+    expect(mocks.mutateAsync).toHaveBeenCalledWith('e1')
     await waitFor(() =>
       expect(mocks.navigate).toHaveBeenCalledWith('/election/e1', {
         replace: true,
@@ -51,7 +51,8 @@ describe('JoinElection', () => {
   })
 
   it('fires the join exactly once under StrictMode double-mount', () => {
+    mocks.mutateAsync.mockResolvedValue()
     renderAt(true)
-    expect(mocks.mutate).toHaveBeenCalledTimes(1)
+    expect(mocks.mutateAsync).toHaveBeenCalledTimes(1)
   })
 })

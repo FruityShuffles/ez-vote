@@ -77,8 +77,7 @@ export async function runRealtimePoll(deps: RealtimePollDeps): Promise<void> {
         void qc.invalidateQueries({ queryKey: electionKeys.ballotCount(electionId) })
         void qc.invalidateQueries({ queryKey: electionKeys.voters(electionId) })
         void qc.invalidateQueries({ queryKey: electionKeys.pendingInvitees(electionId) })
-        // The public-ballots list is not a ported surface yet (M10/M12 note);
-        // add its invalidation here when that view lands.
+        void qc.invalidateQueries({ queryKey: electionKeys.publicBallots(electionId) })
       }
       lastResultsUpdatedAt.current = fresh
     }

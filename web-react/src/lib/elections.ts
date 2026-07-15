@@ -61,6 +61,14 @@ export interface Ballot {
   updated_at: string
 }
 
+/** A participant ballot exposed only by the `get_public_ballots` RPC. */
+export interface PublicBallot {
+  voter_id: string
+  display_name: string | null
+  payload: unknown
+  updated_at: string
+}
+
 export type VotingAlgorithm = 'approval' | 'irv' | 'star'
 
 export interface ElectionFormInput {
@@ -86,6 +94,7 @@ export const electionKeys = {
   ballotCount: (id: string) => ['ballot-count', id] as const,
   existingBallot: (id: string) => ['existing-ballot', id] as const,
   voters: (id: string) => ['voters', id] as const,
+  publicBallots: (id: string) => ['public-ballots', id] as const,
   pendingInvitees: (id: string) => ['pending-invitees', id] as const,
   priorCovoters: (id: string) => ['prior-covoters', id] as const,
 }
@@ -304,6 +313,28 @@ export function useElectionVoters(electionId: string) {
       return ((data ?? []) as Array<{ display_name: string | null }>).map(
         (row) => row.display_name ?? '',
       )
+    },
+  })
+}
+
+/**
+ * Public, participant-visible ballots. The database RPC is deliberately the
+ * only read path for another voter’s payload: it applies the public_ballots
+ * gate and the participant/owner check before returning anything (PUB-01).
+ */
+export function usePublicBallots(electionId: string) {
+  return useQuery({
+    queryKey: electionKeys.publicBallots(electionId),
+    enabled: electionId !== '',
+    // A denied request is an expected privacy gate, not a transient failure.
+    // Avoid leaving a guessed protected URL on a retry spinner.
+    retry: false,
+    queryFn: async (): Promise<PublicBallot[]> => {
+      const { data, error } = await supabase.rpc('get_public_ballots', {
+        p_election_id: electionId,
+      })
+      if (error) throw error
+      return (data ?? []) as PublicBallot[]
     },
   })
 }

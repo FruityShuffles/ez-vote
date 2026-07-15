@@ -130,7 +130,10 @@ export function ElectionDetailView({
       </div>
 
       <Stack gap={1}>
-        <BallotCountRow electionId={election.id} />
+        <BallotCountRow
+          electionId={election.id}
+          publicBallots={election.public_ballots}
+        />
         <PendingInviteesRow electionId={election.id} />
       </Stack>
 

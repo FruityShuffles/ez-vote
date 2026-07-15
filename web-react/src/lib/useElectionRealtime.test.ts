@@ -102,6 +102,7 @@ describe('runRealtimePoll', () => {
     expect(keys).toContain(JSON.stringify(resultsQueryKey(ID)))
     expect(keys).toContain(JSON.stringify(electionKeys.ballotCount(ID)))
     expect(keys).toContain(JSON.stringify(electionKeys.voters(ID)))
+    expect(keys).toContain(JSON.stringify(electionKeys.publicBallots(ID)))
     expect(keys).toContain(JSON.stringify(electionKeys.pendingInvitees(ID)))
     expect(h.deps.lastResultsUpdatedAt.current).toBe('2026-02-01T00:00:00Z')
   })
