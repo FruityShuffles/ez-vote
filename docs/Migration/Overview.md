@@ -102,11 +102,11 @@ With no active user traffic, cutover is low-stakes; this phase is about discipli
 
 **Proposed issues:**
 
-- **M17: Staging deployment and verification protocol.** React app fully deployed at the staging URL (`next.ez-vote.org`), pointing at the same Supabase backend as Flutter. Document the verification protocol and explicit exit criteria in `docs/Migration/Cutover Plan.md`: parity-checklist sign-off, golden-corpus pass, and the list of test elections to run.
+- **M17: Staging deployment and verification protocol.** **Completed before M19.** React was deployed at `next.ez-vote.org`, pointing at the same Supabase backend as Flutter. `docs/Migration/Cutover Plan.md` records the verification protocol and explicit exit criteria.
 
 - **M18: Parity verification.** Run structured test elections end-to-end on the React app — every ballot template, every algorithm combination, invite flows, realtime, close-and-results. Diff results, ballot payloads, invitee state, and analysis output against the golden corpus and against the same flows performed in the Flutter app. Exit criteria are checklist-based, not time-based — every template and parity-checklist item passes, not "N weeks without defects."
 
-- **M19: DNS cutover.** Flip `ez-vote.org` to the React app. Keep Flutter deployable (tagged commit + working build pipeline) for a short rollback window — days, not weeks.
+- **M19: DNS cutover.** **Completed.** `ez-vote.org` now routes to the React `ez-vote-react` Pages project. Flutter remains deployable from rollback tag `flutter-pre-react-cutover` for the short post-cutover stability window.
 
 ### Phase 4 — Capstone and Decommission
 
@@ -114,7 +114,7 @@ With no active user traffic, cutover is low-stakes; this phase is about discipli
 
 - **M21: Build the counterfactual feature UI in React.** Data-viz heavy. Entry point from the ported results view (M8). This is the feature the migration was forcing-functioned by; shipping it on the React app vindicates the migration.
 
-- **M22: Decommission Flutter.** After a short stability window post-cutover (a couple of weeks is plenty given no active traffic), archive `lib/` to a git tag, remove the Flutter build pipeline from Cloudflare Pages, and remove the legacy URL. Update [[Architecture/Overview]] and all `lib/`-referencing docs to point at React equivalents.
+- **M22: Decommission Flutter.** After a short stability window post-cutover (a couple of weeks is plenty given no active traffic), remove the legacy Flutter Pages project/build pipeline. Update [[Architecture/Overview]] and all `lib/`-referencing docs to point at React equivalents.
 
 ## Risks and Mitigations
 

@@ -16,7 +16,7 @@ Scaffolded in M5. Auth/session is M6; surface ports are M8+.
 ## Setup
 
 ```bash
-npm install
+npm.cmd install
 cp .env.example .env   # then fill in the Supabase values (same project as Flutter; see root .env)
 ```
 
@@ -30,33 +30,53 @@ build time (mirrors the Flutter `--dart-define` flow):
 
 ## Commands
 
+In this Windows PowerShell workspace, use `npm.cmd` / `npx.cmd` to avoid the script-execution
+policy. Use plain `npm` / `npx` in shells where those commands are available.
+
 ```bash
-npm run dev          # Vite dev server (HMR)
-npm run build        # type-check (tsc -b) + production build to dist/
-npm run preview      # serve the production build locally
-npm run lint         # ESLint
-npm run typecheck    # tsc -b (no emit)
-npm run test         # Vitest (watch)
-npm run test:run     # Vitest (single run, used in CI)
-npm run format       # Prettier write
+npm.cmd run dev          # Vite dev server (HMR)
+npm.cmd run build        # type-check (tsc -b) + production build to dist/
+npm.cmd run preview      # serve the production build locally
+npm.cmd run lint         # ESLint
+npm.cmd run typecheck    # tsc -b (no emit)
+npm.cmd run test         # Vitest (watch)
+npm.cmd run test:run     # Vitest (single run, used in CI)
+npm.cmd run format       # Prettier write
 ```
 
 CI: `.github/workflows/web-react-ci.yml` runs lint → type-check → test → build
 on any change under `web-react/`.
 
-## Deploy (Cloudflare Pages — staging)
+## Deploy (Cloudflare Pages — production)
 
-Static build deployed to the **`ez-vote-react`** Pages project (staging URL
-`https://ez-vote-react.pages.dev`; friendly `next.ez-vote.org` custom domain is
-a separate dashboard/DNS step). Authenticate once, then:
+The **`ez-vote-react`** Pages project is the production frontend. Its production
+deployment serves all of these aliases:
+
+- `https://ez-vote.org` — primary public URL
+- `https://next.ez-vote.org` — verification alias
+- `https://ez-vote-react.pages.dev` — Pages alias
+
+These are **not separate environments**: they serve the same Pages production deployment
+and the same Supabase project. GitHub Actions runs the quality gate but does not deploy.
+Release only a clean, current `main` after CI has passed. Authenticate once, then:
 
 ```bash
-# Auth (one-time): either `npx wrangler login`, or set
+# Auth (one-time): either `npx.cmd wrangler login`, or set
 #   CLOUDFLARE_API_TOKEN (Cloudflare Pages: Edit + Account: Read) and CLOUDFLARE_ACCOUNT_ID
-npx wrangler pages project create ez-vote-react --production-branch main   # one-time
-npm run build
-npx wrangler pages deploy dist --project-name ez-vote-react
+git switch main
+git pull --ff-only
+git status --short       # must be empty
+npm.cmd ci
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run test:run
+npm.cmd run build
+npx.cmd wrangler pages deploy dist --project-name ez-vote-react --branch main
 ```
+
+`--branch main` is required. Without it, Wrangler can upload a preview deployment that does
+not update `ez-vote.org`. The direct-upload release uses the `VITE_SUPABASE_*` values in the
+local `web-react/.env` while building `dist/`; ensure they are the production project values.
 
 `public/_redirects` (`/* /index.html 200`) gives the SPA its deep-link fallback
 at the edge; `public/_headers` disables caching of `index.html`. Both are copied

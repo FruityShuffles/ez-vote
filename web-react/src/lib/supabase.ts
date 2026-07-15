@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 // Build-time env injection. Vite inlines `import.meta.env.VITE_*` at build,
 // mirroring the Flutter app's `--dart-define` of SUPABASE_URL / SUPABASE_ANON_KEY
 // (baked into the bundle, not read at runtime). The values come from
-// web-react/.env locally and from the Cloudflare Pages build env in CI/staging.
+// web-react/.env locally and for direct Wrangler production releases. CI uses
+// dummy well-formed values because it validates the build without deployment credentials.
 //
 // Instantiated here in M5 only to lock the env contract — auth wiring is M6.
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL

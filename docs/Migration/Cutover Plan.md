@@ -1,17 +1,23 @@
-# Cutover Plan (M17)
+# Cutover Plan (M17–M19)
+
+> **Status: M19 complete.** `ez-vote.org` is bound to the React Cloudflare Pages project
+> `ez-vote-react` and serves the production app. The legacy Flutter Pages project `ez-vote`
+> has no custom domains and is retained only for the short rollback window. The sections
+> recording M17/M18 below are historical verification evidence; the current release topology
+> and rollback procedure are in §2 and §6.
 
 The verification gate between "the React app is built" and "the React app is the
 production stack." M17 produces this protocol and a deployed, config-ready staging app;
 **M18** executes the protocol and signs off the [[Migration/Parity Checklist]]; **M19**
-flips `ez-vote.org` to React once the exit criteria here are met. This is a *verification*
+flipped `ez-vote.org` to React once the exit criteria were met. This is a *verification*
 deployment, not a traffic split — the site has no active user traffic ([[Migration/Overview]]
 §29), so the discipline below is about correctness, not rollout safety.
 
 ## How to use this
 
-- §2 is a one-time setup the staging app must satisfy before verification starts.
-- §3 defines the three verification tracks; §4 is the concrete list of test elections that
-  feed Track C; §5 is the pass/fail gate.
+- §2 records the current production topology and release path.
+- §3 defines the historical verification tracks; §4 is the concrete list of test elections
+  that fed Track C; §5 is the completed pass/fail gate.
 - Exit criteria are **checklist-based, not time-based** ([[Migration/Overview]] §107, §128):
   the gate is "every parity-checklist box accounted for," never "N weeks without a defect."
 - M18 records sign-off by checking boxes in [[Migration/Parity Checklist]] and filling the
@@ -24,43 +30,47 @@ deployment, not a traffic split — the site has no active user traffic ([[Migra
 - [[Migration/Overview]] — the phased plan; this doc is the Phase-3 "M17" step.
 - [[Migration/Parity Checklist]] — the per-behavior test plan. Track C (§3) walks it; the
   exit criteria (§5) are defined in terms of its boxes.
-- [[Migration/Tech Stack]] — why the staging app is a static Vite SPA on Cloudflare Pages
+- [[Migration/Tech Stack]] — why the React app is a static Vite SPA on Cloudflare Pages
   (Decision 1), which is what makes the deploy and rollback topology in §2/§6 simple.
 
 ---
 
-## 2. Staging deployment topology
+## 2. Current production deployment topology
 
-**React app — Cloudflare Pages project `ez-vote-react`** (production branch `main`),
-currently served at `https://ez-vote-react.pages.dev`. Build = static Vite output
-(`web-react/dist/`), deployed direct-upload via `wrangler` (see the staging-deploy runbook
-in project memory for the exact commands).
+**React app — Cloudflare Pages project `ez-vote-react`** (production branch `main`).
+Build = static Vite output (`web-react/dist/`), deployed by direct upload with `wrangler`.
+Its single production deployment serves these aliases:
+
+- `https://ez-vote.org` — primary public URL
+- `https://next.ez-vote.org` — verification alias
+- `https://ez-vote-react.pages.dev` — Pages alias
+
+These URLs are aliases of the same deployment, not isolated staging environments.
 
 > **Deploy gotcha (from the runbook):** `wrangler pages deploy` infers the branch from the
 > current git branch; pass `--branch main` to publish to **production** regardless of the
 > checked-out branch, or the bare `ez-vote-react.pages.dev` URL 404s with "Deployment Not
 > Found." Don't duplicate the runbook here — follow it.
 
-**Friendly staging URL — adopt `next.ez-vote.org` (M17 owns this binding):**
+**Custom-domain bindings:**
 
-1. Cloudflare Pages → `ez-vote-react` → **Custom domains** → add `next.ez-vote.org`.
-2. DNS: `CNAME next` → `ez-vote-react.pages.dev` (proxied).
-3. Verify `https://next.ez-vote.org` serves the latest production deployment and that SPA
-   deep links resolve (the `public/_redirects` `/* /index.html 200` rule).
+1. `ez-vote.org` and `next.ez-vote.org` are bound to `ez-vote-react`.
+2. The legacy Flutter project `ez-vote` has no custom domains.
+3. Verify `https://ez-vote.org` and a direct SPA deep link resolve (the
+   `public/_redirects` `/* /index.html 200` rule).
 
-**Backend — shared, not forked.** The staging app points at the **same Supabase project**
-as the live Flutter app; `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are injected at
-build time (mirroring Flutter's `--dart-define`). No schema fork — both stacks read/write
-one database, which is what makes side-by-side parity (Track C) meaningful and rollback (§6)
-data-migration-free.
+**Backend — shared, not forked.** The production React app points at the same Supabase
+project that Flutter used; `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are injected at
+build time. There is no schema fork, so a rollback remains data-migration-free.
 
 **Pre-flight auth config (blocks AUTH-01/02/03 on the staging origin** — from
 [[Migration/Tech Stack]] M6 note):
 
-- [x] Add `https://next.ez-vote.org` to Supabase Auth's **redirect allow-list**.
+- [x] Add `https://next.ez-vote.org` and `https://ez-vote.org` to Supabase Auth's
+      **redirect allow-list**.
 - [x] Confirm Google OAuth's Supabase callback configuration permits the staging flow.
 - [x] Re-check Supabase auth **email-template links** (confirm/recovery) resolve to the
-      staging origin during verification (and re-check again at the M19 cutover for prod).
+      staging origin during verification and the production origin after M19.
 
 ---
 
@@ -170,7 +180,7 @@ Verified by: project maintainer   Date: 2026-07-15   Staging build SHA: 03b76ed
 - **Track A:** `deno task test` passed all 57 tabulation and derivation fixtures.
 - **Track B:** `npm run test:run` passed 177 tests in 21 files; `typecheck`, `lint`,
   and `build` passed.
-- **Deployed staging smoke/E2E:** 10 Playwright tests passed against
+- **Deployed staging smoke/E2E (historical, before M19):** 10 Playwright tests passed against
   `https://ez-vote-react.pages.dev`: public SPA deep links, authenticated sessions,
   election creation, ballot submission, invite/join across two users, close/compute,
   and results rendering.
@@ -194,26 +204,34 @@ GitHub Actions reported the latest React CI run for `03b76ed` and the latest
 algorithm golden-test run as successful. All §5 conditions are satisfied;
 M19 is unblocked.
 
+### M19 execution record
+
+- `ez-vote.org` was moved from the Flutter `ez-vote` Pages project to the React
+  `ez-vote-react` Pages project.
+- The project maintainer confirmed `https://ez-vote.org` serves the React app.
+- Rollback tag `flutter-pre-react-cutover` points to the confirmed live Flutter commit
+  `55bc667a2b935e7c816a76f7a85de5da0b985b5a`.
+- The Flutter Pages project retains its build pipeline but has no custom domains.
+
 ---
 
 ## 6. Rollback procedure
 
-The cutover (M19) keeps Flutter deployable for a short window — **days, not weeks**
+Flutter remains deployable for a short window — **days, not weeks**
 ([[Migration/Overview]] §109). Because both stacks share one Supabase backend, rollback is a
-DNS/routing flip with **no data migration**:
+Cloudflare custom-domain change with **no data migration**:
 
-- The Flutter Pages project (`ez-vote` → `ez-vote.org`) stays **live and untouched** through
-  M17 and M18.
-- Before M19, **tag the last good Flutter commit** and keep its Cloudflare build pipeline
-  intact.
-- Rollback = repoint `ez-vote.org` back to the Flutter Pages project (the React project keeps
-  serving `next.ez-vote.org`).
+- The Flutter Pages project `ez-vote` has no custom domains but keeps its build pipeline
+  intact. Its source rollback point is `flutter-pre-react-cutover` at `55bc667`.
+- Rollback = move the `ez-vote.org` custom-domain binding back to `ez-vote`; React remains
+  available at `next.ez-vote.org` for verification.
+- Return the custom-domain binding to `ez-vote-react` after the rollback cause is resolved.
 - Final Flutter **decommission is M22 (#108)** — explicitly deferred until after a
   post-cutover stability window, never bundled into the cutover itself.
 
 ---
 
-## 7. Handoff to M18
+## 7. M17/M18 handoff (historical)
 
 M17 delivers: this protocol, plus a `next.ez-vote.org` staging deployment with auth config
 in place. **M18 (#104)** executes Track C against the §4 matrix, diffs each flow against
@@ -222,56 +240,62 @@ Flutter, ticks the [[Migration/Parity Checklist]] boxes, and records the §5 sig
 
 ---
 
-## Appendix A — Operator runbook (deploy & config)
+## Appendix A — Operator runbook (production releases & configuration)
 
-The exact steps to stand up / refresh the staging app, split by what is automatable (CI or a
-maintainer with `wrangler` + the build `.env`) versus what requires a dashboard. Run shell
-commands from `web-react/`.
+The exact steps for a production release, split by what is automatable (CI or a maintainer
+with `wrangler` + the build `.env`) versus what requires a dashboard. Run shell commands
+from `web-react/`.
 
-### A.1 — Automatable: build & deploy
+### A.1 — Automatable: build & production deploy
 
-Prereqs: `web-react/.env` holds the **same** `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
-as the Flutter app (root `.env`); `wrangler` authenticated to the account owning the
-`ez-vote.org` zone (`npx wrangler whoami`).
+Prereqs: `web-react/.env` holds the production `VITE_SUPABASE_URL` /
+`VITE_SUPABASE_ANON_KEY`; `wrangler` is authenticated to the account owning the
+`ez-vote.org` zone (`npx.cmd wrangler whoami`). The `.cmd` command form is required in this
+Windows PowerShell environment; use the ordinary `npm` / `npx` form in other shells.
 
 ```
-npm ci                  # clean install (skip if node_modules current)
-npm run build           # tsc -b && vite build  →  dist/  (Supabase creds inlined here)
-npx wrangler pages deploy dist --project-name ez-vote-react --branch main --commit-dirty=true
+git switch main
+git pull --ff-only
+git status --short      # must be empty
+npm.cmd ci
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run test:run
+npm.cmd run build       # tsc -b && vite build  →  dist/  (Supabase values inlined here)
+npx.cmd wrangler pages deploy dist --project-name ez-vote-react --branch main
 ```
 
 > **`--branch main` is mandatory.** `wrangler` otherwise infers the branch from the checked-out
 > git branch and publishes a *preview* deployment, leaving the bare `ez-vote-react.pages.dev`
 > production URL on the old build (or 404 "Deployment Not Found").
 
-Verify (no dashboard needed):
+Verify the production release (no dashboard needed):
 
 ```
-curl -s -o /dev/null -w "%{http_code}\n" https://ez-vote-react.pages.dev/        # 200
-curl -s -o /dev/null -w "%{http_code}\n" https://ez-vote-react.pages.dev/login    # 200 (SPA _redirects)
-curl -s https://ez-vote-react.pages.dev/ | grep -o '/assets/index-[^"]*\.js'      # matches local build hash
+curl -s -o /dev/null -w "%{http_code}\n" https://ez-vote.org/        # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://ez-vote.org/login  # 200 (SPA _redirects)
+curl -s https://ez-vote.org/ | grep -o '/assets/index-[^"]*\.js'    # matches local build hash
 ```
 
-The app is usable for Track C on `ez-vote-react.pages.dev` immediately after this — the
-friendly domain (A.2) is a convenience, not a blocker.
+The Pages aliases and both custom domains serve this same production deployment.
 
-### A.2 — Dashboard-only: domain binding & auth config
+### A.2 — Dashboard-only: domain binding & auth configuration
 
 These need credentials/scopes the build pipeline lacks (a `wrangler` OAuth/CI token is
 typically `pages (write)` + `zone (read)` — no DNS-write — and there is no Supabase
 management or Google Cloud token on hand, only the anon key). Perform once, by hand:
 
-1. **Bind `next.ez-vote.org`** — Cloudflare → Workers & Pages → `ez-vote-react` → **Custom
-   domains** → add `next.ez-vote.org`. Same-account zone, so Cloudflare auto-creates the
-   `CNAME next → ez-vote-react.pages.dev` (proxied) and provisions the cert. If not
-   auto-created, add it manually under **DNS → Records**.
+1. **Cloudflare domain audit** — `ez-vote-react` must own `ez-vote.org` and
+   `next.ez-vote.org`; `ez-vote` must own neither. Same-account domains use proxied CNAME
+   records and Cloudflare-managed certificates.
 2. **Supabase redirect allow-list** — Supabase → Authentication → URL Configuration →
-   Redirect URLs → add `https://next.ez-vote.org/**` (keep existing Flutter/localhost entries).
+   Redirect URLs must include `https://ez-vote.org/**` and `https://next.ez-vote.org/**`
+   (keep localhost entries).
 3. **Google OAuth** — Google Cloud Console → APIs & Services → Credentials → the OAuth 2.0
    client → confirm Authorized redirect URI `https://<project>.supabase.co/auth/v1/callback`
    is present (project-level; usually already set from Flutter — just verify).
-4. **Email-template links** — during Track C, click a real confirm/recovery link from a test
-   signup and confirm it resolves to the staging origin (re-check for prod at M19).
+4. **Email-template links** — click a real confirm/recovery link from a test signup and
+   confirm it resolves to `https://ez-vote.org`.
 
-After A.2, confirm `https://next.ez-vote.org/` and a deep link both return 200 (cert may take
-a couple of minutes to go Active).
+After any domain configuration change, confirm `https://ez-vote.org/` and a deep link both
+return 200 (a new certificate may take a couple of minutes to go Active).

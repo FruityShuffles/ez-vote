@@ -15,20 +15,23 @@ workflows.
 
 ## Target environment
 
-- Default target is **staging**: `https://ez-vote-react.pages.dev`.
-- E2E reads the base URL from `PW_BASE_URL` (defaults to staging). To run against
-  local dev instead: `cd web-react && npm run dev`, then
-  `PW_BASE_URL=http://localhost:5173 npm run e2e`.
-- Remember (project memory): a wrangler deploy reaches production-on-staging only
-  for `--branch main`, so QA the branch that's actually live there.
+- Default target is **production**: `https://ez-vote.org`.
+- `https://next.ez-vote.org` and `https://ez-vote-react.pages.dev` are aliases of the
+  same production Pages deployment, not isolated staging environments.
+- E2E reads the base URL from `PW_BASE_URL` (defaults to production). To run against
+  local dev instead: `cd web-react && npm.cmd run dev`, then
+  `PW_BASE_URL=http://localhost:5173 npm.cmd run e2e`.
+- A Wrangler deploy reaches production only with `--branch main`; QA the deployed commit,
+  not a preview upload.
 
 ## Test accounts
 
-Two throwaway accounts (no privileged access) in the dev Supabase project, defined
+Two throwaway accounts (no privileged access) in the production Supabase project, defined
 in `web-react/e2e/test-users.ts`: `TEST_USER_1`, `TEST_USER_2`, and
 `ALL_TEST_USERS`. Two users enable multi-participant flows (one creates/invites,
-the other joins/votes). **No data cleanup is needed** — elections auto-purge 60
-days after creation, so tests can create freely.
+the other joins/votes). Tests write only throwaway-account data to production; do not use
+them to inspect, alter, or delete real-user data. Elections auto-purge 60 days after
+creation, so the test elections need no manual cleanup.
 
 ## Authentication
 

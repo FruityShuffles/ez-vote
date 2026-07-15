@@ -1,15 +1,14 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// E2E config for live QA against the deployed staging site.
+// E2E config for live QA against the deployed production site.
 //
-// Target env is set via PW_BASE_URL (defaults to the staging Pages deploy).
+// Target env is set via PW_BASE_URL (defaults to the public production URL).
 // To QA local changes instead, run:  PW_BASE_URL=http://localhost:5173 npm run e2e
 // (start `npm run dev` first — there's no webServer block because the default
 // target is a remote deploy, not a local server).
 //
-// Backend: tests hit the existing dev Supabase project. The current suite only
-// covers the public, no-auth surface, so it creates no data. Authed flows will
-// need reusable test accounts + cleanup — see e2e/README.md.
+// Backend: tests hit production Supabase only through dedicated throwaway accounts;
+// see docs/Playwright-QA-Reference.md. Never use E2E to alter real-user data.
 export default defineConfig({
   testDir: './e2e',
   // Fail the build if test.only is committed.
@@ -17,7 +16,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.PW_BASE_URL ?? 'https://ez-vote-react.pages.dev',
+    baseURL: process.env.PW_BASE_URL ?? 'https://ez-vote.org',
     // Capture a trace on the first retry so failures are debuggable via
     // `npx playwright show-trace`. Screenshots only on failure.
     trace: 'on-first-retry',

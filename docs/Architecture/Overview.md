@@ -1,10 +1,10 @@
 # Architecture Overview
 
-> **A Flutter → React migration is in progress** ([[Migration/Overview]]). The Flutter app described below is the frozen parity reference and remains deployed until cutover. The React app being built to parity lives in `web-react/` (see "React App" below). This document describes the Flutter architecture; it will be reframed around React at decommission (M22).
+> **The Flutter → React migration has cut over** ([[Migration/Overview]]). The React app in `web-react/` now serves production. The Flutter app described below is frozen and its Pages project is retained only as a temporary rollback path until M22. This document will be reframed around React at decommission.
 
 ## React App (`web-react/`)
 
-Scaffolded in M5 per the [[Migration/Tech Stack]] decisions. A client-rendered SPA that deploys as static assets to Cloudflare Pages exactly like the Flutter build (own `_redirects` SPA fallback + `_headers`), against the **same** Supabase backend.
+Scaffolded in M5 per the [[Migration/Tech Stack]] decisions. A client-rendered SPA that deploys as static assets to the `ez-vote-react` Cloudflare Pages project (own `_redirects` SPA fallback + `_headers`), against the **same** Supabase backend. Its production deployment serves `https://ez-vote.org`; `https://next.ez-vote.org` and `https://ez-vote-react.pages.dev` are aliases of that same deployment, not separate staging environments.
 
 | Concern | Flutter | React (`web-react/`) |
 |---|---|---|
@@ -15,7 +15,7 @@ Scaffolded in M5 per the [[Migration/Tech Stack]] decisions. A client-rendered S
 | Components / a11y | Material widgets | shadcn + Base UI primitives (owned source) |
 | Env / credentials | `--dart-define` → `SUPABASE_*` | Vite build-time `import.meta.env.VITE_SUPABASE_*` |
 
-Layout: routing in `src/router.tsx`; routes in `src/routes/`; Supabase client in `src/lib/supabase.ts`; Zustand stores in `src/stores/`; owned shadcn components in `src/components/ui/`. CI (`.github/workflows/web-react-ci.yml`) runs lint + type-check + Vitest + build on `web-react/**` changes. Staging deploys to the `ez-vote-react` Cloudflare Pages project. Auth/session wiring is M6; the implemented surface ports include results, election detail, ballots, and election creation/editing (M8-M11).
+Layout: routing in `src/router.tsx`; routes in `src/routes/`; Supabase client in `src/lib/supabase.ts`; Zustand stores in `src/stores/`; owned shadcn components in `src/components/ui/`. CI (`.github/workflows/web-react-ci.yml`) runs lint + type-check + Vitest + build on `web-react/**` changes; releases are direct Wrangler uploads from clean `main` to the `ez-vote-react` production branch. Auth/session wiring and all parity-scope surface ports (M6, M8–M16) are complete.
 
 ## Three-Layer Clean Architecture
 

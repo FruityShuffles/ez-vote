@@ -1,12 +1,13 @@
 # E2E tests (Playwright)
 
-Assertion-based browser tests for the React app, run against the deployed
-staging site.
+Assertion-based browser tests for the React app, run against the deployed production
+site by default. The test accounts and target-environment safety rules are in the shared
+QA reference.
 
 ```bash
-npm run e2e          # run all specs (the setup project authenticates first)
-npm run e2e:ui       # interactive UI mode (time-travel, DOM snapshots)
-npm run e2e:report   # open the last HTML report
+npm.cmd run e2e          # run all specs (the setup project authenticates first)
+npm.cmd run e2e:ui       # interactive UI mode (time-travel, DOM snapshots)
+npm.cmd run e2e:report   # open the last HTML report
 ```
 
 Setup, target env, test accounts, auth/storageState, and selector conventions

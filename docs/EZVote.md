@@ -1,6 +1,6 @@
 # EZVote Documentation
 
-Multi-algorithm voting application. Flutter (web) + Supabase backend.
+Multi-algorithm voting application. React (web) + Supabase backend. The frozen Flutter app is retained only as a temporary rollback path during the post-cutover stability window.
 
 ## Architecture
 
@@ -32,8 +32,8 @@ Multi-algorithm voting application. Flutter (web) + Supabase backend.
 
 ## Migration
 
-- [[Migration/Overview]] — Flutter → React migration plan: rationale, phased approach, parallel build with controlled cutover, proposed GitHub issues (M1–M22)
+- [[Migration/Overview]] — Flutter → React migration plan: rationale, phased approach, completed M19 cutover, and remaining capstone/decommission work (M20–M22)
 - [[Migration/Parity Checklist]] — behaviors the React app must preserve, sourced from closed bugs and design decisions; the test plan for each surface port
 - [[Migration/Tech Stack]] — M4 RFC: framework/data/styling/component decisions for the React build (Vite SPA, TanStack Query + Zustand, Tailwind, Radix + shadcn) with rationale and alternatives
 - [[Migration/Design System]] — M7: design tokens (the indigo M3 palette mapped to shadcn/Base UI roles), the shared component inventory, and the a11y posture
-- [[Migration/Cutover Plan]] — M17: the staging-deployment verification gate — protocol (golden corpus, React CI, side-by-side), test-election matrix, exit criteria, rollback
+- [[Migration/Cutover Plan]] — M17–M19: verification record, completed production cutover, release topology, and rollback procedure

@@ -44,9 +44,9 @@ jobs:
         run: npm run test:run
 
       - name: Build
-        # Dummy Supabase values: Vite inlines VITE_* at build time, so the build
-        # only needs them present and well-formed. Real values are injected by
-        # the Cloudflare Pages build env for staging/production deploys.
+        # Dummy Supabase values: Vite inlines VITE_* at build time, so CI only
+        # needs them present and well-formed. Direct Wrangler releases build
+        # locally with the real values in web-react/.env (see web-react/README.md).
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-dummy-anon-key

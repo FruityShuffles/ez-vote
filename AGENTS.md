@@ -8,7 +8,7 @@ Project documentation lives in `docs/`. Before working on any issue or task, alw
 
 ## Active Migration
 
-A Flutter → React migration is underway. See `docs/Migration/Overview.md` for the plan; issues are filed under the "React migration" milestone. The Flutter app is frozen — no further Flutter development (no bug fixes, no features); all work happens on the React side. Flutter stays deployed only as the parity reference until cutover; bugs found in it are recorded in the parity checklist, not patched in Dart.
+The Flutter → React migration is in its post-cutover stability window. See `docs/Migration/Overview.md` for the plan; issues are filed under the "React migration" milestone. The React app in `web-react/` is the production application. Flutter is frozen — no bug fixes or features — and the legacy Cloudflare Pages project is retained only as a temporary rollback path until M22. Bugs found in Flutter are recorded in the parity checklist, not patched in Dart.
 
 ## GitHub Issues Workflow
 
@@ -27,20 +27,20 @@ Use `gh` CLI (authenticated) to manage work from the GitHub issue tracker at `ht
 
 **Only stop when**: plan approval is needed, you hit an ambiguity that requires a decision, or there are no more open issues.
 
-## Build & Development Commands
+## Build, Test & Deployment Commands
 
 ```bash
-# Install dependencies
-flutter pub get
+# React development (run from web-react/)
+npm.cmd ci
+npm.cmd run dev
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run test:run
+npm.cmd run build
 
-# Generate JSON serialization code (run after modifying models)
-flutter pub run build_runner build --delete-conflicting-outputs
-
-# Analyze/lint
-flutter analyze
-
-# Run for web
-flutter run -d chrome
+# Production frontend release (run from a clean, current main in web-react/)
+# This deploys to Cloudflare Pages project ez-vote-react, which serves ez-vote.org.
+npx.cmd wrangler pages deploy dist --project-name ez-vote-react --branch main
 
 # Deploy edge function (requires `supabase login` and `supabase link` first)
 # --no-verify-jwt is required because the Supabase gateway rejects ES256 user JWTs;
@@ -51,5 +51,6 @@ supabase functions deploy compute-results --no-verify-jwt
 supabase db push
 ```
 
-Flutter is installed at `C:\Users\adria\flutter\bin\flutter.bat`.
+Do not deploy application changes to the legacy Flutter Pages project `ez-vote`. See
+`web-react/README.md` for the complete production-release and QA guidance.
 
