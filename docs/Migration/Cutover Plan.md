@@ -153,7 +153,7 @@ All of the following must hold before M19 flips DNS:
 - [ ] **Track A** — golden corpus 100% green in CI (`tabulate-tests.yml`).
 - [ ] **Track B** — React CI green: `test:run`, `typecheck`, `lint`, and `build` all pass
       (`web-react-ci.yml`).
-- [ ] **Track C** — in [[Migration/Parity Checklist]], **every 🔴 box is checked**, and every
+- [x] **Track C** — in [[Migration/Parity Checklist]], **every 🔴 box is checked**, and every
       🟡 box is either checked or carries a recorded, accepted divergence. No surface is
       signed off with an unchecked 🔴 (per the checklist's own §144 acceptance rule).
 - [ ] **Pre-flight auth config** (§2) confirmed on the `next.ez-vote.org` origin.
@@ -181,10 +181,16 @@ Verified by: ____________   Date: __________   Staging build SHA: __________
   the corrected branding was deployed to the `ez-vote-react` production branch and
   its public smoke suite passed again.
 - **Manual candidate gate:** the pre-submit warning toast was confirmed in production.
+- **Deployed reranking review:** on the current Cloudflare Pages deployment, a
+  STAR + IRV ballot moved Bob from second to first when scored 5 and Cara from
+  third to second when scored 4. The dnd-kit row transition was visibly smooth
+  at desktop and 390px mobile widths (BAL-17).
+- **Track C:** every parity-checklist row is now accounted for; no red or yellow
+  row remains unchecked.
 
-The M18 sign-off remains open: the remaining Track C matrix rows, the auth-provider
-configuration checks, and a final side-by-side review of the deployed branding fix
-must be completed before M19.
+The M18 parity verification is complete. M19 cutover sign-off remains gated on
+the still-unconfirmed `next.ez-vote.org` auth-provider configuration and current
+GitHub CI status in §5; neither is inferred from the deployed-app checks above.
 
 ---
 
