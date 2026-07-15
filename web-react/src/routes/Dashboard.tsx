@@ -9,6 +9,7 @@ import { H1, H2, Muted } from '@/components/ui/typography'
 import { Stack } from '@/components/ui/layout'
 import { cn } from '@/lib/utils'
 import { ElectionCard } from '@/components/elections/ElectionCard'
+import { LearnContent } from '@/routes/Learn'
 import {
   useOwnedElections,
   usePendingInvitations,
@@ -16,12 +17,12 @@ import {
 } from '@/lib/elections'
 import { signOut } from '@/lib/auth'
 
-// The election-list dashboard (M9), ported from Flutter `HomeScreen`. Two tabs —
-// My Elections (owned) and My Votes (pending invitations + voted) — replacing
-// the M6 placeholder. The Learn tab is M13. No polling: tab switches
-// refetch on demand, realtime is M15.
+// The election-list dashboard (M9), ported from Flutter `HomeScreen`. Three
+// tabs, matching Flutter: My Elections (owned), My Votes (pending invitations
+// + voted), and Learn (the same static explainer as /learn). No polling: tab
+// switches refetch on demand, realtime is M15.
 
-type Tab = 'owned' | 'votes'
+type Tab = 'owned' | 'votes' | 'learn'
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -75,9 +76,17 @@ export function Dashboard() {
           >
             My Votes
           </TabButton>
+          <TabButton
+            active={tab === 'learn'}
+            onClick={() => setTab('learn')}
+          >
+            Learn
+          </TabButton>
         </div>
 
-        {tab === 'owned' ? <OwnedElections /> : <VotedElections />}
+        {tab === 'owned' && <OwnedElections />}
+        {tab === 'votes' && <VotedElections />}
+        {tab === 'learn' && <LearnContent />}
       </Stack>
     </AppShell>
   )

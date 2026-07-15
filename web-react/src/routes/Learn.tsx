@@ -220,11 +220,14 @@ function AlgorithmCard({ info }: { info: AlgoInfo }) {
   )
 }
 
-export function Learn() {
+// The algorithm explainer itself — the React equivalent of Flutter's `LearnTab`
+// widget, rendered both by the standalone /learn route below and by the
+// dashboard's Learn tab.
+export function LearnContent() {
   const [selected, setSelected] = useState<AlgoKey>('approval')
 
   return (
-    <InfoPageLayout title="Learn About Voting Algorithms">
+    <div className="flex flex-col gap-6">
       {/* Segmented control — the React stand-in for Flutter's SegmentedButton.
           No Tabs primitive ships in the design system yet; a row of Buttons
           (selected = filled, others = outline) reproduces the look. */}
@@ -251,6 +254,14 @@ export function Learn() {
       </div>
 
       <AlgorithmCard info={ALGO_DATA[selected]} />
+    </div>
+  )
+}
+
+export function Learn() {
+  return (
+    <InfoPageLayout title="Learn About Voting Algorithms">
+      <LearnContent />
     </InfoPageLayout>
   )
 }
