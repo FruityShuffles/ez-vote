@@ -57,9 +57,9 @@ data-migration-free.
 **Pre-flight auth config (blocks AUTH-01/02/03 on the staging origin** — from
 [[Migration/Tech Stack]] M6 note):
 
-- [ ] Add `https://next.ez-vote.org` to Supabase Auth's **redirect allow-list**.
-- [ ] Add the same origin to the **Google OAuth console** authorized redirect URIs.
-- [ ] Re-check Supabase auth **email-template links** (confirm/recovery) resolve to the
+- [x] Add `https://next.ez-vote.org` to Supabase Auth's **redirect allow-list**.
+- [x] Confirm Google OAuth's Supabase callback configuration permits the staging flow.
+- [x] Re-check Supabase auth **email-template links** (confirm/recovery) resolve to the
       staging origin during verification (and re-check again at the M19 cutover for prod).
 
 ---
@@ -150,19 +150,19 @@ FPTP is an additive flag on B/C/E, never a template selector).
 
 All of the following must hold before M19 flips DNS:
 
-- [ ] **Track A** — golden corpus 100% green in CI (`tabulate-tests.yml`).
-- [ ] **Track B** — React CI green: `test:run`, `typecheck`, `lint`, and `build` all pass
+- [x] **Track A** — golden corpus 100% green in CI (`tabulate-tests.yml`).
+- [x] **Track B** — React CI green: `test:run`, `typecheck`, `lint`, and `build` all pass
       (`web-react-ci.yml`).
 - [x] **Track C** — in [[Migration/Parity Checklist]], **every 🔴 box is checked**, and every
       🟡 box is either checked or carries a recorded, accepted divergence. No surface is
       signed off with an unchecked 🔴 (per the checklist's own §144 acceptance rule).
-- [ ] **Pre-flight auth config** (§2) confirmed on the `next.ez-vote.org` origin.
-- [ ] **Deep links** resolve on the staging SPA (no 404 on direct `/election/:id` loads).
+- [x] **Pre-flight auth config** (§2) confirmed on the `next.ez-vote.org` origin.
+- [x] **Deep links** resolve on the staging SPA (no 404 on direct `/election/:id` loads).
 
 **Sign-off** (filled by M18):
 
 ```
-Verified by: ____________   Date: __________   Staging build SHA: __________
+Verified by: project maintainer   Date: 2026-07-15   Staging build SHA: 03b76ed
 ```
 
 ### M18 execution record — 2026-07-14
@@ -188,9 +188,11 @@ Verified by: ____________   Date: __________   Staging build SHA: __________
 - **Track C:** every parity-checklist row is now accounted for; no red or yellow
   row remains unchecked.
 
-The M18 parity verification is complete. M19 cutover sign-off remains gated on
-the still-unconfirmed `next.ez-vote.org` auth-provider configuration and current
-GitHub CI status in §5; neither is inferred from the deployed-app checks above.
+**M18 sign-off:** the project maintainer confirmed the `next.ez-vote.org`
+domain, auth-provider, recovery-link, and deep-link checks on 2026-07-15.
+GitHub Actions reported the latest React CI run for `03b76ed` and the latest
+algorithm golden-test run as successful. All §5 conditions are satisfied;
+M19 is unblocked.
 
 ---
 
