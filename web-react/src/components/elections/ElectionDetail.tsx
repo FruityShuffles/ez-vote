@@ -145,16 +145,19 @@ export function ElectionDetailView({
           <H2 className="text-xl">
             {election.status === 'open' ? 'Live Results' : 'Results'}
           </H2>
-          <ResultsView electionId={election.id} />
-          {isClosed && election.public_ballots && (
-            <Button
-              variant="outline"
-              className="w-fit"
-              onClick={() => navigate(`/election/${election.id}/explore`)}
-            >
-              Explore what-ifs
-            </Button>
-          )}
+          <ResultsView
+            electionId={election.id}
+            winnerAction={
+              isClosed && election.public_ballots ? (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/election/${election.id}/explore`)}
+                >
+                  Explore what-ifs
+                </Button>
+              ) : undefined
+            }
+          />
           {isClosed && !election.public_ballots && isOwner && (
             <Muted>
               What-if exploration is unavailable because ballots were not made

@@ -215,4 +215,66 @@ describe('RES-04 — overall winner card', () => {
     render(<ResultsList results={loadResults('synthetic', 'star-basic-runoff')} />)
     expect(screen.queryByText(/^Overall/)).not.toBeInTheDocument()
   })
+
+  it('places the what-if action inside the overall winner card', () => {
+    const results = loadResults('synthetic', 'combined-multi-algorithm')
+    render(
+      <ResultsList
+        results={sortResults(results)}
+        winnerAction={<button type="button">Explore what-ifs</button>}
+      />,
+    )
+    const card = screen
+      .getByText('Overall Majority Winner')
+      .closest('[data-slot="card"]')
+    expect(
+      within(card as HTMLElement).getByRole('button', {
+        name: 'Explore what-ifs',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('falls back to the sole result card when there is no overall card', () => {
+    render(
+      <ResultsList
+        results={loadResults('synthetic', 'star-basic-runoff')}
+        winnerAction={<button type="button">Explore what-ifs</button>}
+      />,
+    )
+    const card = screen.getByText('STAR Voting').closest('[data-slot="card"]')
+    expect(
+      within(card as HTMLElement).getByRole('button', {
+        name: 'Explore what-ifs',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('falls back to the first result card when methods have no overall winner', () => {
+    const results = [
+      makeResult('approval', {
+        winners: ['Alice'],
+        winner: 'Alice',
+        tallies: { Alice: 3 },
+      }),
+      makeResult('irv', {
+        winners: ['Bob'],
+        winner: 'Bob',
+        rounds: [],
+      }),
+    ]
+    render(
+      <ResultsList
+        results={results}
+        winnerAction={<button type="button">Explore what-ifs</button>}
+      />,
+    )
+    const approvalCard = screen
+      .getByText('Approval Voting')
+      .closest('[data-slot="card"]')
+    expect(
+      within(approvalCard as HTMLElement).getByRole('button', {
+        name: 'Explore what-ifs',
+      }),
+    ).toBeInTheDocument()
+  })
 })

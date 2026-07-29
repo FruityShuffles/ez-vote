@@ -163,6 +163,12 @@ permanently ineligible ([[Features/Public Ballots]]). When the flag is off, show
 a one-line explanation **to the owner only**; it's useful to them next time and
 clutter for everyone else.
 
+The entry action sits inside the overall-winner summary card, immediately after
+the result it invites the participant to explore. Elections without an overall
+summary (a single method or no clear cross-method leader) place it inside the
+first/sole algorithm winner card instead, so the eligibility gate never becomes
+an accidental visibility gate.
+
 The endpoint **cannot** distinguish "not a participant" from "no such election" —
 that's deliberate, and one generic message covers both.
 

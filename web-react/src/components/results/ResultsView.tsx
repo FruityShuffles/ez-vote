@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import {
   ArrowLeftRight,
   ArrowUpDown,
@@ -36,7 +37,13 @@ const ALGORITHM_LABELS: Record<string, string> = {
 }
 
 /** Container: fetches results and handles loading / error / empty states. */
-export function ResultsView({ electionId }: { electionId: string }) {
+export function ResultsView({
+  electionId,
+  winnerAction,
+}: {
+  electionId: string
+  winnerAction?: ReactNode
+}) {
   const { data, isPending, isError } = useElectionResults(electionId)
 
   if (isPending) {
@@ -49,14 +56,20 @@ export function ResultsView({ electionId }: { electionId: string }) {
   if (isError) {
     return <Muted role="alert">Couldn't load results. Please try again.</Muted>
   }
-  return <ResultsList results={data} />
+  return <ResultsList results={data} winnerAction={winnerAction} />
 }
 
 /**
  * Presentational results list. Split out from the container so it can be
  * rendered directly against the golden-corpus fixtures in tests.
  */
-export function ResultsList({ results }: { results: ElectionResult[] }) {
+export function ResultsList({
+  results,
+  winnerAction,
+}: {
+  results: ElectionResult[]
+  winnerAction?: ReactNode
+}) {
   if (results.length === 0) {
     return <Muted>No results computed yet.</Muted>
   }
@@ -71,18 +84,27 @@ export function ResultsList({ results }: { results: ElectionResult[] }) {
         ? 'lg:grid-cols-3'
         : 'lg:grid-cols-2'
 
+  const overallWinner = multiple ? overallWinnerOf(results) : null
+  const resultAction = overallWinner == null ? winnerAction : undefined
+
   return (
     <Stack gap={4}>
-      {multiple && <OverallWinnerCard results={results} />}
+      {overallWinner != null && (
+        <OverallWinnerCard winner={overallWinner} action={winnerAction} />
+      )}
       <AnalysisCard results={results} />
       {multiple ? (
         <div className={cn('grid grid-cols-1 items-start gap-4 sm:grid-cols-2', columns)}>
-          {results.map((r) => (
-            <ResultCard key={r.algorithm} result={r} />
+          {results.map((r, index) => (
+            <ResultCard
+              key={r.algorithm}
+              result={r}
+              action={index === 0 ? resultAction : undefined}
+            />
           ))}
         </div>
       ) : (
-        <ResultCard result={results[0]} />
+        <ResultCard result={results[0]} action={resultAction} />
       )}
     </Stack>
   )
@@ -93,7 +115,13 @@ export function ResultsList({ results }: { results: ElectionResult[] }) {
  * it's a reference comparison, not a scored method. Hidden when there's no clear
  * consensus (ported rules from `_OverallWinnerCard`).
  */
-function OverallWinnerCard({ results }: { results: ElectionResult[] }) {
+interface OverallWinner {
+  name: string
+  label: string
+  subtitle: string
+}
+
+function overallWinnerOf(results: ElectionResult[]): OverallWinner | null {
   const wins: Record<string, number> = {}
   const scoredResults = results.filter((r) => r.algorithm !== 'fptp')
   for (const r of scoredResults) {
@@ -113,21 +141,38 @@ function OverallWinnerCard({ results }: { results: ElectionResult[] }) {
   if (maxWins < 2 && scoredResults.length > 2) return null
   if (leaders.length > 1) return null
 
-  const overallWinner = leaders[0]
+  const name = leaders[0]
   const isMajority = maxWins > scoredResults.length / 2
   const label = isMajority ? 'Overall Majority Winner' : 'Overall Plurality Winner'
-  const subtitle = `${overallWinner} won ${maxWins} of ${scoredResults.length} algorithms`
+  const subtitle = `${name} won ${maxWins} of ${scoredResults.length} algorithms`
 
+  return { name, label, subtitle }
+}
+
+function OverallWinnerCard({
+  winner,
+  action,
+}: {
+  winner: OverallWinner
+  action?: ReactNode
+}) {
   return (
     <Card className="border-amber-300 bg-amber-50 ring-amber-300">
       <CardContent>
-        <div className="flex items-center gap-3">
-          <Award className="size-8 shrink-0 text-amber-500" aria-hidden />
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-amber-800">{label}</span>
-            <span className="text-lg font-bold">{overallWinner}</span>
-            <span className="text-[13px] text-muted-foreground">{subtitle}</span>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <Award className="size-8 shrink-0 text-amber-500" aria-hidden />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-amber-800">
+                {winner.label}
+              </span>
+              <span className="text-lg font-bold">{winner.name}</span>
+              <span className="text-[13px] text-muted-foreground">
+                {winner.subtitle}
+              </span>
+            </div>
           </div>
+          {action != null && <div className="sm:ml-auto">{action}</div>}
         </div>
       </CardContent>
     </Card>
@@ -199,7 +244,13 @@ function AnalysisCard({ results }: { results: ElectionResult[] }) {
 }
 
 /** One algorithm's result card with its winner header and per-method detail. */
-function ResultCard({ result }: { result: ElectionResult }) {
+function ResultCard({
+  result,
+  action,
+}: {
+  result: ElectionResult
+  action?: ReactNode
+}) {
   const data = result.result_data
   const label = ALGORITHM_LABELS[result.algorithm] ?? result.algorithm
 
@@ -235,6 +286,7 @@ function ResultCard({ result }: { result: ElectionResult }) {
           {runnerUp != null && !runnerUpSuppressed && (
             <p className="text-sm">Runner-up: {runnerUp}</p>
           )}
+          {action != null && <div>{action}</div>}
           {result.algorithm === 'approval' && (
             <TallyDetails label="Approval Counts:" tallies={data.tallies ?? {}} />
           )}

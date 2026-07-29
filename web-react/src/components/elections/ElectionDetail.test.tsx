@@ -1,10 +1,17 @@
+import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { ElectionDetailView } from '@/components/elections/ElectionDetail'
 import type { Ballot, Candidate, Election } from '@/lib/elections'
+
+vi.mock('@/components/results/ResultsView', () => ({
+  ResultsView: ({ winnerAction }: { winnerAction?: ReactNode }) => (
+    <div data-testid="results-view">{winnerAction}</div>
+  ),
+}))
 
 // Parity tests for the election detail surface (M9), parity checklist §3. They
 // exercise the presentational `ElectionDetailView` with resolved props so the
