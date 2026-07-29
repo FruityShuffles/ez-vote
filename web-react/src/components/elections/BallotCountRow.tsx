@@ -88,7 +88,11 @@ function PublicBallotsList({ electionId }: { electionId: string }) {
     )
   }
   if (isError) {
-    return <Muted role="alert">Couldn't load public ballots. Please try again.</Muted>
+    return (
+      <Muted role="alert">
+        Couldn't load public ballots. Please try again.
+      </Muted>
+    )
   }
   if (data.length === 0) {
     return <Muted>No ballots submitted yet.</Muted>
@@ -97,7 +101,7 @@ function PublicBallotsList({ electionId }: { electionId: string }) {
     <ul className="divide-y divide-border">
       {data.map((ballot, index) => (
         <li
-          key={ballot.voter_id}
+          key={ballot.voter_id ?? `anonymous-${index}`}
           className="flex items-center justify-between gap-3 py-2 text-sm"
         >
           <span>{ballot.display_name || 'Unnamed voter'}</span>
@@ -126,9 +130,7 @@ function VotersList({ electionId }: { electionId: string }) {
     )
   }
   if (isError) {
-    return (
-      <Muted role="alert">Couldn't load voters. Please try again.</Muted>
-    )
+    return <Muted role="alert">Couldn't load voters. Please try again.</Muted>
   }
   if (data.length === 0) {
     return <Muted>No ballots submitted yet.</Muted>

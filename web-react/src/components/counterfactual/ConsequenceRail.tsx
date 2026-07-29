@@ -76,7 +76,7 @@ export function ConsequenceRail({
             <div
               role="status"
               aria-label="Updating results"
-              className="absolute inset-x-0 -top-2 h-0.5 animate-pulse rounded-full bg-primary/60"
+              className="absolute inset-x-0 -top-2 h-0.5 animate-pulse rounded-full bg-primary/60 motion-reduce:animate-none"
             />
           )}
           <h3 className="font-heading text-sm font-semibold">
@@ -131,7 +131,10 @@ function MethodStrip({
   const baseRounds = roundCountOf(base)
   const simRounds = roundCountOf(result)
   const roundShift =
-    didChange && baseRounds != null && simRounds != null && baseRounds !== simRounds
+    didChange &&
+    baseRounds != null &&
+    simRounds != null &&
+    baseRounds !== simRounds
       ? `${baseRounds} round${baseRounds === 1 ? '' : 's'} → ${simRounds}`
       : null
 
@@ -149,7 +152,7 @@ function MethodStrip({
       data-algorithm={algorithm}
       data-changed={didChange ? 'true' : 'false'}
       className={cn(
-        'transition-colors',
+        'transition-colors motion-reduce:transition-none',
         didChange
           ? 'ring-2 ring-primary'
           : hasEdits && 'bg-card/60 text-muted-foreground ring-foreground/5',
@@ -180,7 +183,7 @@ function MethodStrip({
           <p
             key={outcome}
             className={cn(
-              'animate-in fade-in text-sm leading-snug font-semibold duration-200 motion-safe:slide-in-from-bottom-1',
+              'animate-in fade-in text-sm leading-snug font-semibold duration-200 motion-reduce:animate-none motion-safe:slide-in-from-bottom-1',
               didChange && 'text-foreground',
             )}
           >
@@ -234,7 +237,9 @@ export function ConsequenceSummaryBar({
   if (!hasEdits) return null
 
   const baseByAlgorithm = new Map(baseline.map((r) => [r.algorithm, r]))
-  const moved = sortResults(simulated).filter((r) => changed[r.algorithm] === true)
+  const moved = sortResults(simulated).filter(
+    (r) => changed[r.algorithm] === true,
+  )
 
   let summary: string
   if (moved.length === 0) {
@@ -302,10 +307,15 @@ interface MetricRow {
  * simulated value so the rail reorders to match the hypothetical standings
  * rather than the real ones.
  */
-function metricRows(result: TabulationResult, base: TabulationResult): MetricRow[] {
+function metricRows(
+  result: TabulationResult,
+  base: TabulationResult,
+): MetricRow[] {
   const simulated = metricOf(result)
   const baseline = metricOf(base)
-  const names = [...new Set([...Object.keys(simulated), ...Object.keys(baseline)])]
+  const names = [
+    ...new Set([...Object.keys(simulated), ...Object.keys(baseline)]),
+  ]
 
   return names
     .map((name) => ({
@@ -344,7 +354,10 @@ function MetricRows({
             <div className="flex items-baseline justify-between gap-2 text-xs">
               <span className="truncate">{name}</span>
               <span className="shrink-0 tabular-nums">
-                <span key={value} className="animate-in fade-in duration-150">
+                <span
+                  key={value}
+                  className="animate-in fade-in duration-150 motion-reduce:animate-none"
+                >
                   {value}
                 </span>
                 {hasEdits && delta !== 0 && (

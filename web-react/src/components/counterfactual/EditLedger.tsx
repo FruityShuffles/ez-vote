@@ -80,7 +80,7 @@ export function EditLedger({
                   type="button"
                   onClick={() => onRemove(entry.voterId)}
                   aria-label={`Undo the change to ${entry.voterName}'s ballot`}
-                  className="rounded-4xl p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  className="rounded-4xl p-1 text-muted-foreground transition-colors motion-reduce:transition-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                   <X className="size-3" aria-hidden />
                 </button>
@@ -101,10 +101,9 @@ function ChipLabel({
   onSelect?: (voterId: string) => void
 }) {
   const summary =
-    entry.op === 'remove'
-      ? 'ballot removed'
-      : (entry.phrases[0] ?? 'edited')
-  const extra = entry.op === 'remove' ? 0 : Math.max(0, entry.phrases.length - 1)
+    entry.op === 'remove' ? 'ballot removed' : (entry.phrases[0] ?? 'edited')
+  const extra =
+    entry.op === 'remove' ? 0 : Math.max(0, entry.phrases.length - 1)
 
   const text = (
     <>

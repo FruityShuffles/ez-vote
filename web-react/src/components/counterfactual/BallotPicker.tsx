@@ -132,7 +132,7 @@ export function BallotPicker({
                   aria-pressed={activeRelation === r}
                   onClick={() => setRelation(r)}
                   className={cn(
-                    'rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                    'rounded-md px-2 py-1 text-xs font-medium transition-colors motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                     activeRelation === r
                       ? 'bg-secondary text-secondary-foreground'
                       : 'text-muted-foreground hover:text-foreground',
@@ -159,10 +159,12 @@ export function BallotPicker({
                   type="button"
                   aria-pressed={candidateId === c.id}
                   onClick={() =>
-                    setCandidateId((current) => (current === c.id ? null : c.id))
+                    setCandidateId((current) =>
+                      current === c.id ? null : c.id,
+                    )
                   }
                   className={cn(
-                    'rounded-4xl border px-2.5 py-0.5 text-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                    'rounded-4xl border px-2.5 py-0.5 text-xs font-medium transition-colors motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                     candidateId === c.id
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-border text-foreground hover:bg-muted',
@@ -185,7 +187,7 @@ export function BallotPicker({
                   aria-pressed={changedOnly}
                   onClick={() => setChangedOnly((v) => !v)}
                   className={cn(
-                    'rounded-4xl border border-dashed px-2.5 py-0.5 text-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                    'rounded-4xl border border-dashed px-2.5 py-0.5 text-xs font-medium transition-colors motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                     changedOnly
                       ? 'border-foreground/50 bg-secondary text-secondary-foreground'
                       : 'border-border text-muted-foreground hover:bg-muted',
@@ -209,17 +211,17 @@ export function BallotPicker({
             </p>
           )}
           <ul className="divide-y divide-border rounded-lg ring-1 ring-foreground/10">
-          {visible.map((ballot) => (
-            <BallotRow
-              key={ballot.voter_id}
-              ballot={ballot}
-              edit={edits[ballot.voter_id]}
-              candidateIds={candidateIds}
-              nameOf={nameOf}
-              onSelect={onSelect}
-              onUndo={onUndo}
-            />
-          ))}
+            {visible.map((ballot) => (
+              <BallotRow
+                key={ballot.voter_id}
+                ballot={ballot}
+                edit={edits[ballot.voter_id]}
+                candidateIds={candidateIds}
+                nameOf={nameOf}
+                onSelect={onSelect}
+                onUndo={onUndo}
+              />
+            ))}
           </ul>
         </>
       )}
@@ -243,7 +245,9 @@ function BallotRow({
   onUndo: (voterId: string) => void
 }) {
   const name = voterName(ballot)
-  const phrases = edit ? summarizeChange(edit.original, edit.payload, nameOf) : []
+  const phrases = edit
+    ? summarizeChange(edit.original, edit.payload, nameOf)
+    : []
 
   return (
     // The name button is stretched over the whole row via `after:inset-0`, so
@@ -252,7 +256,7 @@ function BallotRow({
     // keyboard.
     <li
       className={cn(
-        'relative flex flex-col gap-1.5 px-3 py-2.5 transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-muted',
+        'relative flex flex-col gap-1.5 px-3 py-2.5 transition-colors motion-reduce:transition-none first:rounded-t-lg last:rounded-b-lg hover:bg-muted',
         edit && 'bg-muted/40',
       )}
     >
@@ -269,7 +273,7 @@ function BallotRow({
             type="button"
             onClick={() => onUndo(ballot.voter_id)}
             aria-label={`Undo the change to ${name}'s ballot`}
-            className="relative z-10 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="relative z-10 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors motion-reduce:transition-none hover:bg-background hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <Undo2 className="size-3" aria-hidden />
             Undo
@@ -293,7 +297,11 @@ function BallotRow({
             entries={ballotSummary(edit.payload, candidateIds)}
             nameOf={nameOf}
             tone="now"
-            changedIds={changedCandidates(edit.original, edit.payload, candidateIds)}
+            changedIds={changedCandidates(
+              edit.original,
+              edit.payload,
+              candidateIds,
+            )}
             // The two strips make the change obvious on sight, so no sentence
             // repeats them — but the outline marking those chips is purely
             // visual, so the description moves here rather than disappearing.

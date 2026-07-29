@@ -8,11 +8,13 @@ import { Login } from '@/routes/Login'
 import { Signup } from '@/routes/Signup'
 import { ForgotPassword } from '@/routes/ForgotPassword'
 import { Dashboard } from '@/routes/Dashboard'
-import { Design } from '@/routes/Design'
-import { DesignExplore } from '@/routes/DesignExplore'
 import { ElectionDetail } from '@/components/elections/ElectionDetail'
 import { Ballot } from '@/routes/Ballot'
 import { PublicBallot } from '@/routes/PublicBallot'
+import {
+  CounterfactualEditor,
+  CounterfactualPicker,
+} from '@/routes/CounterfactualExplorer'
 import { ElectionForm } from '@/routes/ElectionForm'
 import { JoinElection } from '@/routes/JoinElection'
 import { Settings } from '@/routes/Settings'
@@ -122,6 +124,22 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/election/:id/explore',
+    element: (
+      <RequireAuth>
+        <CounterfactualPicker />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/election/:id/explore/:voterId',
+    element: (
+      <RequireAuth>
+        <CounterfactualEditor />
+      </RequireAuth>
+    ),
+  },
+  {
     // Join via an invite link / QR (M12). RequireAuth threads `redirect=` so an
     // unauthenticated visitor lands back here after login/signup (INV-04). The
     // screen joins and forwards to the election detail.
@@ -147,14 +165,20 @@ export const router = createBrowserRouter([
     // data and no auth guard, and exists for visual verification of the shared
     // components against Flutter (and the M18 side-by-side review).
     path: '/design',
-    element: <Design />,
+    lazy: async () => {
+      const { Design } = await import('@/routes/Design')
+      return { Component: Design }
+    },
   },
   {
     // Design surface for the what-if explorer (M21), same posture as /design:
     // unlinked, unguarded, mock data only. Reviewed before the feature is wired
     // to the simulate-counterfactual endpoint.
     path: '/design/explore',
-    element: <DesignExplore />,
+    lazy: async () => {
+      const { DesignExplore } = await import('@/routes/DesignExplore')
+      return { Component: DesignExplore }
+    },
   },
   {
     path: '*',

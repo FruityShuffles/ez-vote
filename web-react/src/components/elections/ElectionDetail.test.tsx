@@ -119,11 +119,16 @@ describe('status transitions — owner controls by status', () => {
     expect(
       screen.getByRole('button', { name: 'Open Election' }),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Close/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Close/ }),
+    ).not.toBeInTheDocument()
   })
 
   it('open shows Close, not Open', () => {
-    renderView({ election: { ...baseElection, status: 'open' }, currentUserId: OWNER })
+    renderView({
+      election: { ...baseElection, status: 'open' },
+      currentUserId: OWNER,
+    })
     expect(
       screen.getByRole('button', { name: /Close & Compute Results/ }),
     ).toBeInTheDocument()
@@ -143,9 +148,14 @@ describe('status transitions — owner controls by status', () => {
   })
 
   it('closed shows no owner action buttons', () => {
-    renderView({ election: { ...baseElection, status: 'closed' }, currentUserId: OWNER })
+    renderView({
+      election: { ...baseElection, status: 'closed' },
+      currentUserId: OWNER,
+    })
     expect(screen.queryByText('Owner Controls')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Close|Open|Edit/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Close|Open|Edit/ }),
+    ).not.toBeInTheDocument()
   })
 })
 
@@ -158,8 +168,13 @@ describe('voter controls — by ballot + status', () => {
   })
 
   it('open, has ballot → Edit Ballot', () => {
-    renderView({ currentUserId: 'voter-1', ballot: ballotUpdatedAt('2026-02-01T00:00:00Z') })
-    expect(screen.getByRole('button', { name: 'Edit Ballot' })).toBeInTheDocument()
+    renderView({
+      currentUserId: 'voter-1',
+      ballot: ballotUpdatedAt('2026-02-01T00:00:00Z'),
+    })
+    expect(
+      screen.getByRole('button', { name: 'Edit Ballot' }),
+    ).toBeInTheDocument()
   })
 
   it('closed, has ballot → View Ballot', () => {
@@ -168,12 +183,21 @@ describe('voter controls — by ballot + status', () => {
       currentUserId: 'voter-1',
       ballot: ballotUpdatedAt('2026-02-01T00:00:00Z'),
     })
-    expect(screen.getByRole('button', { name: 'View Ballot' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'View Ballot' }),
+    ).toBeInTheDocument()
   })
 
   it('closed, no ballot → no voter action', () => {
-    renderView({ election: { ...baseElection, status: 'closed' }, currentUserId: 'voter-1' })
-    expect(screen.queryByRole('button', { name: /Cast Your Vote|Edit Ballot|View Ballot/ })).not.toBeInTheDocument()
+    renderView({
+      election: { ...baseElection, status: 'closed' },
+      currentUserId: 'voter-1',
+    })
+    expect(
+      screen.queryByRole('button', {
+        name: /Cast Your Vote|Edit Ballot|View Ballot/,
+      }),
+    ).not.toBeInTheDocument()
   })
 })
 
@@ -183,7 +207,10 @@ describe('DET-06 — stale-ballot warning', () => {
   it('appears when candidates changed after the ballot was saved', () => {
     renderView({
       currentUserId: 'voter-1',
-      election: { ...baseElection, candidates_updated_at: '2026-03-01T00:00:00Z' },
+      election: {
+        ...baseElection,
+        candidates_updated_at: '2026-03-01T00:00:00Z',
+      },
       ballot: ballotUpdatedAt('2026-02-01T00:00:00Z'),
     })
     expect(screen.getByText(STALE_MSG)).toBeInTheDocument()
@@ -192,7 +219,10 @@ describe('DET-06 — stale-ballot warning', () => {
   it('clears once the ballot is re-saved after the candidate change', () => {
     renderView({
       currentUserId: 'voter-1',
-      election: { ...baseElection, candidates_updated_at: '2026-03-01T00:00:00Z' },
+      election: {
+        ...baseElection,
+        candidates_updated_at: '2026-03-01T00:00:00Z',
+      },
       ballot: ballotUpdatedAt('2026-03-02T00:00:00Z'),
     })
     expect(screen.queryByText(STALE_MSG)).not.toBeInTheDocument()
@@ -233,5 +263,48 @@ describe('status badge', () => {
   it('renders the uppercased status', () => {
     renderView({ election: { ...baseElection, status: 'draft' } })
     expect(screen.getByText('DRAFT')).toBeInTheDocument()
+  })
+})
+
+describe('M21 — what-if explorer gate', () => {
+  it('shows the decided entry point only on closed public-ballot elections', () => {
+    renderView({
+      election: {
+        ...baseElection,
+        status: 'closed',
+        public_ballots: true,
+      },
+      currentUserId: 'voter-1',
+    })
+    expect(
+      screen.getByRole('button', { name: 'Explore what-ifs' }),
+    ).toBeInTheDocument()
+  })
+
+  it('explains an ineligible private election to the owner only', () => {
+    const { unmount } = renderView({
+      election: { ...baseElection, status: 'closed' },
+      currentUserId: OWNER,
+    })
+    expect(screen.getByText(/ballots were not made public/)).toBeInTheDocument()
+    unmount()
+
+    renderView({
+      election: { ...baseElection, status: 'closed' },
+      currentUserId: 'voter-1',
+    })
+    expect(
+      screen.queryByText(/ballots were not made public/),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not show the entry point for open elections', () => {
+    renderView({
+      election: { ...baseElection, public_ballots: true },
+      currentUserId: OWNER,
+    })
+    expect(
+      screen.queryByRole('button', { name: 'Explore what-ifs' }),
+    ).not.toBeInTheDocument()
   })
 })

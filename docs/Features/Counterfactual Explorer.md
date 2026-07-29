@@ -10,8 +10,8 @@ showing methods side by side teaches electoral system design in a way a
 single-method tool cannot. **Nothing is ever written** — the endpoint holds no
 service-role key.
 
-**Status:** design and presentational layer shipped (stage 1). Not yet wired to
-the endpoint and not yet reachable from the app — see *Remaining work*.
+**Status:** shipped. The authenticated picker/editor routes call the read-only
+endpoint, and eligible closed elections link to the feature from their results.
 
 ## Vocabulary
 
@@ -133,6 +133,10 @@ render its answer: the same shape, filled in by the server rather than by hand.
 `variant="summary"` (count + Reset all) on the picker, where rows already carry
 their own diffs; full chips on the editor, where there are no rows to carry them.
 
+The ledger lives in `lib/counterfactualStore.ts`, a small Zustand store scoped to
+one election id. It survives navigation between picker and editor, and selecting
+a different election clears it before any new override payload is constructed.
+
 ## Two traps
 
 Both were found by running the prototype, and stage 2 will meet them again.
@@ -162,16 +166,23 @@ clutter for everyone else.
 The endpoint **cannot** distinguish "not a participant" from "no such election" —
 that's deliberate, and one generic message covers both.
 
-## Remaining work (stage 2)
+## Endpoint wiring
 
-- `lib/counterfactual.ts` gains `useSimulate` calling
-  `supabase.functions.invoke('simulate-counterfactual', …)`, debounced ~250ms,
-  with `placeholderData` so the rail never blanks.
-- Ledger state in a Zustand store keyed by election id, surviving navigation
-  between the two screens.
-- Real routes in `router.tsx` under `RequireAuth`; entry button in
-  `ElectionDetail.tsx`.
-- Override payloads come from `useBallotState().getPayload()` — it already emits
-  exactly the `{ approval, irv, star, fptp }` shape the endpoint validates,
-  including the template D/E/F/G derivation. **No new derivation logic.**
-- Playwright spec and a no-writes check after it.
+`useSimulate` in `lib/counterfactual.ts` calls
+`supabase.functions.invoke('simulate-counterfactual', …)`. Override changes are
+debounced by 250 ms, and TanStack Query keeps the previous response as
+placeholder data while the replacement is in flight. The rail therefore stays
+mounted and displays its thin pending marker over the last comparison.
+
+The editor sends `useBallotState().getPayload()` directly. That is the same
+payload builder as the real ballot flow, including templates D/E/F/G; the
+explorer has no second derivation implementation.
+
+The unlinked `/design/explore` prototype remains available for design review.
+Both design routes are lazy-loaded so its browser-side shared tabulator stays out
+of the production entry bundle.
+
+`e2e/counterfactual-explorer.spec.ts` covers the authenticated two-screen flow,
+an edit that changes only IRV's winners, undo, keyboard activation, and reduced
+motion. It snapshots stored `results` rows and public ballot payloads before the
+hypothetical edit and asserts both are structurally identical afterward.

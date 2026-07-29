@@ -68,9 +68,7 @@ export function ElectionDetail() {
           <Spinner className="size-6 text-muted-foreground" />
         </div>
       ) : electionQuery.isError ? (
-        <Muted role="alert">
-          Could not load election. Please try again.
-        </Muted>
+        <Muted role="alert">Could not load election. Please try again.</Muted>
       ) : (
         <ElectionDetailView
           election={electionQuery.data}
@@ -103,6 +101,7 @@ export function ElectionDetailView({
   ballot,
   currentUserId,
 }: ElectionDetailViewProps) {
+  const navigate = useNavigate()
   const isOwner = election.owner_id === currentUserId
   const isClosed = election.status === 'closed'
   const hasSubmittedBallot = ballot != null
@@ -147,6 +146,21 @@ export function ElectionDetailView({
             {election.status === 'open' ? 'Live Results' : 'Results'}
           </H2>
           <ResultsView electionId={election.id} />
+          {isClosed && election.public_ballots && (
+            <Button
+              variant="outline"
+              className="w-fit"
+              onClick={() => navigate(`/election/${election.id}/explore`)}
+            >
+              Explore what-ifs
+            </Button>
+          )}
+          {isClosed && !election.public_ballots && isOwner && (
+            <Muted>
+              What-if exploration is unavailable because ballots were not made
+              public when this election was created.
+            </Muted>
+          )}
         </>
       )}
 
@@ -211,13 +225,10 @@ function CandidateSection({
   }
   if (error) {
     return (
-      <Muted role="alert">
-        Could not load candidates. Please try again.
-      </Muted>
+      <Muted role="alert">Could not load candidates. Please try again.</Muted>
     )
   }
-  const canAdd =
-    election.allow_voter_candidates && election.status === 'open'
+  const canAdd = election.allow_voter_candidates && election.status === 'open'
 
   return (
     <div>

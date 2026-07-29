@@ -21,7 +21,7 @@ export async function createOpenApprovalElection(
   page: Page,
   opts: {
     title: string
-    candidates: [string, string]
+    candidates: [string, string, ...string[]]
     includeFptp?: boolean
     algorithms?: VotingAlgorithm[]
     allowVoterCandidates?: boolean
@@ -38,6 +38,12 @@ export async function createOpenApprovalElection(
   // `exact` so these don't also match the "Move candidate N up/down" buttons.
   await page.getByLabel('Candidate 1', { exact: true }).fill(opts.candidates[0])
   await page.getByLabel('Candidate 2', { exact: true }).fill(opts.candidates[1])
+  for (let index = 2; index < opts.candidates.length; index++) {
+    await page.getByRole('button', { name: 'Add Candidate' }).click()
+    await page
+      .getByLabel(`Candidate ${index + 1}`, { exact: true })
+      .fill(opts.candidates[index])
+  }
 
   const algorithms = opts.algorithms ?? ['approval']
   const algorithmLabels: Record<VotingAlgorithm, string> = {
@@ -55,9 +61,7 @@ export async function createOpenApprovalElection(
   }
 
   if (!opts.includeFptp) {
-    await page
-      .getByRole('switch', { name: 'Include FPTP comparison' })
-      .click()
+    await page.getByRole('switch', { name: 'Include FPTP comparison' }).click()
   }
   if (opts.allowVoterCandidates) {
     await page

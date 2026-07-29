@@ -1,6 +1,10 @@
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+
 import type { Payload } from '@shared/derive'
 
 import type { ResultData } from '@/lib/results'
+import { supabase } from '@/lib/supabase'
 
 // Domain types and phrasing for the what-if explorer (M21), mirroring the
 // `simulate-counterfactual` contract in `docs/Backend/Simulate Counterfactual.md`.
@@ -27,6 +31,76 @@ export interface SimulationResponse {
   changed: Record<string, boolean>
   ballot_count: { baseline: number; simulated: number }
   applied: { replace: number; remove: number; add: number }
+}
+
+export const SIMULATION_ACCESS_ERROR =
+  'This election could not be found, or you are not a participant.'
+
+async function simulationError(error: unknown): Promise<Error> {
+  const context = (error as { context?: Response } | null)?.context
+  if (context != null) {
+    try {
+      const body = (await context.json()) as { error?: unknown }
+      if (typeof body.error === 'string' && body.error.trim() !== '') {
+        const message =
+          body.error === 'Election not found' ||
+          body.error === 'Not a participant'
+            ? SIMULATION_ACCESS_ERROR
+            : body.error
+        return new Error(message)
+      }
+    } catch {
+      // A malformed error body falls through to the single generic fallback.
+    }
+  }
+  return new Error('Could not update the what-if results. Please try again.')
+}
+
+/**
+ * Debounced, read-only counterfactual tabulation.
+ *
+ * Query data is kept across override changes so the consequence rail never
+ * blanks while a new result is in flight. Callers pass `isFetching` to the
+ * rail's `pending` prop to make the stale-but-visible state explicit.
+ */
+export function useSimulate(
+  electionId: string,
+  overrides: BallotOverride[],
+  enabled = true,
+) {
+  const [request, setRequest] = useState({ electionId, overrides })
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setRequest({ electionId, overrides }),
+      250,
+    )
+    return () => window.clearTimeout(timer)
+  }, [electionId, overrides])
+
+  return useQuery({
+    queryKey: [
+      'simulate-counterfactual',
+      request.electionId,
+      request.overrides,
+    ],
+    enabled: enabled && electionId !== '' && request.electionId === electionId,
+    placeholderData: keepPreviousData,
+    retry: false,
+    queryFn: async (): Promise<SimulationResponse> => {
+      const { data, error } = await supabase.functions.invoke(
+        'simulate-counterfactual',
+        {
+          body: {
+            election_id: request.electionId,
+            overrides: request.overrides,
+          },
+        },
+      )
+      if (error) throw await simulationError(error)
+      return data as SimulationResponse
+    },
+  })
 }
 
 /**
@@ -80,7 +154,9 @@ export function metricOf(result: TabulationResult): Record<string, number> {
 
 /** Number of IRV rounds, or null for methods that don't have rounds. */
 export function roundCountOf(result: TabulationResult): number | null {
-  return result.algorithm === 'irv' ? (result.result_data.rounds?.length ?? 0) : null
+  return result.algorithm === 'irv'
+    ? (result.result_data.rounds?.length ?? 0)
+    : null
 }
 
 /**

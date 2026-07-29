@@ -63,7 +63,7 @@ export interface Ballot {
 
 /** A participant ballot exposed only by the `get_public_ballots` RPC. */
 export interface PublicBallot {
-  voter_id: string
+  voter_id: string | null
   display_name: string | null
   payload: unknown
   updated_at: string
@@ -322,10 +322,13 @@ export function useElectionVoters(electionId: string) {
  * only read path for another voter’s payload: it applies the public_ballots
  * gate and the participant/owner check before returning anything (PUB-01).
  */
-export function usePublicBallots(electionId: string) {
+export function usePublicBallots(
+  electionId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: electionKeys.publicBallots(electionId),
-    enabled: electionId !== '',
+    enabled: electionId !== '' && (options.enabled ?? true),
     // A denied request is an expected privacy gate, not a transient failure.
     // Avoid leaving a guessed protected URL on a retry spinner.
     retry: false,
@@ -484,7 +487,9 @@ export function useAddVoterToElection(electionId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: electionKeys.priorCovoters(electionId) })
-      qc.invalidateQueries({ queryKey: electionKeys.pendingInvitees(electionId) })
+      qc.invalidateQueries({
+        queryKey: electionKeys.pendingInvitees(electionId),
+      })
     },
   })
 }
