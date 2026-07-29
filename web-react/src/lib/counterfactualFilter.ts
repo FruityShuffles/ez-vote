@@ -170,6 +170,40 @@ export function ballotSummary(
   }))
 }
 
+/**
+ * Which candidates a hypothetical actually touched — moved in the order, given a
+ * different score, or approved/unapproved.
+ *
+ * Used to mark the changed chips on a before/after strip, so the row shows *what*
+ * the voter did without a sentence restating it.
+ */
+export function changedCandidates(
+  original: Payload,
+  next: Payload,
+  candidateIds: string[],
+): Set<string> {
+  const before = new Map(
+    ballotSummary(original, candidateIds).map((entry, index) => [
+      entry.candidateId,
+      { ...entry, index },
+    ]),
+  )
+
+  const changed = new Set<string>()
+  ballotSummary(next, candidateIds).forEach((entry, index) => {
+    const was = before.get(entry.candidateId)
+    if (
+      was == null ||
+      was.index !== index ||
+      was.score !== entry.score ||
+      was.approved !== entry.approved
+    ) {
+      changed.add(entry.candidateId)
+    }
+  })
+  return changed
+}
+
 // ── Change summaries (the edit ledger) ───────────────────────────────────────
 
 const ORDINAL_SUFFIXES = ['th', 'st', 'nd', 'rd'] as const

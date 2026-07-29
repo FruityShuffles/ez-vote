@@ -5,6 +5,7 @@ import {
   approvedBy,
   availableRelations,
   ballotSummary,
+  changedCandidates,
   filterBallots,
   matchesRelation,
   ordinal,
@@ -219,6 +220,49 @@ describe('ballotSummary', () => {
       ids,
     )
     expect(new Set(entries.map((e) => e.candidateId)).size).toBe(entries.length)
+  })
+})
+
+describe('changedCandidates', () => {
+  const ids = ['ada', 'bo', 'cy']
+
+  it('finds nothing on an untouched ballot', () => {
+    const payload = { irv: ['cy', 'bo', 'ada'], star: { ada: 3, bo: 3, cy: 5 } }
+    expect(changedCandidates(payload, { ...payload }, ids).size).toBe(0)
+  })
+
+  it('marks both sides of a swap, and nothing that held its place', () => {
+    const before = { irv: ['cy', 'bo', 'ada'], star: { ada: 3, bo: 3, cy: 5 } }
+    const after = { irv: ['cy', 'ada', 'bo'], star: { ada: 3, bo: 3, cy: 5 } }
+    expect(changedCandidates(before, after, ids)).toEqual(new Set(['ada', 'bo']))
+  })
+
+  it('marks a candidate whose score moved even when its position did not', () => {
+    expect(
+      changedCandidates(
+        { irv: ['ada', 'bo'], star: { ada: 5, bo: 1 } },
+        { irv: ['ada', 'bo'], star: { ada: 4, bo: 1 } },
+        ['ada', 'bo'],
+      ),
+    ).toEqual(new Set(['ada']))
+  })
+
+  it('marks a candidate whose approval changed', () => {
+    expect(
+      changedCandidates(
+        { irv: ['ada', 'bo'], approval: ['ada'] },
+        { irv: ['ada', 'bo'], approval: ['ada', 'bo'] },
+        ['ada', 'bo'],
+      ),
+    ).toEqual(new Set(['bo']))
+  })
+
+  it('marks everything below a candidate promoted to the top', () => {
+    // Moving Cy first shifts Ada and Bo down a place each, and all three rows
+    // genuinely read differently afterwards.
+    expect(
+      changedCandidates({ irv: ['ada', 'bo', 'cy'] }, { irv: ['cy', 'ada', 'bo'] }, ids),
+    ).toEqual(new Set(['ada', 'bo', 'cy']))
   })
 })
 

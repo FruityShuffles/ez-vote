@@ -10,6 +10,7 @@ import {
   RELATION_LABELS,
   availableRelations,
   ballotSummary,
+  changedCandidates,
   filterBallots,
   summarizeChange,
   voterName,
@@ -29,9 +30,6 @@ import { BallotFingerprint } from './BallotFingerprint'
 // The candidate filter offers only the relations the ballots can actually
 // answer (see `availableRelations`) — an approval-only election has no first
 // preference, and inventing one would misreport the voter.
-
-/** Change phrases shown inline on a row before they collapse into a counter. */
-const MAX_ROW_PHRASES = 3
 
 /** A pending hypothetical, keyed by voter, as the picker needs to render it. */
 export interface PendingEdit {
@@ -87,8 +85,11 @@ export function BallotPicker({
     if (payloads.some((p) => p.star != null)) {
       parts.push('number = score')
     }
+    if (editCount > 0) {
+      parts.push('outlined = you changed it')
+    }
     return parts
-  }, [ballots])
+  }, [ballots, editCount])
 
   const visible = useMemo(() => {
     const matched = filterBallots(ballots, {
@@ -286,22 +287,22 @@ function BallotRow({
             entries={ballotSummary(edit.original, candidateIds)}
             nameOf={nameOf}
             tone="was"
+            label={`${name}'s real ballot`}
           />
           <BallotFingerprint
             entries={ballotSummary(edit.payload, candidateIds)}
             nameOf={nameOf}
             tone="now"
+            changedIds={changedCandidates(edit.original, edit.payload, candidateIds)}
+            // The two strips make the change obvious on sight, so no sentence
+            // repeats them — but the outline marking those chips is purely
+            // visual, so the description moves here rather than disappearing.
+            label={
+              phrases.length > 0
+                ? `Changed to: ${phrases.join('; ')}`
+                : 'Changed ballot'
+            }
           />
-          {phrases.length > 0 && (
-            // The strips above already show the change; this is the readable
-            // version of it, so it's capped rather than allowed to run the width
-            // of the row on an election with many candidates.
-            <p className="pl-[2.125rem] text-[11px] text-muted-foreground">
-              {phrases.slice(0, MAX_ROW_PHRASES).join(' · ')}
-              {phrases.length > MAX_ROW_PHRASES &&
-                ` · +${phrases.length - MAX_ROW_PHRASES} more`}
-            </p>
-          )}
         </>
       ) : (
         <BallotFingerprint

@@ -90,12 +90,42 @@ describe('BallotPicker rows', () => {
 })
 
 describe('BallotPicker rows — a changed ballot', () => {
-  it('carries its own before/after and what moved', () => {
+  it('carries its own before and after strips', () => {
     renderPicker({ edits: { v2: NIA_EDIT } })
     const nia = within(row('Nia Sorensen'))
     expect(nia.getByText('was')).toBeInTheDocument()
     expect(nia.getByText('now')).toBeInTheDocument()
-    expect(nia.getByText(/Ada 3rd → 2nd/)).toBeInTheDocument()
+  })
+
+  it('outlines only the candidates the change touched', () => {
+    renderPicker({ edits: { v2: NIA_EDIT } })
+    const now = within(row('Nia Sorensen')).getByLabelText(/^Changed to:/)
+    const marked = Array.from(now.querySelectorAll('[data-changed="true"]'))
+      .map((el) => el.textContent)
+      .join(' ')
+
+    // Ada and Bo swapped places; Cy held first and stays unmarked.
+    expect(now.querySelectorAll('[data-changed="true"]')).toHaveLength(2)
+    expect(marked).toContain('Ada')
+    expect(marked).toContain('Bo')
+    expect(marked).not.toContain('Cy')
+  })
+
+  it('marks nothing on the real ballot, only on the hypothetical one', () => {
+    renderPicker({ edits: { v2: NIA_EDIT } })
+    const was = within(row('Nia Sorensen')).getByLabelText(
+      "Nia Sorensen's real ballot",
+    )
+    expect(was.querySelectorAll('[data-changed="true"]')).toHaveLength(0)
+  })
+
+  it('describes the change in text, since the outline alone is visual', () => {
+    // The row deliberately shows no sentence — the strips make it obvious on
+    // sight — so this label is the only description assistive tech gets.
+    renderPicker({ edits: { v2: NIA_EDIT } })
+    expect(
+      within(row('Nia Sorensen')).getByLabelText(/Ada 3rd → 2nd/),
+    ).toBeInTheDocument()
   })
 
   it('offers undo on the row itself', async () => {
