@@ -45,8 +45,12 @@ export interface ElectionResult {
  */
 export const RESULT_ALGORITHM_ORDER = ['approval', 'irv', 'star', 'fptp'] as const
 
-/** Sort results into the canonical order; unknown algorithms sort last. */
-export function sortResults(results: ElectionResult[]): ElectionResult[] {
+/**
+ * Sort results into the canonical order; unknown algorithms sort last.
+ * Generic over anything carrying an `algorithm`, so the M21 explorer can sort
+ * the simulation's computed `TabulationResult[]` (no row ids) with the same rule.
+ */
+export function sortResults<T extends { algorithm: string }>(results: T[]): T[] {
   const rank = (algorithm: string) => {
     const i = RESULT_ALGORITHM_ORDER.indexOf(
       algorithm as (typeof RESULT_ALGORITHM_ORDER)[number],

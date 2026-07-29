@@ -124,6 +124,19 @@
   --sidebar-ring: oklch(0.8312 0.0848 277.76);
 }
 
+/* The what-if explorer (M21) marks hypothetical, unsaved content with a texture
+   rather than an extra colour: a faint diagonal hatch behind a dashed edge. A
+   texture stays legible for colourblind users, needs no light/dark variant, and
+   avoids competing with the amber "winner" and indigo "changed" semantics the
+   results surfaces already own. */
+@utility hatch-hypothetical {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in oklch, var(--muted-foreground) 9%, transparent) 0 1px,
+    transparent 1px 8px
+  );
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

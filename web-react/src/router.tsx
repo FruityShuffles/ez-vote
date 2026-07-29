@@ -9,6 +9,7 @@ import { Signup } from '@/routes/Signup'
 import { ForgotPassword } from '@/routes/ForgotPassword'
 import { Dashboard } from '@/routes/Dashboard'
 import { Design } from '@/routes/Design'
+import { DesignExplore } from '@/routes/DesignExplore'
 import { ElectionDetail } from '@/components/elections/ElectionDetail'
 import { Ballot } from '@/routes/Ballot'
 import { PublicBallot } from '@/routes/PublicBallot'
@@ -147,6 +148,13 @@ export const router = createBrowserRouter([
     // components against Flutter (and the M18 side-by-side review).
     path: '/design',
     element: <Design />,
+  },
+  {
+    // Design surface for the what-if explorer (M21), same posture as /design:
+    // unlinked, unguarded, mock data only. Reviewed before the feature is wired
+    // to the simulate-counterfactual endpoint.
+    path: '/design/explore',
+    element: <DesignExplore />,
   },
   {
     path: '*',
