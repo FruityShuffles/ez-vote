@@ -25,6 +25,7 @@ Multi-algorithm voting application. React (web) + Supabase backend. The frozen F
 - [[Features/Election Analysis]] — Cross-method insight generation, patterns detected
 - [[Features/FPTP]] — includeFptp flag, per-template behavior, auto-selection
 - [[Features/Public Ballots]] — publicBallots flag, RLS, RPC, ballot paging UI
+- [[Features/Counterfactual Explorer]] — M21 "what-ifs": the diff design language, the consequence rail, the edit ledger
 
 ## Decisions
 

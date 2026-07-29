@@ -52,6 +52,8 @@ Errors with `Election not found`, `Public ballots not enabled`, or `Not a partic
 
 The [[Backend/Simulate Counterfactual|simulate-counterfactual]] edge function (M20) reads ballots through this same RPC rather than reimplementing the checks, so counterfactual analysis inherits this gate exactly: it is available only on elections that opted into public ballots, and it exposes nothing a caller could not already see by paging through the ballot list. Since the flag is locked once an election leaves draft, elections that did not opt in are permanently ineligible.
 
+The [[Features/Counterfactual Explorer]] (M21) is the flag's second consumer, and inherits this gate exactly.
+
 The Flutter side calls it through `BallotRepository.getPublicBallots()` and exposes it via `publicBallotsProvider(electionId)`.
 
 ## React port (M18)
