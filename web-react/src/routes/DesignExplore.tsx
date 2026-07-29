@@ -173,6 +173,27 @@ export function DesignExplore() {
     }
   }, [edits])
 
+  /** The picker needs both sides of each change to render its inline diff. */
+  const pendingEdits = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(edits).map(([voterId, payload]) => [
+          voterId,
+          { original: ORIGINAL_PAYLOADS.get(voterId) ?? {}, payload },
+        ]),
+      ),
+    [edits],
+  )
+
+  const undo = useCallback((voterId: string) => {
+    setEdits((prev) => {
+      if (!(voterId in prev)) return prev
+      const next = { ...prev }
+      delete next[voterId]
+      return next
+    })
+  }, [])
+
   const ledger: LedgerEntry[] = useMemo(
     () =>
       Object.entries(edits).map(([voterId, payload]) => ({
@@ -241,8 +262,9 @@ export function DesignExplore() {
               <BallotPicker
                 ballots={BALLOTS}
                 candidates={CANDIDATES}
-                editedVoterIds={new Set(Object.keys(edits))}
+                edits={pendingEdits}
                 onSelect={setSelectedId}
+                onUndo={undo}
               />
             ) : (
               <Stack gap={3}>
@@ -289,15 +311,10 @@ export function DesignExplore() {
 
         <EditLedger
           entries={ledger}
-          onRemove={(voterId) =>
-            setEdits((prev) => {
-              const next = { ...prev }
-              delete next[voterId]
-              return next
-            })
-          }
+          onRemove={undo}
           onReset={() => setEdits({})}
           onSelect={setSelectedId}
+          variant={selected == null ? 'summary' : 'full'}
         />
 
         <ConsequenceSummaryBar

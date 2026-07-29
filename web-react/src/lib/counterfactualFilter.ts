@@ -121,6 +121,55 @@ export function filterBallots<T extends FilterableBallot>(
   })
 }
 
+// ── Ballot fingerprints ──────────────────────────────────────────────────────
+
+/** One candidate's standing on a ballot, in that ballot's own reading order. */
+export interface BallotEntry {
+  candidateId: string
+  /** STAR score, or null on ballots that don't carry scores. */
+  score: number | null
+  approved: boolean
+}
+
+/**
+ * Flatten a stored payload into an ordered, renderable summary — the whole
+ * ballot at a glance, rather than just its first preference.
+ *
+ * Order is whatever that ballot itself expresses: an explicit ranking if it has
+ * one, else score order, else approvals first. Candidates the election no longer
+ * has are dropped; candidates the ballot never mentioned are appended so the
+ * list is always complete.
+ */
+export function ballotSummary(
+  payload: Payload,
+  candidateIds: string[],
+): BallotEntry[] {
+  const known = new Set(candidateIds)
+  const approved = new Set(approvedBy(payload).filter((id) => known.has(id)))
+  const scores = payload.star
+
+  let order: string[]
+  if (payload.irv != null && payload.irv.length > 0) {
+    order = payload.irv.filter((id) => known.has(id))
+  } else if (scores != null) {
+    order = candidateIds
+      .filter((id) => id in scores)
+      .sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0))
+  } else {
+    order = candidateIds.filter((id) => approved.has(id))
+  }
+
+  for (const id of candidateIds) {
+    if (!order.includes(id)) order.push(id)
+  }
+
+  return order.map((candidateId) => ({
+    candidateId,
+    score: scores?.[candidateId] ?? null,
+    approved: approved.has(candidateId),
+  }))
+}
+
 // ── Change summaries (the edit ledger) ───────────────────────────────────────
 
 const ORDINAL_SUFFIXES = ['th', 'st', 'nd', 'rd'] as const

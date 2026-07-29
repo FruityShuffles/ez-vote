@@ -24,6 +24,12 @@ interface EditLedgerProps {
   onReset: () => void
   /** Jump back to a voter's ballot from its chip. */
   onSelect?: (voterId: string) => void
+  /**
+   * `summary` drops the per-edit chips, keeping the count and Reset all. Used on
+   * the picker, where each changed row already carries its own diff and undo —
+   * repeating them here would be the same information twice on one screen.
+   */
+  variant?: 'full' | 'summary'
   className?: string
 }
 
@@ -32,6 +38,7 @@ export function EditLedger({
   onRemove,
   onReset,
   onSelect,
+  variant = 'full',
   className,
 }: EditLedgerProps) {
   return (
@@ -56,6 +63,12 @@ export function EditLedger({
       {entries.length === 0 ? (
         <p className="mt-1 text-sm text-muted-foreground">
           Change someone&apos;s ballot to see which methods care.
+        </p>
+      ) : variant === 'summary' ? (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {entries.length === 1
+            ? '1 ballot changed. Its row shows what moved.'
+            : `${entries.length} ballots changed. Each row shows what moved.`}
         </p>
       ) : (
         <ul className="mt-2 flex flex-wrap gap-1.5">

@@ -4,6 +4,7 @@ import {
   UNNAMED_VOTER,
   approvedBy,
   availableRelations,
+  ballotSummary,
   filterBallots,
   matchesRelation,
   ordinal,
@@ -150,6 +151,74 @@ describe('filterBallots', () => {
       'v2',
       'v3',
     ])
+  })
+})
+
+describe('ballotSummary', () => {
+  const ids = ['ada', 'bo', 'cy']
+
+  it('uses the ballot\'s own ranking as the order', () => {
+    expect(
+      ballotSummary({ irv: ['cy', 'ada', 'bo'], star: { ada: 3, bo: 3, cy: 5 } }, ids).map(
+        (e) => e.candidateId,
+      ),
+    ).toEqual(['cy', 'ada', 'bo'])
+  })
+
+  it('falls back to score order when there is no ranking', () => {
+    expect(
+      ballotSummary({ star: { ada: 1, bo: 5, cy: 3 } }, ids).map((e) => e.candidateId),
+    ).toEqual(['bo', 'cy', 'ada'])
+  })
+
+  it('puts approved candidates first on an approval-only ballot', () => {
+    expect(
+      ballotSummary({ approval: ['cy'] }, ids).map((e) => e.candidateId),
+    ).toEqual(['cy', 'ada', 'bo'])
+  })
+
+  it('carries scores and approval flags through', () => {
+    expect(
+      ballotSummary({ irv: ['ada', 'bo'], star: { ada: 5, bo: 2 }, approval: ['ada'] }, [
+        'ada',
+        'bo',
+      ]),
+    ).toEqual([
+      { candidateId: 'ada', score: 5, approved: true },
+      { candidateId: 'bo', score: 2, approved: false },
+    ])
+  })
+
+  it('reports no score for ballots that carry none', () => {
+    expect(ballotSummary({ irv: ['ada'] }, ['ada'])).toEqual([
+      { candidateId: 'ada', score: null, approved: false },
+    ])
+  })
+
+  it('appends candidates the ballot never mentioned', () => {
+    // A candidate added after this ballot was cast still belongs in the strip,
+    // otherwise the row misrepresents the election.
+    expect(ballotSummary({ irv: ['bo'] }, ids).map((e) => e.candidateId)).toEqual([
+      'bo',
+      'ada',
+      'cy',
+    ])
+  })
+
+  it('drops candidates the election no longer has', () => {
+    expect(
+      ballotSummary({ irv: ['gone', 'ada'], approval: ['gone'] }, ['ada']).map(
+        (e) => e.candidateId,
+      ),
+    ).toEqual(['ada'])
+  })
+
+  it('never repeats a candidate', () => {
+    const entries = ballotSummary(
+      { irv: ['ada', 'bo', 'cy'], star: { ada: 1, bo: 2, cy: 3 }, approval: ['ada'] },
+      ids,
+    )
+    expect(new Set(entries.map((e) => e.candidateId)).size).toBe(entries.length)
   })
 })
 
