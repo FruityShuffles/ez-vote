@@ -28,7 +28,21 @@ Every read runs as the caller — anon key plus the caller's own JWT — so the 
 | Candidates | `from('candidates')` | RLS: owner or joined voter |
 | **All ballots** | `rpc('get_public_ballots')` | The RPC's own checks (below) |
 
-`get_public_ballots()` (migrations 020/021, see [[Features/Public Ballots]]) already enforces: election exists, `public_ballots = true` **for every caller including the owner**, and caller is owner or a member of `election_voters`. Its errors — `Election not found`, `Public ballots not enabled`, `Not a participant` — are surfaced verbatim so the client can distinguish them.
+`get_public_ballots()` (migrations 020/021, see [[Features/Public Ballots]]) already enforces: election exists, `public_ballots = true` **for every caller including the owner**, and caller is owner or a member of `election_voters`. Its errors are surfaced verbatim.
+
+### What each refusal actually looks like
+
+Verified against the deployed function. Note the ordering effect: the election row is read through RLS *before* the RPC runs, so a caller with no access to the election never reaches the RPC's own membership check.
+
+| Caller | Response |
+|---|---|
+| No `Authorization` header | `Missing Authorization header` |
+| Invalid or expired token | `Unauthorized` |
+| Owner or joined voter, `public_ballots = false` | `Public ballots not enabled` |
+| Not a participant (any election they can't see) | **`Election not found`** — RLS hides the row first |
+| Owner or joined voter, `public_ballots = true` | 200 |
+
+So the RPC's `Not a participant` message is effectively unreachable through this endpoint. That's the desirable behavior — it doesn't confirm an election exists to someone with no access — but M21 should not expect to distinguish "not a participant" from "no such election" here.
 
 Reusing that RPC keeps the privacy rules in one place. Writing a second copy of them here is exactly how the owner-bypass bug that migration 021 fixed would come back.
 
