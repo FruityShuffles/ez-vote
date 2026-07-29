@@ -55,10 +55,11 @@ flutter analyze
 # Run for web
 flutter run -d chrome
 
-# Deploy edge function (requires `supabase login` and `supabase link` first)
+# Deploy edge functions (requires `supabase login` and `supabase link` first)
 # --no-verify-jwt is required because the Supabase gateway rejects ES256 user JWTs;
 # auth is verified inside the function itself via supabase client getUser()
 supabase functions deploy compute-results --no-verify-jwt
+supabase functions deploy simulate-counterfactual --no-verify-jwt
 
 # Push database migrations
 supabase db push

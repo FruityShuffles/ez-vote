@@ -2,8 +2,9 @@
   // Deno project config for the Supabase Edge Functions.
   // The golden-corpus suite (M2) and the historical export script run here.
   "tasks": {
-    // Run the golden-corpus tests: tabulation (M2) + ballot derivation (M23).
-    "test": "deno test --allow-read _shared/tabulate.test.ts _shared/derive.test.ts",
+    // Run the golden-corpus tests: tabulation (M2) + ballot derivation (M23),
+    // plus the counterfactual override/validation unit tests (M20).
+    "test": "deno test --allow-read _shared/tabulate.test.ts _shared/derive.test.ts _shared/counterfactual.test.ts",
     // Regenerate historical fixtures from prod. Requires SUPABASE_URL and
     // SUPABASE_SERVICE_ROLE_KEY in the environment. See fixtures/README.md.
     "export-fixtures": "deno run --allow-net --allow-env --allow-read --allow-write scripts/export-fixtures.ts"

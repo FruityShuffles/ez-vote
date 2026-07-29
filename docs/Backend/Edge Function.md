@@ -4,7 +4,7 @@
 **Tabulation logic:** `supabase/functions/_shared/tabulate.ts` (pure TypeScript, no imports)
 **Deploy:** `supabase functions deploy compute-results --no-verify-jwt`
 
-The endpoint is a thin wrapper: load election/candidates/ballots → call the shared `tabulate()` helper → persist results → close (if requested). All algorithm code lives in `_shared/tabulate.ts`, which exports the four algorithm functions plus a `tabulate(algorithms, includeFptp, candidates, ballots)` orchestrator that owns algorithm dispatch and the FPTP→IRV fallback wiring. The module deliberately has zero Deno/network imports so it can be imported from any TypeScript runtime — it is the single source of truth that the future `simulate-counterfactual` function and the golden-test corpus also consume (see `docs/Migration/Overview.md`).
+The endpoint is a thin wrapper: load election/candidates/ballots → call the shared `tabulate()` helper → persist results → close (if requested). All algorithm code lives in `_shared/tabulate.ts`, which exports the four algorithm functions plus a `tabulate(algorithms, includeFptp, candidates, ballots)` orchestrator that owns algorithm dispatch and the FPTP→IRV fallback wiring. The module deliberately has zero Deno/network imports so it can be imported from any TypeScript runtime — it is the single source of truth that the [[Backend/Simulate Counterfactual|simulate-counterfactual]] function and the golden-test corpus also consume.
 
 The `--no-verify-jwt` flag is required because the Supabase gateway rejects ES256 user JWTs. Auth is verified inside the function itself via `supabase.auth.getUser()`.
 

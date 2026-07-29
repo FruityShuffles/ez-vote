@@ -110,7 +110,7 @@ With no active user traffic, cutover is low-stakes; this phase is about discipli
 
 ### Phase 4 — Capstone and Decommission
 
-- **M20: Build the `simulate-counterfactual` edge function.** Calls the shared tabulation helper (M1) with overridden ballot data. Returns recomputed results without persisting. Uses read-only DB credentials as a defense-in-depth guarantee against accidental mutation. Includes the "minimum changes to flip outcome" search.
+- **M20: Build the `simulate-counterfactual` edge function.** **Completed.** Calls the shared tabulation helper (M1) with overridden ballot data and returns baseline + simulated results without persisting. The mutation guarantee is structural rather than credential-based: the function holds no service-role key, reading everything as the caller and taking ballots through the existing `get_public_ballots()` RPC, so it has no write path to misuse. A database-enforced read-only connection was considered and deferred — see [[Backend/Simulate Counterfactual]] for the contract, the resulting `public_ballots` prerequisite, and the deferral rationale. The "minimum changes to flip outcome" search was split into a follow-up issue.
 
 - **M21: Build the counterfactual feature UI in React.** Data-viz heavy. Entry point from the ported results view (M8). This is the feature the migration was forcing-functioned by; shipping it on the React app vindicates the migration.
 

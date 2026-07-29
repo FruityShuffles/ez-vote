@@ -50,6 +50,8 @@ Migration `supabase/migrations/020_public_ballots.sql`:
 
 Errors with `Election not found`, `Public ballots not enabled`, or `Not a participant` otherwise. Migration 021 tightened the flag check so the owner cannot bypass it.
 
+The [[Backend/Simulate Counterfactual|simulate-counterfactual]] edge function (M20) reads ballots through this same RPC rather than reimplementing the checks, so counterfactual analysis inherits this gate exactly: it is available only on elections that opted into public ballots, and it exposes nothing a caller could not already see by paging through the ballot list. Since the flag is locked once an election leaves draft, elections that did not opt in are permanently ineligible.
+
 The Flutter side calls it through `BallotRepository.getPublicBallots()` and exposes it via `publicBallotsProvider(electionId)`.
 
 ## React port (M18)

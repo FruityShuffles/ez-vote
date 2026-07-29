@@ -15,6 +15,7 @@ Multi-algorithm voting application. React (web) + Supabase backend. The frozen F
 - [[Backend/RLS Policies]] — What each policy protects and why
 - [[Backend/RPC Functions]] — Each function: signature, caller, purpose
 - [[Backend/Edge Function]] — compute-results: flow, all 4 algorithm implementations
+- [[Backend/Simulate Counterfactual]] — simulate-counterfactual: "what if" re-tabulation, why it holds no service-role key
 
 ## Features
 
