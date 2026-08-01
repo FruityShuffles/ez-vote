@@ -6,15 +6,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildCandidateRows,
+  CANDIDATES_STALE_TIME_MS,
+  ELECTION_STALE_TIME_MS,
   electionKeys,
   useAddVoterToElection,
+  useCandidates,
+  useElection,
   usePriorCovoters,
 } from '@/lib/elections'
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn() }))
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn() }))
 
 vi.mock('@/lib/supabase', () => ({
-  supabase: { rpc: mocks.rpc },
+  supabase: { rpc: mocks.rpc, from: mocks.from },
 }))
 
 describe('CRT-01 - candidate persistence order', () => {
@@ -34,6 +38,56 @@ function wrapper(qc: QueryClient) {
 
 beforeEach(() => {
   mocks.rpc.mockReset()
+  mocks.from.mockReset()
+})
+
+describe('election route freshness', () => {
+  it('reuses fresh election and candidate data across observer remounts', async () => {
+    const election = {
+      id: 'e1',
+      owner_id: 'owner',
+      title: 'Fresh election',
+    }
+    const candidates = [{ id: 'c1', election_id: 'e1', name: 'Ada', position: 0 }]
+    const electionSingle = vi.fn().mockResolvedValue({ data: election, error: null })
+    const candidateOrder = vi
+      .fn()
+      .mockResolvedValue({ data: candidates, error: null })
+
+    mocks.from.mockImplementation((table: string) => ({
+      select: () => ({
+        eq: () =>
+          table === 'elections'
+            ? { single: electionSingle }
+            : { order: candidateOrder },
+      }),
+    }))
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const useElectionRouteData = () => ({
+      election: useElection('e1'),
+      candidates: useCandidates('e1'),
+    })
+
+    const first = renderHook(useElectionRouteData, { wrapper: wrapper(qc) })
+    await waitFor(() => {
+      expect(first.result.current.election.isSuccess).toBe(true)
+      expect(first.result.current.candidates.isSuccess).toBe(true)
+    })
+    first.unmount()
+
+    const second = renderHook(useElectionRouteData, { wrapper: wrapper(qc) })
+    await waitFor(() => {
+      expect(second.result.current.election.data).toEqual(election)
+      expect(second.result.current.candidates.data).toEqual(candidates)
+    })
+
+    expect(mocks.from).toHaveBeenCalledTimes(2)
+    expect(ELECTION_STALE_TIME_MS).toBe(30_000)
+    expect(CANDIDATES_STALE_TIME_MS).toBe(30_000)
+  })
 })
 
 describe('usePriorCovoters - row mapping', () => {

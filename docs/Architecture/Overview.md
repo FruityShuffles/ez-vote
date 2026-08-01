@@ -63,6 +63,8 @@ All election keys come from the `electionKeys` factory in `src/lib/elections.ts`
 
 Mutation hooks live beside them and invalidate the keys they affect — `useSaveElection`, `useOpenElection`, `useCloseElection`, `useAddCandidate`, `useAddVoterToElection`, `useJoinElection`, `useDeleteElection`, `useUpsertBallot`.
 
+`useElection(id)` and `useCandidates(id)` each use a 30-second `staleTime`, so moving among an election's overview, ballot, edit form, and explorer reuses the shared cache instead of refetching on every observer remount. This is only a navigation freshness window: mutation and realtime invalidation still marks either query stale and refetches active observers immediately, while TanStack Query's default focus/remount behavior refreshes data once the window expires. Candidate polling and the ballot's pre-submit fetch remain the stronger live-safety gates for ad-hoc candidates.
+
 Every list above is user-scoped, resolved through `requireUserId()`. Because the `QueryClient` is process-global, `AuthProvider` clears the whole cache on an actual account change — see [[Auth Flow]] → "Auth State in the App".
 
 ## Client State

@@ -99,6 +99,12 @@ export const electionKeys = {
   priorCovoters: (id: string) => ['prior-covoters', id] as const,
 }
 
+// Route-to-route navigation commonly remounts these observers within seconds.
+// Keep that data warm for one short interaction window; mutation and realtime
+// invalidation still marks it stale and refetches active observers immediately.
+export const ELECTION_STALE_TIME_MS = 30_000
+export const CANDIDATES_STALE_TIME_MS = 30_000
+
 /** Resolve the signed-in user id, or throw — every list below is user-scoped. */
 async function requireUserId(): Promise<string> {
   const { data, error } = await supabase.auth.getUser()
@@ -165,6 +171,7 @@ export function useElection(electionId: string) {
   return useQuery({
     queryKey: electionKeys.detail(electionId),
     enabled: electionId !== '',
+    staleTime: ELECTION_STALE_TIME_MS,
     queryFn: async (): Promise<Election> => {
       const { data, error } = await supabase
         .from('elections')
@@ -181,6 +188,7 @@ export function useCandidates(electionId: string) {
   return useQuery({
     queryKey: electionKeys.candidates(electionId),
     enabled: electionId !== '',
+    staleTime: CANDIDATES_STALE_TIME_MS,
     queryFn: async (): Promise<Candidate[]> => {
       const { data, error } = await supabase
         .from('candidates')
