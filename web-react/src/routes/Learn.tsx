@@ -12,6 +12,11 @@ import { cn } from '@/lib/utils'
 // content doesn't drift across the cutover. The FPTP entry is net-new (#112):
 // it has no Flutter ancestor, because the create screen needed somewhere to
 // explain the comparison toggle.
+//
+// FPTP is also the one method here we're not neutral about (#129). It gets a
+// single strength and five weaknesses, plus a `verdict` no other method has,
+// because a symmetric three-and-three read as an even trade-off between four
+// comparable options — which is the opposite of what this page is for.
 
 export type AlgoKey = 'approval' | 'irv' | 'star' | 'fptp'
 
@@ -26,6 +31,8 @@ interface AlgoInfo {
   strengths: AlgoPoint[]
   weaknesses: AlgoPoint[]
   howItWorks: string
+  /** Closing takeaway. FPTP-only: the other three need no verdict (#129). */
+  verdict?: string
 }
 
 function isAlgoKey(value: string | null): value is AlgoKey {
@@ -159,22 +166,12 @@ const ALGO_DATA: Record<AlgoKey, AlgoInfo> = {
   fptp: {
     name: 'First Past the Post (FPTP)',
     summary:
-      "First past the post is the method most people already know: pick one candidate, and whoever collects the most votes wins. EZVote doesn't run elections this way, but it can show you what the same ballots would have decided under plurality rules — which is the clearest way to see what the other methods are actually buying you.",
+      "First past the post is the method most people already know: pick one candidate, and whoever collects the most votes wins. It is also the status quo that every other method on this page was designed to fix. EZVote doesn't run elections this way — it can only show you what the same ballots would have decided under plurality rules, which is the clearest way to see what the other methods are actually buying you.",
     strengths: [
       {
-        title: 'Immediately familiar',
+        title: 'Everyone already knows it',
         explanation:
-          'Nearly every voter has used a pick-one ballot before, so it needs no explanation and no instructions on the ballot paper. That familiarity matters: a method people already trust and understand faces far less resistance than one that has to be taught before it can be used.',
-      },
-      {
-        title: 'Trivial to count and audit',
-        explanation:
-          'Counting is a single pass of tally marks, and the totals from separate rooms or precincts can simply be added together. Nothing has to be recomputed centrally, so a hand recount is fast and any observer can follow the arithmetic without special training.',
-      },
-      {
-        title: 'Produces a decisive result',
-        explanation:
-          'There are no elimination rounds, runoffs, or score aggregations to argue about, so the outcome is settled as soon as the votes are tallied. Ties are the only ambiguity, and they are rare enough in large electorates that a pre-agreed tiebreaker covers them.',
+          "Nearly every voter has used a pick-one ballot before, so it needs no instructions and nothing has to be taught before an election can be held. That is a genuine cost the alternatives have to pay — and it is the only advantage FPTP has left. The simplicity and decisiveness it usually gets credit for aren't unique to it: approval voting is the same single pass of tally marks, settles just as fast, and is just as easy to recount by hand.",
       },
     ],
     weaknesses: [
@@ -193,9 +190,21 @@ const ALGO_DATA: Record<AlgoKey, AlgoInfo> = {
         explanation:
           'Because only first choices are counted, a candidate can win with 35% support while 65% of voters preferred somebody else. Nothing on the ballot captures that opposition, so the count cannot distinguish a broadly acceptable winner from a deeply divisive one.',
       },
+      {
+        title: 'It narrows the field before voting even starts',
+        explanation:
+          'Anyone who would split an existing bloc is pressured not to stand at all, and their would-be supporters are told a vote for them is wasted. The ballot converges on two viable names however many people wanted to run, so the damage is done before a single vote is cast — and it never shows up in the results.',
+      },
+      {
+        title: 'It throws away everything but your first choice',
+        explanation:
+          'A pick-one ballot records no second preference, no sense of who else you would have accepted, and no measure of how strongly you feel. That information is simply never collected, so there is nothing to fall back on when the field splits and nothing to re-examine afterwards when the result is disputed.',
+      },
     ],
     howItWorks:
       'Each voter selects exactly one candidate. After voting closes, the ballots are sorted by candidate and counted, and whoever has the largest pile wins — even if that pile is well short of half the votes. There are no further rounds. In EZVote, FPTP is never the election itself: it is an optional comparison that reinterprets the ballots already cast, taking each voter\'s single first choice so you can see whether plurality rules would have produced a different winner.',
+    verdict:
+      "EZVote offers FPTP as a baseline to measure against, not as a method worth choosing. Add it to an election and you get a second answer alongside the real one: what a pick-one ballot would have concluded from the same voters. When that answer matches, the choice was uncontroversial. When it differs — and it often does — the gap is exactly what approval, IRV, or STAR saw on those ballots that plurality rules could not.",
   },
 }
 
@@ -265,6 +274,13 @@ function AlgorithmCard({ info }: { info: AlgoInfo }) {
 
       <SectionHeader>How It Works</SectionHeader>
       <p className="text-sm leading-relaxed text-pretty">{info.howItWorks}</p>
+
+      {info.verdict && (
+        <>
+          <SectionHeader>The Bottom Line</SectionHeader>
+          <p className="text-sm leading-relaxed text-pretty">{info.verdict}</p>
+        </>
+      )}
     </div>
   )
 }
