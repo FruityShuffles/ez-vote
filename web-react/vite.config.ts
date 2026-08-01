@@ -7,6 +7,34 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'framework',
+              test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/,
+              tags: ['$initial'],
+              priority: 2,
+            },
+            {
+              name: 'data-auth',
+              test: /node_modules[\\/](@tanstack|@supabase)[\\/]/,
+              tags: ['$initial'],
+              priority: 2,
+            },
+            {
+              name: 'initial-vendor',
+              test: /node_modules[\\/]/,
+              tags: ['$initial'],
+              priority: 1,
+            },
+          ],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       // ESM-safe absolute path to src/ (avoids the CJS __dirname global).

@@ -80,7 +80,7 @@ The in-progress ballot is component state via `useBallotState`, not a global sto
 
 ## Routing
 
-`createBrowserRouter` in `src/router.tsx` (history API — no `#` fragments). The Cloudflare Pages `_redirects` rule (`/* /index.html 200`) rewrites unknown paths to `index.html` so deep links resolve client-side.
+`createBrowserRouter` in `src/router.tsx` (history API — no `#` fragments). The Cloudflare Pages `_redirects` rule (`/* /index.html 200`) rewrites unknown paths to `index.html` so deep links resolve client-side. Route screens never instantiate `AppShell` themselves: protected screens inherit `AppLayout`, the unlinked galleries inherit `DesignLayout`, and standalone public/auth screens use their purpose-built layouts.
 
 The route table is nested without changing any URL. `RootLayout` wraps every route and owns one `ScrollRestoration`, pathname-only focus management, and the root error boundary. A pathless `AppLayout` wraps the protected branch, applies `RequireAuth` once around the app shell and `<Outlet>`, and provides a second error boundary. Auth routes remain outside that branch so their full-page cards cannot enter an auth redirect loop.
 
@@ -114,7 +114,7 @@ Breadcrumbs are derived from matched route handles in `AppLayout`. The workspace
 
 The public paths and the `/election/:id/...` shapes are a stability contract: they were preserved verbatim across the React cutover so links shared in past elections keep resolving.
 
-Production screen modules are route-lazy; only the root/app layouts, auth guard, election workspace, breadcrumbs, and error boundaries stay in the initial bundle. `RootLayout` renders a `useNavigation()` progress bar during chunk transitions, and the root route's `hydrateFallbackElement` supplies a full-shell fallback for the first lazy chunk on a cold deep link. Server-data loading remains owned by TanStack Query inside each screen. Lazy import failures reach the existing root or authenticated-app `errorElement` rather than React Router's default error screen.
+Production screen modules are route-lazy; only the root/app layouts, auth guard, election workspace, breadcrumbs, and error boundaries stay in the initial bundle. The initial third-party graph is separated into framework, data/auth, and remaining-vendor chunks without pulling dependencies used only by lazy screens into the cold load. `RootLayout` renders a `useNavigation()` progress bar during chunk transitions, and the root route's `hydrateFallbackElement` supplies a full-shell fallback for the first lazy chunk on a cold deep link. Server-data loading remains owned by TanStack Query inside each screen. Lazy import failures reach the existing root or authenticated-app `errorElement` rather than React Router's default error screen.
 
 **Auth redirect:** unauthenticated users go to `/login?redirect=<encoded-path>`; on sign-in the param is resolved by `safeRedirect` and honored. It threads through the entire login → signup → OTP chain. The single guard on the protected layout, not a central redirect callback, drives this — see [[Auth Flow]].
 

@@ -41,7 +41,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { AppShell } from '@/components/ui/app-shell'
 import { H1, H2, H3, Lead, Muted, Prose } from '@/components/ui/typography'
 import { Stack } from '@/components/ui/layout'
 
@@ -78,8 +77,7 @@ const TOKENS = [
 
 export function Design() {
   return (
-    <AppShell width="lg" brandTo="/design">
-      <Stack gap={8}>
+    <Stack gap={8}>
         <header>
           <H1>Design system</H1>
           <Lead>
@@ -271,7 +269,6 @@ export function Design() {
           <Separator />
           <Muted>Separator above.</Muted>
         </Section>
-      </Stack>
-    </AppShell>
+    </Stack>
   )
 }

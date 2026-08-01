@@ -198,13 +198,24 @@ export const routes: RouteObject[] = [
       },
       {
         path: 'design',
-        lazy: lazyComponent(async () => (await import('@/routes/Design')).Design),
-      },
-      {
-        path: 'design/explore',
         lazy: lazyComponent(
-          async () => (await import('@/routes/DesignExplore')).DesignExplore,
+          async () => (await import('@/components/DesignLayout')).DesignLayout,
         ),
+        children: [
+          {
+            index: true,
+            lazy: lazyComponent(
+              async () => (await import('@/routes/Design')).Design,
+            ),
+          },
+          {
+            path: 'explore',
+            lazy: lazyComponent(
+              async () =>
+                (await import('@/routes/DesignExplore')).DesignExplore,
+            ),
+          },
+        ],
       },
       {
         path: '*',

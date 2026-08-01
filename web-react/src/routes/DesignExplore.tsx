@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 
-import { AppShell } from '@/components/ui/app-shell'
 import { Button } from '@/components/ui/button'
 import { Stack } from '@/components/ui/layout'
 import { H1, Muted } from '@/components/ui/typography'
@@ -230,8 +229,7 @@ export function DesignExplore() {
   const hasEdits = ledger.length > 0
 
   return (
-    <AppShell width="lg">
-      <Stack gap={4}>
+    <Stack gap={4}>
         <div>
           <H1>What-if explorer</H1>
           <Muted className="mt-1">
@@ -325,8 +323,7 @@ export function DesignExplore() {
           targetId="consequence-rail"
           className="lg:hidden"
         />
-      </Stack>
-    </AppShell>
+    </Stack>
   )
 }
 
