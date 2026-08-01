@@ -146,4 +146,31 @@
   html {
     @apply font-sans;
   }
+
+  /* Tailwind v4's Preflight dropped v3's `button { cursor: pointer }` reset
+     (#131). Restore the pointer affordance for anything that behaves like a
+     control, skipping disabled ones. Utilities still win over @layer base, so
+     `cursor-grab` on drag handles and `disabled:cursor-not-allowed` survive. */
+  button,
+  summary,
+  [role='button'],
+  [role='tab'],
+  [role='option'],
+  [role='radio'],
+  [role='checkbox'],
+  [role='switch'] {
+    cursor: pointer;
+  }
+  :disabled,
+  [aria-disabled='true'],
+  [data-disabled] {
+    cursor: default;
+  }
+
+  /* A label wired to a toggle is itself a click target; one wired to a text
+     input is not, so scope the pointer to fields holding a toggle. */
+  [data-slot='field']:has([role='checkbox'], [role='radio'], [role='switch'])
+    [data-slot='field-label'] {
+    cursor: pointer;
+  }
 }

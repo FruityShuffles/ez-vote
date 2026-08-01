@@ -80,6 +80,7 @@ Accessibility is the migration's central justification ([[Migration/Overview]]),
 - **Semantic HTML + Base UI primitives.** Interactive components (dialog, select, switch, checkbox, radio) ride Base UI, which provides keyboard operability, focus management, and ARIA roles. We style; we don't re-implement those.
 - **Form association.** `Field` + `FieldLabel htmlFor` + `Input id` give every control a programmatic label; `FieldError` is `role="alert"`; invalid controls carry `aria-invalid`.
 - **Visible focus.** All focusable elements show an indigo focus ring (`--ring`) via `focus-visible`.
+- **Pointer affordance.** Tailwind v4's Preflight dropped v3's `button { cursor: pointer }` reset, so `index.css`'s `@layer base` re-adds it for `button`, `summary`, and the control roles (`button`/`tab`/`option`/`radio`/`checkbox`/`switch`), plus labels sitting in a `Field` that holds a toggle. Disabled controls fall back to `default`, except the toggles (checkbox/radio/switch), which say `not-allowed` — Base UI renders those as spans, so they gate on `data-disabled:`, not the `disabled:` variant, which never matches a non-form element. It belongs in the base layer, not per component: utilities outrank `@layer base`, so `cursor-grab` on the drag handle and `disabled:cursor-not-allowed` on the form primitives still win (resolved in #131).
 - **Tested.** `src/components/ui/components.test.tsx` asserts label association, alert semantics, keyboard toggling, disabled handling, and dialog open/Escape/focus-restoration.
 
 ## Verifying it
