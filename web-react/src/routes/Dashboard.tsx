@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -24,7 +23,15 @@ type Tab = 'owned' | 'votes' | 'learn'
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const [tab, setTab] = useState<Tab>('owned')
+  const [params, setParams] = useSearchParams()
+  const rawTab = params.get('tab')
+  const tab: Tab = isTab(rawTab) ? rawTab : 'owned'
+
+  function selectTab(nextTab: Tab) {
+    const next = new URLSearchParams(params)
+    next.set('tab', nextTab)
+    setParams(next, { replace: true, preventScrollReset: true })
+  }
 
   return (
     <Stack gap={6}>
@@ -38,19 +45,19 @@ export function Dashboard() {
       <div role="tablist" aria-label="Dashboard sections" className="flex gap-1 border-b">
         <TabButton
           active={tab === 'owned'}
-          onClick={() => setTab('owned')}
+          onClick={() => selectTab('owned')}
         >
           My Elections
         </TabButton>
         <TabButton
           active={tab === 'votes'}
-          onClick={() => setTab('votes')}
+          onClick={() => selectTab('votes')}
         >
           My Votes
         </TabButton>
         <TabButton
           active={tab === 'learn'}
-          onClick={() => setTab('learn')}
+          onClick={() => selectTab('learn')}
         >
           Learn
         </TabButton>
@@ -61,6 +68,10 @@ export function Dashboard() {
       {tab === 'learn' && <LearnContent />}
     </Stack>
   )
+}
+
+function isTab(value: string | null): value is Tab {
+  return value === 'owned' || value === 'votes' || value === 'learn'
 }
 
 function TabButton({

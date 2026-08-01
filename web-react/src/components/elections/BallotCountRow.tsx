@@ -1,5 +1,9 @@
 import { CircleAlert, Vote } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import {
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom'
 
 import {
   Dialog,
@@ -33,6 +37,27 @@ export function BallotCountRow({
   publicBallots: boolean
 }) {
   const { data, isPending, isError } = useBallotCount(electionId)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const open = params.get('voters') === 'open'
+
+  function setOpen(nextOpen: boolean) {
+    if (nextOpen) {
+      const next = new URLSearchParams(params)
+      next.set('voters', 'open')
+      setParams(next, {
+        state: { from: 'voters-dialog' },
+        preventScrollReset: true,
+      })
+    } else if (location.state?.from === 'voters-dialog') {
+      navigate(-1)
+    } else {
+      const next = new URLSearchParams(params)
+      next.delete('voters')
+      setParams(next, { replace: true, preventScrollReset: true })
+    }
+  }
 
   // Match Flutter: nothing while the first fetch is in flight (avoids a flash).
   if (isPending) return null
@@ -50,7 +75,7 @@ export function BallotCountRow({
 
   const n = data
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
           <button
@@ -108,7 +133,11 @@ function PublicBallotsList({ electionId }: { electionId: string }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/election/${electionId}/ballot/${index}`)}
+            onClick={() =>
+              navigate(`/election/${electionId}/ballot/${index}`, {
+                state: { from: 'voters' },
+              })
+            }
           >
             View ballot
           </Button>

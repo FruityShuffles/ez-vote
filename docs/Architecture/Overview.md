@@ -82,6 +82,8 @@ The route table is nested without changing any URL. `RootLayout` wraps every rou
 
 The authenticated app bar is global but deliberately limited to **Settings** and **Sign out**. **New Election** remains dashboard-only so it never appears during a ballot or edit flow. Route `handle.width` values set the content container width (`sm` ballot, `md` standard, `lg` explorer) while the app-bar container remains `lg`; global navigation therefore does not narrow with route content.
 
+Returnable UI state is addressable. Dashboard selection uses `?tab=owned|votes|learn` (unknown values render `owned`), and the submitted-voters dialog on an election overview uses `?voters=open`. Both preserve unrelated parameters. Public-ballot links and paging carry an explicit `location.state.from = 'voters'` marker so Back returns to the open dialog without adding a ballot/overview loop; cold ballot deep links replace to the concrete `?voters=open` overview.
+
 | Path | Route component | Access |
 |---|---|---|
 | `/` | `Home` | Public |

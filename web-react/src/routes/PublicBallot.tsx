@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { BallotView } from '@/components/ballot/BallotView'
@@ -26,6 +26,7 @@ export function PublicBallot() {
   const candidatesQuery = useCandidates(electionId)
   const ballotsQuery = usePublicBallots(electionId)
   const navigate = useNavigate()
+  const location = useLocation()
 
   if (
     electionQuery.isPending ||
@@ -65,12 +66,22 @@ export function PublicBallot() {
       includeFptp={electionQuery.data.include_fptp}
       candidates={candidatesQuery.data ?? []}
       onPrevious={() =>
-        navigate(`/election/${electionId}/ballot/${index - 1}`, { replace: true })
+        navigate(`/election/${electionId}/ballot/${index - 1}`, {
+          replace: true,
+          state: { from: 'voters' },
+        })
       }
       onNext={() =>
-        navigate(`/election/${electionId}/ballot/${index + 1}`, { replace: true })
+        navigate(`/election/${electionId}/ballot/${index + 1}`, {
+          replace: true,
+          state: { from: 'voters' },
+        })
       }
-      onBack={() => navigate(`/election/${electionId}`)}
+      onBack={() => {
+        if (location.state?.from === 'voters') navigate(-1)
+        else
+          navigate(`/election/${electionId}?voters=open`, { replace: true })
+      }}
     />
   )
 }

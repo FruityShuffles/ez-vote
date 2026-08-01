@@ -12,14 +12,13 @@ When enabled, every participant in an election (the owner and all joined voters)
 
 ## Voter-facing UX
 
-The existing "N ballots submitted" row on `ElectionDetailScreen` opens a bottom sheet listing every voter who has submitted. When `publicBallots = true`, each row in that sheet has a **"View ballot"** button:
+The existing "N ballots submitted" row on `ElectionDetail` opens the URL-controlled `?voters=open` dialog listing every voter who has submitted. Opening pushes a history entry, so browser Back closes the dialog. When `publicBallots = true`, each row has a **"View ballot"** button:
 
-- Tap → push `/election/:id/ballot/:idx` with the ordered list of `PublicBallot` records as `extra`.
-- The destination is `BallotScreen` rendered in `viewOnly` mode with `publicBallotIndex` / `publicBallots` set.
-- The AppBar shows `"<voter name>'s ballot"` and `"<idx+1> of <total>"`.
-- Left/right `chevron` arrows step through the ordered list. On narrow screens (`width < 600`) the arrows render as a fixed bottom row of `Previous` / `Next` buttons; on wider screens they sit pinned to the left/right edges of the body, vertically centred.
-- Navigation uses `context.replace` so the back button returns to the voter list rather than walking back through visited ballots one at a time.
-- A `ValueKey('public-ballot-<electionId>-<idx>')` on the destination screen forces a fresh `State` per ballot, so the existing `_initialized` guard in `BallotScreen` can stay as-is.
+- Tap → push `/election/:id/ballot/:idx` with `state.from = 'voters'`.
+- `PublicBallot` fetches the ordered list again and renders the selected payload through `BallotView` in read-only mode.
+- The screen shows `"<voter name>'s ballot"` and `"<idx+1> of <total>"`.
+- Previous/Next replace the current ballot URL and re-stamp the origin marker, so paging never grows the history stack.
+- Back uses numeric history only when that marker is present, reopening the voters dialog. A cold ballot deep link instead replaces to `/election/:id?voters=open`, so it always has an in-app back path.
 
 ## Privacy guarantees
 
@@ -63,7 +62,10 @@ shared `BallotView` in read-only mode and provides Previous/Next paging. The
 route always gets its records from `usePublicBallots()` / `get_public_ballots`;
 it never reads other voters' ballot rows directly. A denied request does not
 retry, so a guessed protected URL promptly presents a generic error rather than
-remaining on a loading spinner.
+remaining on a loading spinner. The list dialog is addressable as
+`/election/:id?voters=open`; its marked history entry and the ballot origin
+markers make `overview → dialog → ballot → Back → dialog → Back → overview`
+stable without re-entering the ballot.
 
 ## Realtime polling integration
 

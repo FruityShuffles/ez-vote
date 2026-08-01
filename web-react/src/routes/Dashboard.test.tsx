@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 
 import { Dashboard } from '@/routes/Dashboard'
 
@@ -17,12 +17,16 @@ vi.mock('@/lib/auth', () => ({
   signOut: vi.fn(),
 }))
 
-function renderDashboard() {
-  return render(
-    <MemoryRouter>
-      <Dashboard />
-    </MemoryRouter>,
+function renderDashboard(path = '/dashboard') {
+  const router = createMemoryRouter(
+    [
+      { path: '/dashboard', element: <Dashboard /> },
+      { path: '/election/:id', element: <div>Election</div> },
+    ],
+    { initialEntries: [path] },
   )
+  render(<RouterProvider router={router} />)
+  return router
 }
 
 describe('Dashboard', () => {
@@ -39,13 +43,40 @@ describe('Dashboard', () => {
 
   it('renders the voting-algorithm explainer on the Learn tab', async () => {
     const user = userEvent.setup()
-    renderDashboard()
+    const router = renderDashboard('/dashboard?source=home')
     await user.click(screen.getByRole('tab', { name: 'Learn' }))
+    expect(router.state.location.search).toBe('?source=home&tab=learn')
     expect(
       screen.getByRole('heading', { name: 'Approval Voting' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('tablist', { name: 'Voting algorithm' }),
     ).toBeInTheDocument()
+  })
+
+  it('restores the selected tab after navigating to an election and back', async () => {
+    const router = renderDashboard('/dashboard?tab=votes')
+    expect(screen.getByRole('tab', { name: 'My Votes' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+
+    await act(() => router.navigate('/election/e1'))
+    expect(screen.getByText('Election')).toBeInTheDocument()
+    await act(() => router.navigate(-1))
+
+    expect(screen.getByRole('tab', { name: 'My Votes' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+  })
+
+  it('falls back to My Elections for an unknown tab value', () => {
+    renderDashboard('/dashboard?tab=missing')
+    expect(screen.getByRole('tab', { name: 'My Elections' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByText('No elections yet. Create one!')).toBeInTheDocument()
   })
 })
