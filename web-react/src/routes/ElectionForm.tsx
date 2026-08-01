@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { arrayMove } from '@dnd-kit/sortable'
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuth } from '@/auth/context'
@@ -121,7 +121,7 @@ export function ElectionForm() {
       realtime_results: election.realtime_results,
       include_fptp: election.include_fptp,
       public_ballots: election.public_ballots,
-      candidates: ensureTwo(
+      candidates: normalize(
         candidatesQuery.data.map((candidate) => newCandidate(candidate.name)),
       ),
     })
@@ -382,6 +382,33 @@ function CandidateFields({
   error?: string
   onChange: (candidates: CandidateDraft[]) => void
 }) {
+  const inputs = useRef(new Map<string, HTMLInputElement>())
+  const pendingFocus = useRef<string | null>(null)
+
+  // Focus a row that only exists after the next render (pasted rows).
+  useEffect(() => {
+    const id = pendingFocus.current
+    if (id == null) return
+    pendingFocus.current = null
+    inputs.current.get(id)?.focus()
+  })
+
+  // The last row is the open slot once it sits past the two required rows —
+  // so a fresh form still reads as "Candidate 1 / Candidate 2", and only the
+  // row Rule A appended gets placeholder treatment.
+  const lastIndex = candidates.length - 1
+  const trailingId =
+    lastIndex >= 2 && isBlank(candidates[lastIndex])
+      ? candidates[lastIndex].id
+      : null
+  const realCount =
+    trailingId == null ? candidates.length : candidates.length - 1
+
+  function commit(next: CandidateDraft[]) {
+    const normalized = normalize(next)
+    if (normalized !== candidates) onChange(normalized)
+  }
+
   function reorder(activeId: string, overId: string) {
     const oldIndex = candidates.findIndex(
       (candidate) => candidate.id === activeId,
@@ -389,8 +416,26 @@ function CandidateFields({
     const newIndex = candidates.findIndex(
       (candidate) => candidate.id === overId,
     )
-    onChange(arrayMove(candidates, oldIndex, newIndex))
+    commit(arrayMove(candidates, oldIndex, newIndex))
   }
+
+  // Splitting a multi-line paste means an organizer can bring a list in from a
+  // spreadsheet or notes app in one gesture.
+  function pasteList(index: number, text: string) {
+    const names = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    if (names.length === 0) return
+    const extra = names.slice(1).map((name) => newCandidate(name))
+    const next = candidates.map((candidate, position) =>
+      position === index ? { ...candidate, name: names[0] } : candidate,
+    )
+    next.splice(index + 1, 0, ...extra)
+    pendingFocus.current = extra.at(-1)?.id ?? candidates[index].id
+    commit(next)
+  }
+
   return (
     <FieldSet>
       <FieldLegend>Candidates</FieldLegend>
@@ -403,31 +448,34 @@ function CandidateFields({
             key={candidate.id}
             candidate={candidate}
             index={index}
-            count={candidates.length}
+            count={realCount}
+            trailing={candidate.id === trailingId}
+            inputRef={(element) => {
+              if (element) inputs.current.set(candidate.id, element)
+              else inputs.current.delete(candidate.id)
+            }}
             onChange={(name) =>
-              onChange(
+              commit(
                 candidates.map((item) =>
                   item.id === candidate.id ? { ...item, name } : item,
                 ),
               )
             }
+            onEnter={() => {
+              const next = candidates[index + 1]
+              if (next) inputs.current.get(next.id)?.focus()
+            }}
+            onBlurRow={() => commit(collapse(candidates, candidate.id))}
+            onPasteList={(text) => pasteList(index, text)}
             onMove={(offset) =>
-              onChange(arrayMove(candidates, index, index + offset))
+              commit(arrayMove(candidates, index, index + offset))
             }
             onRemove={() =>
-              onChange(candidates.filter((item) => item.id !== candidate.id))
+              commit(candidates.filter((item) => item.id !== candidate.id))
             }
           />
         ))}
       </SortableList>
-      <Button
-        type="button"
-        variant="ghost"
-        className="w-fit"
-        onClick={() => onChange([...candidates, newCandidate()])}
-      >
-        <Plus /> Add Candidate
-      </Button>
       <FieldError>{error}</FieldError>
     </FieldSet>
   )
@@ -437,55 +485,88 @@ function CandidateRow({
   candidate,
   index,
   count,
+  trailing,
+  inputRef,
   onChange,
+  onEnter,
+  onBlurRow,
+  onPasteList,
   onMove,
   onRemove,
 }: {
   candidate: CandidateDraft
   index: number
   count: number
+  trailing: boolean
+  inputRef: (element: HTMLInputElement | null) => void
   onChange: (name: string) => void
+  onEnter: () => void
+  onBlurRow: () => void
+  onPasteList: (text: string) => void
   onMove: (offset: number) => void
   onRemove: () => void
 }) {
   return (
-    <SortableRow id={candidate.id}>
+    <SortableRow id={candidate.id} disabled={trailing} handleSpacer={trailing}>
       <div className="flex items-center gap-1">
         <Input
-          aria-label={`Candidate ${index + 1}`}
+          ref={inputRef}
+          aria-label={
+            trailing ? 'Add another candidate' : `Candidate ${index + 1}`
+          }
+          placeholder={trailing ? 'Add another candidate…' : undefined}
+          enterKeyHint={trailing ? 'done' : 'next'}
           value={candidate.name}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter walks down the list instead of submitting the form; from the
+            // last filled row it lands on the open slot Rule A guarantees.
+            if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+            event.preventDefault()
+            onEnter()
+          }}
+          onBlur={onBlurRow}
+          onPaste={(event) => {
+            const text = event.clipboardData.getData('text/plain')
+            if (!text.includes('\n')) return
+            event.preventDefault()
+            onPasteList(text)
+          }}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={`Move candidate ${index + 1} up`}
-          disabled={index === 0}
-          onClick={() => onMove(-1)}
-        >
-          <ArrowUp />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={`Move candidate ${index + 1} down`}
-          disabled={index === count - 1}
-          onClick={() => onMove(1)}
-        >
-          <ArrowDown />
-        </Button>
-        {count > 2 && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Remove candidate ${index + 1}`}
-            onClick={onRemove}
-          >
-            <Trash2 />
-          </Button>
+        {!trailing && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Move candidate ${index + 1} up`}
+              disabled={index === 0}
+              onClick={() => onMove(-1)}
+            >
+              <ArrowUp />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Move candidate ${index + 1} down`}
+              disabled={index === count - 1}
+              onClick={() => onMove(1)}
+            >
+              <ArrowDown />
+            </Button>
+            {count > 2 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove candidate ${index + 1}`}
+                onClick={onRemove}
+              >
+                <Trash2 />
+              </Button>
+            )}
+          </>
         )}
       </div>
     </SortableRow>
@@ -523,10 +604,33 @@ function CenteredState({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ensureTwo(candidates: CandidateDraft[]) {
+function isBlank(candidate: CandidateDraft) {
+  return candidate.name.trim() === ''
+}
+
+// Rule A (#118): the list keeps exactly one open slot at the bottom, on a floor
+// of two rows — so there is never a moment without somewhere to type, and the
+// explicit "Add Candidate" button is unnecessary. Returns the input array
+// untouched when nothing changes, so callers can skip a no-op state update
+// (which would otherwise mark the form dirty just for focusing a field).
+function normalize(candidates: CandidateDraft[]): CandidateDraft[] {
+  if (candidates.length >= 2 && candidates.some(isBlank)) return candidates
   const result = [...candidates]
   while (result.length < 2) result.push(newCandidate())
+  if (result.every((candidate) => !isBlank(candidate)))
+    result.push(newCandidate())
   return result
+}
+
+// Rule B (#118): leaving an emptied row drops it, so clearing a name is a way to
+// delete a candidate. Never below the floor of two rows, and never the list's
+// only blank row — that one is the open slot Rule A guarantees.
+function collapse(candidates: CandidateDraft[], id: string): CandidateDraft[] {
+  if (candidates.length <= 2) return candidates
+  const target = candidates.find((candidate) => candidate.id === id)
+  if (!target || !isBlank(target)) return candidates
+  if (candidates.filter(isBlank).length < 2) return candidates
+  return candidates.filter((candidate) => candidate.id !== id)
 }
 
 function isAlgorithm(value: string): value is VotingAlgorithm {

@@ -38,10 +38,11 @@ export async function createOpenApprovalElection(
   // `exact` so these don't also match the "Move candidate N up/down" buttons.
   await page.getByLabel('Candidate 1', { exact: true }).fill(opts.candidates[0])
   await page.getByLabel('Candidate 2', { exact: true }).fill(opts.candidates[1])
+  // The list grows itself (#118): filling the trailing open slot appends a new
+  // one, so every extra candidate goes into "Add another candidate" in turn.
   for (let index = 2; index < opts.candidates.length; index++) {
-    await page.getByRole('button', { name: 'Add Candidate' }).click()
     await page
-      .getByLabel(`Candidate ${index + 1}`, { exact: true })
+      .getByLabel('Add another candidate', { exact: true })
       .fill(opts.candidates[index])
   }
 

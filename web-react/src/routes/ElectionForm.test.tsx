@@ -174,6 +174,118 @@ describe('M11 create election', () => {
   })
 })
 
+describe('#118 self-growing candidate list', () => {
+  const rows = () => screen.getAllByRole('textbox', { name: /andidate/ })
+
+  it('starts at two required rows with no add button and no open slot yet', () => {
+    renderRoute()
+    expect(
+      screen.queryByRole('button', { name: 'Add Candidate' }),
+    ).not.toBeInTheDocument()
+    expect(rows()).toHaveLength(2)
+    expect(
+      screen.queryByLabelText('Add another candidate'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('advances focus on Enter without submitting the form', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+    await user.click(screen.getByLabelText('Candidate 1'))
+    await user.keyboard('Alice{Enter}')
+    expect(screen.getByLabelText('Candidate 2')).toHaveFocus()
+    expect(mocks.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('appends an open slot once every row is filled, and Enter lands on it', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+    await user.click(screen.getByLabelText('Candidate 1'))
+    await user.keyboard('Alice{Enter}Bob')
+
+    const slot = screen.getByLabelText('Add another candidate')
+    expect(rows()).toHaveLength(3)
+    await user.keyboard('{Enter}')
+    expect(slot).toHaveFocus()
+
+    // Enter on the open slot is a no-op: no submit, no second empty row.
+    await user.keyboard('{Enter}')
+    expect(mocks.mutateAsync).not.toHaveBeenCalled()
+    expect(rows()).toHaveLength(3)
+  })
+
+  it('gives the open slot no reorder or remove controls', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+    await user.type(screen.getByLabelText('Candidate 1'), 'Alice')
+    await user.type(screen.getByLabelText('Candidate 2'), 'Bob')
+
+    expect(screen.getByLabelText('Add another candidate')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Move candidate 3 up' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Move candidate 3 down' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Remove candidate/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('collapses an emptied row on blur but never below two rows', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+    await user.click(screen.getByLabelText('Candidate 1'))
+    await user.keyboard('Alice{Enter}Bob{Enter}Carol')
+    expect(rows()).toHaveLength(4)
+
+    await user.clear(screen.getByLabelText('Candidate 2'))
+    await user.click(screen.getByLabelText('Candidate 1'))
+    expect(rows().map((input) => (input as HTMLInputElement).value)).toEqual([
+      'Alice',
+      'Carol',
+      '',
+    ])
+
+    // Floor of two: clearing down to a single name keeps the second row.
+    await user.clear(screen.getByLabelText('Candidate 2'))
+    await user.click(screen.getByLabelText('Candidate 1'))
+    expect(rows().map((input) => (input as HTMLInputElement).value)).toEqual([
+      'Alice',
+      '',
+    ])
+  })
+
+  it('submits only the non-empty names', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+    await user.type(screen.getByLabelText('Election Title'), 'City Council')
+    await user.click(screen.getByLabelText('Candidate 1'))
+    await user.keyboard('Alice{Enter}Bob')
+    await user.click(screen.getByRole('button', { name: 'Save as Draft' }))
+
+    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledTimes(1))
+    expect(mocks.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ candidates: ['Alice', 'Bob'] }),
+    )
+  })
+
+  it('splits a multi-line paste into one row per line', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+    await user.click(screen.getByLabelText('Candidate 1'))
+    await user.paste('Alice\nBob\n Carol \n\n')
+
+    expect(rows().map((input) => (input as HTMLInputElement).value)).toEqual([
+      'Alice',
+      'Bob',
+      'Carol',
+      '',
+    ])
+    expect(screen.getByLabelText('Candidate 3')).toHaveFocus()
+  })
+})
+
 describe('M11 edit election', () => {
   it('hydrates title, candidates in persisted order, algorithms, and flags', () => {
     mocks.election = election

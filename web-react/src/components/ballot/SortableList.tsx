@@ -79,10 +79,14 @@ export function SortableList({
 export function SortableRow({
   id,
   disabled,
+  handleSpacer,
   children,
 }: {
   id: string
   disabled?: boolean
+  /** Reserve the drag handle's width while `disabled`, so a non-draggable row
+   *  still lines up with the draggable rows above it. */
+  handleSpacer?: boolean
   children: ReactNode
 }) {
   const {
@@ -109,6 +113,9 @@ export function SortableRow({
         isDragging && 'z-10 opacity-80 shadow-lg',
       )}
     >
+      {disabled && handleSpacer && (
+        <span aria-hidden className="mt-0.5 size-5 shrink-0" />
+      )}
       {!disabled && (
         <button
           type="button"
