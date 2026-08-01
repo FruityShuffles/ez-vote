@@ -263,7 +263,9 @@ export function ElectionForm() {
         />
 
         <FieldSet>
-          <FieldLegend>Voting Algorithms</FieldLegend>
+          <FieldLegend>
+            <h2>Voting Algorithms</h2>
+          </FieldLegend>
           {(['approval', 'irv', 'star'] as VotingAlgorithm[]).map(
             (algorithm) => (
               <Field key={algorithm} orientation="horizontal">
@@ -295,7 +297,9 @@ export function ElectionForm() {
         </FieldSet>
 
         <FieldSet>
-          <FieldLegend>Settings</FieldLegend>
+          <FieldLegend>
+            <h2>Settings</h2>
+          </FieldLegend>
           <Setting
             label="Allow voters to add candidates"
             description="Participants can suggest new candidates while the election is open"
@@ -438,7 +442,9 @@ function CandidateFields({
 
   return (
     <FieldSet>
-      <FieldLegend>Candidates</FieldLegend>
+      <FieldLegend>
+        <h2>Candidates</h2>
+      </FieldLegend>
       <SortableList
         ids={candidates.map((candidate) => candidate.id)}
         onReorder={reorder}

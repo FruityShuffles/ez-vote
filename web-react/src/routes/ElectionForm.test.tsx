@@ -110,6 +110,15 @@ describe('M11 create election', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('exposes each form section as an h2 so screen readers can navigate by heading', () => {
+    renderRoute()
+    expect(
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual(['Candidates', 'Voting Algorithms', 'Settings'])
+  })
+
   it('validates title, candidate count, and algorithm selection before writing', async () => {
     const user = userEvent.setup()
     renderRoute()
