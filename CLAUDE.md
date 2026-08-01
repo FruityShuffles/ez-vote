@@ -14,6 +14,8 @@ Use `gh` CLI (authenticated) to manage work from the GitHub issue tracker at `ht
 
 **Priority order**: bugs first, then enhancements.
 
+**One issue at a time**: plan, implement, commit, and push a single issue before reading the next one. Separate issues get separate commits, so each `Fix #N:` describes exactly what changed and a bad fix reverts on its own. Batch issues into one pass only when they are genuinely entangled — the same lines, or fixing one alone would leave the code half-migrated — and say why when you do.
+
 **Typical session** (triggered by "work on issues" or "work on issue #N"):
 1. `gh issue list --label bug` first, then `gh issue list` for enhancements if no bugs remain
 2. `gh issue view <N>` to read the issue body and check the `comments:` count. If that count is > 0, also run `gh issue view <N> --comments` to read the follow-up posts (the `--comments` flag prints **only** comments, not the body, and produces empty output when the count is 0).

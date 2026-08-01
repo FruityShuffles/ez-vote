@@ -12,7 +12,18 @@ Start at `docs/EZVote.md` — it indexes every other document.
 
 Use `gh` CLI (authenticated) to manage work from the GitHub issue tracker at `https://github.com/FruityShuffles/ez-vote`.
 
+### GitHub authentication in Codex Desktop on Windows
+
+`gh` uses a DPAPI-backed Windows keyring credential. Commands inside Codex's elevated Windows sandbox run as a dedicated sandbox user, so a sandboxed `gh` command may incorrectly report that the token is invalid even when the user's credential is valid.
+
+- Run GitHub issue commands outside the command sandbox using the reusable, scoped `gh issue` escalation rule. Routine issue reads should not require repeated user approval once that prefix is approved.
+- On any other `gh` authentication error, first rerun the read-only check `gh auth status` outside the command sandbox using a scoped escalation.
+- If the escalated check succeeds, run the required `gh` command with an equally narrow reusable escalation rule.
+- Do **not** run `gh auth logout`, start a new login flow, alter Credential Manager, or ask the user to reauthenticate based only on a sandboxed failure. Reauthentication is warranted only if the escalated `gh auth status` check also fails.
+
 **Priority order**: bugs first, then enhancements.
+
+**One issue at a time**: plan, implement, commit, and push a single issue before reading the next one. Separate issues get separate commits, so each `Fix #N:` describes exactly what changed and a bad fix reverts on its own. Batch issues into one pass only when they are genuinely entangled — the same lines, or fixing one alone would leave the code half-migrated — and say why when you do.
 
 **Typical session** (triggered by "work on issues" or "work on issue #N"):
 1. `gh issue list --label bug` first, then `gh issue list` for enhancements if no bugs remain
