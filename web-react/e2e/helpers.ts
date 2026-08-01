@@ -62,7 +62,11 @@ export async function createOpenApprovalElection(
   }
 
   if (!opts.includeFptp) {
-    await page.getByRole('switch', { name: 'Include FPTP comparison' }).click()
+    await page
+      .getByRole('switch', {
+        name: 'Include first-past-the-post (FPTP) comparison',
+      })
+      .click()
   }
   if (opts.allowVoterCandidates) {
     await page

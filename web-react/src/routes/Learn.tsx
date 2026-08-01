@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CheckCircle2, XCircle } from 'lucide-react'
 
 import { InfoPageLayout } from '@/components/InfoPageLayout'
@@ -6,9 +7,13 @@ import { Button } from '@/components/ui/button'
 import { H2 } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 
-// Learn — ported verbatim from the frozen Flutter reference
-// (lib/presentation/screens/learn_screen.dart). All algorithm copy is copied
-// exactly so the educational content doesn't drift across the cutover.
+// Learn — the approval/IRV/STAR copy is ported verbatim from the frozen Flutter
+// reference (lib/presentation/screens/learn_screen.dart) so the educational
+// content doesn't drift across the cutover. The FPTP entry is net-new (#112):
+// it has no Flutter ancestor, because the create screen needed somewhere to
+// explain the comparison toggle.
+
+type AlgoKey = 'approval' | 'irv' | 'star' | 'fptp'
 
 interface AlgoPoint {
   title: string
@@ -23,7 +28,9 @@ interface AlgoInfo {
   howItWorks: string
 }
 
-type AlgoKey = 'approval' | 'irv' | 'star'
+function isAlgoKey(value: string | null): value is AlgoKey {
+  return value !== null && value in ALGO_DATA
+}
 
 const ALGO_DATA: Record<AlgoKey, AlgoInfo> = {
   approval: {
@@ -149,12 +156,54 @@ const ALGO_DATA: Record<AlgoKey, AlgoInfo> = {
     howItWorks:
       'Each voter scores every candidate from 0 (worst) to 5 (best). Unscored candidates are treated as 0. After voting closes, all scores are summed for each candidate. The two candidates with the highest totals advance to the automatic runoff. In the runoff, every ballot is examined to see which of those two finalists the voter scored higher. The finalist preferred by more voters wins — producing a majority winner between the top two.',
   },
+  fptp: {
+    name: 'First Past the Post (FPTP)',
+    summary:
+      "First past the post is the method most people already know: pick one candidate, and whoever collects the most votes wins. EZVote doesn't run elections this way, but it can show you what the same ballots would have decided under plurality rules — which is the clearest way to see what the other methods are actually buying you.",
+    strengths: [
+      {
+        title: 'Immediately familiar',
+        explanation:
+          'Nearly every voter has used a pick-one ballot before, so it needs no explanation and no instructions on the ballot paper. That familiarity matters: a method people already trust and understand faces far less resistance than one that has to be taught before it can be used.',
+      },
+      {
+        title: 'Trivial to count and audit',
+        explanation:
+          'Counting is a single pass of tally marks, and the totals from separate rooms or precincts can simply be added together. Nothing has to be recomputed centrally, so a hand recount is fast and any observer can follow the arithmetic without special training.',
+      },
+      {
+        title: 'Produces a decisive result',
+        explanation:
+          'There are no elimination rounds, runoffs, or score aggregations to argue about, so the outcome is settled as soon as the votes are tallied. Ties are the only ambiguity, and they are rare enough in large electorates that a pre-agreed tiebreaker covers them.',
+      },
+    ],
+    weaknesses: [
+      {
+        title: 'Vote-splitting decides elections',
+        explanation:
+          'Two similar candidates sharing the same supporters divide that support between them, and a third candidate a majority actively dislikes can win on a minority of the votes. This is the spoiler effect, and it is the single problem every method on this page was designed to avoid.',
+      },
+      {
+        title: 'Punishes honest voting',
+        explanation:
+          'Backing your genuine favourite can help elect the candidate you least want, so voters learn to abandon them for whoever seems likeliest to stop the worst outcome. The results then record who people thought could win rather than who they actually preferred.',
+      },
+      {
+        title: 'The winner may be widely opposed',
+        explanation:
+          'Because only first choices are counted, a candidate can win with 35% support while 65% of voters preferred somebody else. Nothing on the ballot captures that opposition, so the count cannot distinguish a broadly acceptable winner from a deeply divisive one.',
+      },
+    ],
+    howItWorks:
+      'Each voter selects exactly one candidate. After voting closes, the ballots are sorted by candidate and counted, and whoever has the largest pile wins — even if that pile is well short of half the votes. There are no further rounds. In EZVote, FPTP is never the election itself: it is an optional comparison that reinterprets the ballots already cast, taking each voter\'s single first choice so you can see whether plurality rules would have produced a different winner.',
+  },
 }
 
 const SEGMENTS: { key: AlgoKey; label: string }[] = [
   { key: 'approval', label: 'Approval' },
   { key: 'irv', label: 'IRV' },
   { key: 'star', label: 'STAR' },
+  { key: 'fptp', label: 'FPTP' },
 ]
 
 function PointRow({
@@ -223,29 +272,41 @@ function AlgorithmCard({ info }: { info: AlgoInfo }) {
 // The algorithm explainer itself — the React equivalent of Flutter's `LearnTab`
 // widget, rendered both by the standalone /learn route below and by the
 // dashboard's Learn tab.
-export function LearnContent() {
-  const [selected, setSelected] = useState<AlgoKey>('approval')
+// Controlled when `selected`/`onSelect` are supplied, self-managing otherwise.
+// The /learn route drives the selection from the URL so other screens can deep
+// link to a method; the dashboard embeds this uncontrolled, which keeps ?algo=
+// off the dashboard's own URL.
+export function LearnContent({
+  selected,
+  onSelect,
+}: {
+  selected?: AlgoKey
+  onSelect?: (key: AlgoKey) => void
+} = {}) {
+  const [internal, setInternal] = useState<AlgoKey>('approval')
+  const active = selected ?? internal
+  const choose = onSelect ?? setInternal
 
   return (
     <div className="flex flex-col gap-6">
       {/* Segmented control — the React stand-in for Flutter's SegmentedButton.
-          No Tabs primitive ships in the design system yet; a row of Buttons
-          (selected = filled, others = outline) reproduces the look. */}
+          No Tabs primitive ships in the design system yet; a grid of Buttons
+          (selected = filled, others = outline) reproduces the look. Four
+          segments don't fit one narrow row, so they wrap 2x2 on mobile. */}
       <div
         role="tablist"
         aria-label="Voting algorithm"
-        className="flex w-full gap-2"
+        className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4"
       >
         {SEGMENTS.map((seg) => {
-          const isSelected = seg.key === selected
+          const isSelected = seg.key === active
           return (
             <Button
               key={seg.key}
               role="tab"
               aria-selected={isSelected}
               variant={isSelected ? 'default' : 'outline'}
-              className="flex-1"
-              onClick={() => setSelected(seg.key)}
+              onClick={() => choose(seg.key)}
             >
               {seg.label}
             </Button>
@@ -253,15 +314,21 @@ export function LearnContent() {
         })}
       </div>
 
-      <AlgorithmCard info={ALGO_DATA[selected]} />
+      <AlgorithmCard info={ALGO_DATA[active]} />
     </div>
   )
 }
 
 export function Learn() {
+  const [params, setParams] = useSearchParams()
+  const raw = params.get('algo')
+
   return (
     <InfoPageLayout title="Learn About Voting Algorithms">
-      <LearnContent />
+      <LearnContent
+        selected={isAlgoKey(raw) ? raw : 'approval'}
+        onSelect={(key) => setParams({ algo: key }, { replace: true })}
+      />
     </InfoPageLayout>
   )
 }

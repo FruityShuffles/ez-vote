@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useBlocker, useNavigate, useParams } from 'react-router-dom'
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { arrayMove } from '@dnd-kit/sortable'
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -313,8 +313,15 @@ export function ElectionForm() {
             onChange={(value) => update({ realtime_results: value })}
           />
           <Setting
-            label="Include FPTP comparison"
-            description="Compare results to simple plurality (first-past-the-post) voting"
+            id="setting-include-fptp"
+            label="Include first-past-the-post (FPTP) comparison"
+            description={
+              <>
+                Compare results to plurality voting, where the candidate with
+                the most first choices wins.{' '}
+                <Link to="/learn?algo=fptp">What&rsquo;s this?</Link>
+              </>
+            }
             checked={form.include_fptp}
             onChange={(value) => update({ include_fptp: value })}
           />
@@ -597,17 +604,21 @@ function CandidateRow({
 }
 
 function Setting({
+  id: explicitId,
   label,
   description,
   checked,
   onChange,
 }: {
+  // Derived from the label by default; pass one explicitly when the label has
+  // characters that make a hostile selector (parentheses, punctuation).
+  id?: string
   label: string
-  description: string
+  description: React.ReactNode
   checked: boolean
   onChange: (value: boolean) => void
 }) {
-  const id = `setting-${label.toLowerCase().replaceAll(' ', '-')}`
+  const id = explicitId ?? `setting-${label.toLowerCase().replaceAll(' ', '-')}`
   return (
     <Field orientation="horizontal">
       <div className="flex-1">

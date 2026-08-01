@@ -8,6 +8,16 @@ FPTP is not an entry in `election.algorithms` — it's a boolean flag that overl
 
 FPTP is included primarily for educational/comparative purposes — to show how a simple plurality vote would have decided the election differently from ranked or scored methods. The flag approach keeps it clearly secondary and avoids having it appear as a peer to IRV/STAR/Approval in the UI.
 
+## Explaining It to Organizers
+
+The toggle is the only one of the create screen's four settings defaulted **on**, so it affects nearly every election and has to be understandable without prior knowledge (#112):
+
+- The create screen (`web-react/src/routes/ElectionForm.tsx`) labels it "Include first-past-the-post (FPTP) comparison" — the acronym is never bare — and its description ends in a "What's this?" link to `/learn?algo=fptp`.
+- `/learn` (`web-react/src/routes/Learn.tsx`) carries a fourth **FPTP** tab alongside Approval/IRV/STAR, in the same strengths/weaknesses/how-it-works shape. It sits last, matching `RESULT_ALGORITHM_ORDER` in `web-react/src/lib/results.ts` and the "clearly secondary" reasoning above; the default tab is still Approval.
+- That tab's copy is net-new rather than ported from the frozen Flutter learn screen, and it says explicitly that EZVote never *runs* an FPTP election — it reinterprets ballots already cast.
+
+Learn tabs are selected by the `?algo=` query param (`approval` | `irv` | `star` | `fptp`), falling back to Approval on anything unrecognized, so any surface can deep link to a method. The dashboard embeds `LearnContent` uncontrolled and is unaffected.
+
 ## Per-Template Behavior
 
 | Template | How FPTP is collected |

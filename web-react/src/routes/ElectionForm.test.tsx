@@ -100,7 +100,9 @@ describe('M11 create election', () => {
       screen.getByRole('checkbox', { name: 'Approval Voting' }),
     ).toBeChecked()
     expect(
-      screen.getByRole('switch', { name: 'Include FPTP comparison' }),
+      screen.getByRole('switch', {
+        name: 'Include first-past-the-post (FPTP) comparison',
+      }),
     ).toBeChecked()
     expect(
       screen.getByText('Anyone in the election can see how each voter voted.'),
@@ -117,6 +119,16 @@ describe('M11 create election', () => {
         .getAllByRole('heading', { level: 2 })
         .map((heading) => heading.textContent),
     ).toEqual(['Candidates', 'Voting Algorithms', 'Settings'])
+  })
+
+  it('points the FPTP setting at the learn page instead of leaving the jargon bare', () => {
+    renderRoute()
+    expect(
+      screen.getByRole('link', { name: /What.s this\?/ }),
+    ).toHaveAttribute('href', '/learn?algo=fptp')
+    expect(
+      screen.getByText(/candidate with the most first choices wins/),
+    ).toBeInTheDocument()
   })
 
   it('validates title, candidate count, and algorithm selection before writing', async () => {
@@ -150,7 +162,9 @@ describe('M11 create election', () => {
       screen.getByRole('switch', { name: 'Show real-time results' }),
     )
     await user.click(
-      screen.getByRole('switch', { name: 'Include FPTP comparison' }),
+      screen.getByRole('switch', {
+        name: 'Include first-past-the-post (FPTP) comparison',
+      }),
     )
     await user.click(screen.getByRole('switch', { name: 'Public ballots' }))
     await user.click(screen.getByRole('button', { name: 'Save as Draft' }))
