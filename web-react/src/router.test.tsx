@@ -1,11 +1,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Session } from '@supabase/supabase-js'
-import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import {
+  createMemoryRouter,
+  Link,
+  RouterProvider,
+  type RouteObject,
+} from 'react-router-dom'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { AuthContext, type AuthContextValue } from '@/auth/context'
+import { InitialRouteFallback } from '@/components/RoutePending'
+import { RootLayout } from '@/components/RootLayout'
+import { RouteError } from '@/components/RouteError'
+import { AppShell } from '@/components/ui/app-shell'
 import { routes } from '@/router'
 
 beforeAll(() => vi.stubGlobal('scrollTo', vi.fn()))
@@ -22,8 +31,12 @@ const LOGGED_IN: AuthContextValue = {
   loading: false,
 }
 
-function renderRoute(path: string, auth: AuthContextValue) {
-  const router = createMemoryRouter(routes, { initialEntries: [path] })
+function renderRoutes(
+  routeObjects: RouteObject[],
+  path: string,
+  auth: AuthContextValue,
+) {
+  const router = createMemoryRouter(routeObjects, { initialEntries: [path] })
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -37,12 +50,20 @@ function renderRoute(path: string, auth: AuthContextValue) {
   return router
 }
 
+function renderRoute(path: string, auth: AuthContextValue) {
+  return renderRoutes(routes, path, auth)
+}
+
 describe('nested application routes', () => {
   it('renders one authenticated app shell around protected content', async () => {
     renderRoute('/settings', LOGGED_IN)
 
     expect(
-      await screen.findByRole('heading', { name: 'Settings' }),
+      await screen.findByRole(
+        'heading',
+        { name: 'Settings' },
+        { timeout: 5_000 },
+      ),
     ).toBeInTheDocument()
     expect(screen.getAllByRole('main')).toHaveLength(1)
     expect(screen.getByRole('banner').firstElementChild).toHaveClass(
@@ -56,10 +77,10 @@ describe('nested application routes', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('does not flash the authenticated app bar while auth is loading', () => {
+  it('does not flash the authenticated app bar while auth is loading', async () => {
     renderRoute('/settings', LOADING)
 
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(await screen.findByText('Loading…')).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: 'EZVote home' }),
     ).not.toBeInTheDocument()
@@ -100,5 +121,76 @@ describe('nested application routes', () => {
       state: { from: 'settings' },
     })
     expect(back).toHaveFocus()
+  })
+
+  it('shows route-level pending UI while a lazy screen chunk loads', async () => {
+    const user = userEvent.setup()
+    let resolveChunk!: (route: { Component: React.ComponentType }) => void
+    const slowChunk = new Promise<{ Component: React.ComponentType }>(
+      (resolve) => {
+        resolveChunk = resolve
+      },
+    )
+    const testRoutes: RouteObject[] = [
+      {
+        path: '/',
+        element: <RootLayout />,
+        hydrateFallbackElement: <InitialRouteFallback />,
+        errorElement: (
+          <AppShell brandTo="/" width="md">
+            <RouteError />
+          </AppShell>
+        ),
+        children: [
+          { index: true, element: <Link to="/slow">Open slow route</Link> },
+          { path: 'slow', lazy: () => slowChunk },
+        ],
+      },
+    ]
+    renderRoutes(testRoutes, '/', LOGGED_OUT)
+
+    await user.click(screen.getByRole('link', { name: 'Open slow route' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Loading page…')
+
+    await act(() =>
+      resolveChunk({ Component: () => <h1>Lazy route ready</h1> }),
+    )
+    expect(
+      await screen.findByRole('heading', { name: 'Lazy route ready' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('renders the app error boundary when a lazy chunk rejects', async () => {
+    const user = userEvent.setup()
+    const testRoutes: RouteObject[] = [
+      {
+        path: '/',
+        element: <RootLayout />,
+        hydrateFallbackElement: <InitialRouteFallback />,
+        errorElement: (
+          <AppShell brandTo="/" width="md">
+            <RouteError />
+          </AppShell>
+        ),
+        children: [
+          { index: true, element: <Link to="/broken">Open broken route</Link> },
+          {
+            path: 'broken',
+            lazy: async () => {
+              throw new Error('chunk unavailable')
+            },
+          },
+        ],
+      },
+    ]
+    renderRoutes(testRoutes, '/', LOGGED_OUT)
+
+    await user.click(screen.getByRole('link', { name: 'Open broken route' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong while loading this page.',
+    )
+    expect(screen.queryByText('Unexpected Application Error!')).toBeNull()
   })
 })

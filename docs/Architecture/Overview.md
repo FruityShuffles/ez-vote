@@ -114,6 +114,8 @@ Breadcrumbs are derived from matched route handles in `AppLayout`. The workspace
 
 The public paths and the `/election/:id/...` shapes are a stability contract: they were preserved verbatim across the React cutover so links shared in past elections keep resolving.
 
+Production screen modules are route-lazy; only the root/app layouts, auth guard, election workspace, breadcrumbs, and error boundaries stay in the initial bundle. `RootLayout` renders a `useNavigation()` progress bar during chunk transitions, and the root route's `hydrateFallbackElement` supplies a full-shell fallback for the first lazy chunk on a cold deep link. Server-data loading remains owned by TanStack Query inside each screen. Lazy import failures reach the existing root or authenticated-app `errorElement` rather than React Router's default error screen.
+
 **Auth redirect:** unauthenticated users go to `/login?redirect=<encoded-path>`; on sign-in the param is resolved by `safeRedirect` and honored. It threads through the entire login → signup → OTP chain. The single guard on the protected layout, not a central redirect callback, drives this — see [[Auth Flow]].
 
 ## Environment / Credentials

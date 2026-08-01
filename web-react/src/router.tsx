@@ -1,25 +1,9 @@
+import type { ComponentType } from 'react'
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
-import { Home } from '@/routes/Home'
-import { Learn } from '@/routes/Learn'
-import { Privacy } from '@/routes/Privacy'
-import { Terms } from '@/routes/Terms'
-import { NotFound } from '@/routes/NotFound'
-import { Login } from '@/routes/Login'
-import { Signup } from '@/routes/Signup'
-import { ForgotPassword } from '@/routes/ForgotPassword'
-import { Dashboard } from '@/routes/Dashboard'
+
 import { ElectionCrumb } from '@/components/Breadcrumbs'
 import { ElectionWorkspace } from '@/components/ElectionWorkspace'
-import { ElectionDetail } from '@/components/elections/ElectionDetail'
-import { Ballot } from '@/routes/Ballot'
-import { PublicBallot } from '@/routes/PublicBallot'
-import {
-  CounterfactualEditor,
-  CounterfactualPicker,
-} from '@/routes/CounterfactualExplorer'
-import { ElectionEdit, ElectionForm } from '@/routes/ElectionForm'
-import { JoinElection } from '@/routes/JoinElection'
-import { Settings } from '@/routes/Settings'
+import { InitialRouteFallback } from '@/components/RoutePending'
 import { RedirectIfAuthed } from '@/auth/guards'
 import {
   AppLayout,
@@ -29,6 +13,23 @@ import {
 import { RootLayout } from '@/components/RootLayout'
 import { RouteError } from '@/components/RouteError'
 import { AppShell } from '@/components/ui/app-shell'
+
+function lazyComponent(load: () => Promise<ComponentType>) {
+  return async () => ({ Component: await load() })
+}
+
+function lazyAuthComponent(load: () => Promise<ComponentType>) {
+  return async () => {
+    const Screen = await load()
+    return {
+      Component: () => (
+        <RedirectIfAuthed>
+          <Screen />
+        </RedirectIfAuthed>
+      ),
+    }
+  }
+}
 
 // Browser (history-API) routing. The Cloudflare Pages `_redirects` SPA fallback
 // (public/_redirects) rewrites every unknown path to index.html so deep links
@@ -47,34 +48,44 @@ export const routes: RouteObject[] = [
         <RouteError />
       </AppShell>
     ),
+    hydrateFallbackElement: <InitialRouteFallback />,
     children: [
-      { index: true, element: <Home /> },
+      {
+        index: true,
+        lazy: lazyComponent(async () => (await import('@/routes/Home')).Home),
+      },
       // Public and auth routes stay outside AppLayout.
-      { path: 'learn', element: <Learn /> },
-      { path: 'privacy', element: <Privacy /> },
-      { path: 'tos', element: <Terms /> },
+      {
+        path: 'learn',
+        lazy: lazyComponent(async () => (await import('@/routes/Learn')).Learn),
+      },
+      {
+        path: 'privacy',
+        lazy: lazyComponent(
+          async () => (await import('@/routes/Privacy')).Privacy,
+        ),
+      },
+      {
+        path: 'tos',
+        lazy: lazyComponent(async () => (await import('@/routes/Terms')).Terms),
+      },
       {
         path: 'login',
-        element: (
-          <RedirectIfAuthed>
-            <Login />
-          </RedirectIfAuthed>
+        lazy: lazyAuthComponent(
+          async () => (await import('@/routes/Login')).Login,
         ),
       },
       {
         path: 'signup',
-        element: (
-          <RedirectIfAuthed>
-            <Signup />
-          </RedirectIfAuthed>
+        lazy: lazyAuthComponent(
+          async () => (await import('@/routes/Signup')).Signup,
         ),
       },
       {
         path: 'forgot-password',
-        element: (
-          <RedirectIfAuthed>
-            <ForgotPassword />
-          </RedirectIfAuthed>
+        lazy: lazyAuthComponent(
+          async () =>
+            (await import('@/routes/ForgotPassword')).ForgotPassword,
         ),
       },
       {
@@ -83,12 +94,16 @@ export const routes: RouteObject[] = [
         children: [
           {
             path: 'dashboard',
-            element: <Dashboard />,
+            lazy: lazyComponent(
+              async () => (await import('@/routes/Dashboard')).Dashboard,
+            ),
             handle: { width: 'md' } satisfies RouteHandle,
           },
           {
             path: 'create',
-            element: <ElectionForm />,
+            lazy: lazyComponent(
+              async () => (await import('@/routes/ElectionForm')).ElectionForm,
+            ),
             handle: { width: 'md' } satisfies RouteHandle,
           },
           {
@@ -97,7 +112,10 @@ export const routes: RouteObject[] = [
               {
                 // Join is deliberately beside the election read gate.
                 path: 'join',
-                element: <JoinElection />,
+                lazy: lazyComponent(
+                  async () =>
+                    (await import('@/routes/JoinElection')).JoinElection,
+                ),
                 handle: { width: 'md' } satisfies RouteHandle,
               },
               {
@@ -109,32 +127,55 @@ export const routes: RouteObject[] = [
                 children: [
                   {
                     index: true,
-                    element: <ElectionDetail />,
+                    lazy: lazyComponent(
+                      async () =>
+                        (await import('@/components/elections/ElectionDetail'))
+                          .ElectionDetail,
+                    ),
                     handle: { width: 'md' } satisfies RouteHandle,
                   },
                   {
                     path: 'edit',
-                    element: <ElectionEdit />,
+                    lazy: lazyComponent(
+                      async () =>
+                        (await import('@/routes/ElectionForm')).ElectionEdit,
+                    ),
                     handle: { width: 'md', crumb: 'Edit' } satisfies RouteHandle,
                   },
                   {
                     path: 'vote',
-                    element: <Ballot />,
+                    lazy: lazyComponent(
+                      async () => (await import('@/routes/Ballot')).Ballot,
+                    ),
                     handle: { width: 'sm', crumb: 'Vote' } satisfies RouteHandle,
                   },
                   {
                     path: 'ballot/:index',
-                    element: <PublicBallot />,
+                    lazy: lazyComponent(
+                      async () =>
+                        (await import('@/routes/PublicBallot')).PublicBallot,
+                    ),
                     handle: { width: 'sm', crumb: 'Ballot' } satisfies RouteHandle,
                   },
                   {
                     path: 'explore',
                     handle: { width: 'lg', crumb: 'Explore' } satisfies RouteHandle,
                     children: [
-                      { index: true, element: <CounterfactualPicker /> },
+                      {
+                        index: true,
+                        lazy: lazyComponent(
+                          async () =>
+                            (await import('@/routes/CounterfactualExplorer'))
+                              .CounterfactualPicker,
+                        ),
+                      },
                       {
                         path: ':voterId',
-                        element: <CounterfactualEditor />,
+                        lazy: lazyComponent(
+                          async () =>
+                            (await import('@/routes/CounterfactualExplorer'))
+                              .CounterfactualEditor,
+                        ),
                         handle: {
                           width: 'lg',
                           crumb: 'Edit ballot',
@@ -148,26 +189,29 @@ export const routes: RouteObject[] = [
           },
           {
             path: 'settings',
-            element: <Settings />,
+            lazy: lazyComponent(
+              async () => (await import('@/routes/Settings')).Settings,
+            ),
             handle: { width: 'md' } satisfies RouteHandle,
           },
         ],
       },
       {
         path: 'design',
-        lazy: async () => {
-          const { Design } = await import('@/routes/Design')
-          return { Component: Design }
-        },
+        lazy: lazyComponent(async () => (await import('@/routes/Design')).Design),
       },
       {
         path: 'design/explore',
-        lazy: async () => {
-          const { DesignExplore } = await import('@/routes/DesignExplore')
-          return { Component: DesignExplore }
-        },
+        lazy: lazyComponent(
+          async () => (await import('@/routes/DesignExplore')).DesignExplore,
+        ),
       },
-      { path: '*', element: <NotFound /> },
+      {
+        path: '*',
+        lazy: lazyComponent(
+          async () => (await import('@/routes/NotFound')).NotFound,
+        ),
+      },
     ],
   },
 ]
