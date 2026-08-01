@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   createMemoryRouter,
@@ -9,6 +9,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ElectionEdit, ElectionForm } from '@/routes/ElectionForm'
 import { ElectionWorkspace } from '@/components/ElectionWorkspace'
+import {
+  electionDraftKey,
+  writeElectionDraft,
+  type ElectionDraftForm,
+} from '@/lib/electionDrafts'
 import type { Candidate, Election, ElectionFormInput } from '@/lib/elections'
 
 const mocks = vi.hoisted(() => ({
@@ -94,6 +99,7 @@ function renderRoute(path = '/create', initialEntries: InitialEntry[] = [path]) 
 }
 
 beforeEach(() => {
+  window.localStorage.clear()
   mocks.mutateAsync.mockReset()
   mocks.mutateAsync.mockResolvedValue('saved-1')
   mocks.election = undefined
@@ -192,6 +198,24 @@ describe('M11 create election', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('restores a create draft after the form remounts', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+    await user.type(screen.getByLabelText('Election Title'), 'Reload-safe draft')
+    await user.type(screen.getByLabelText('Candidate 1'), 'Ada')
+    await waitFor(() =>
+      expect(window.localStorage.getItem(electionDraftKey())).not.toBeNull(),
+    )
+
+    cleanup()
+    renderRoute()
+
+    expect(screen.getByLabelText('Election Title')).toHaveValue(
+      'Reload-safe draft',
+    )
+    expect(screen.getByLabelText('Candidate 1')).toHaveValue('Ada')
+  })
+
   it('closes a direct explainer deep link without leaving the app', async () => {
     const user = userEvent.setup()
     const router = renderRoute('/create?learn=fptp')
@@ -278,6 +302,7 @@ describe('M11 create election', () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/election/saved-1'),
     )
+    expect(window.localStorage.getItem(electionDraftKey())).toBeNull()
   })
 
   it('spells out that Open starts voting and Draft does not', () => {
@@ -319,14 +344,15 @@ describe('M11 create election', () => {
     expect(router.state.location.pathname).toBe('/dashboard')
   })
 
-  it('prompts before abandoning dirty form state', async () => {
+  it('explains that a dirty form can be resumed before leaving', async () => {
     const user = userEvent.setup()
     renderRoute()
     await user.type(screen.getByLabelText('Election Title'), 'Draft')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'Discard unsaved changes?',
+      'Draft saved — resume later?',
     )
+    expect(screen.getByRole('button', { name: 'Leave' })).toBeInTheDocument()
   })
 })
 
@@ -443,6 +469,20 @@ describe('#118 self-growing candidate list', () => {
 })
 
 describe('M11 edit election', () => {
+  const localEdit: ElectionDraftForm = {
+    title: 'Local board draft',
+    description: 'Unsaved local changes',
+    algorithms: ['approval'],
+    allow_voter_candidates: false,
+    realtime_results: true,
+    include_fptp: true,
+    public_ballots: false,
+    candidates: [
+      { id: 'local-1', name: 'Ada' },
+      { id: 'local-2', name: 'Grace' },
+    ],
+  }
+
   it('hydrates title, candidates in persisted order, algorithms, and flags', () => {
     mocks.election = election
     mocks.candidates = candidates
@@ -466,6 +506,37 @@ describe('M11 edit election', () => {
     ).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'STAR Voting' })).toBeChecked()
     expect(screen.getByRole('switch', { name: 'Public ballots' })).toBeChecked()
+  })
+
+  it('resumes an edit draft based on the same server version', () => {
+    writeElectionDraft(
+      electionDraftKey('e1'),
+      localEdit,
+      election.updated_at,
+    )
+    mocks.election = election
+    mocks.candidates = candidates
+
+    renderRoute('/election/e1/edit')
+
+    expect(screen.getByLabelText('Election Title')).toHaveValue(
+      'Local board draft',
+    )
+    expect(screen.getByLabelText('Candidate 1')).toHaveValue('Ada')
+  })
+
+  it('drops an edit draft when the freshly loaded server version changed', () => {
+    const key = electionDraftKey('e1')
+    writeElectionDraft(key, localEdit, '2025-12-31T00:00:00Z')
+    mocks.election = election
+    mocks.candidates = candidates
+
+    renderRoute('/election/e1/edit')
+
+    expect(screen.getByLabelText('Election Title')).toHaveValue(
+      'Board Election',
+    )
+    expect(window.localStorage.getItem(key)).toBeNull()
   })
 
   it('refuses edit UI to a non-owner', () => {

@@ -40,29 +40,35 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { H1, Muted } from '@/components/ui/typography'
 import { friendlyError, isUniqueViolation } from '@/lib/errors'
+import {
+  clearElectionDraft,
+  electionDraftKey,
+  readElectionDraft,
+  writeElectionDraft,
+  type CandidateDraft,
+  type ElectionDraftForm,
+} from '@/lib/electionDrafts'
 import { LearnContent, type AlgoKey } from '@/routes/Learn'
 import {
   useCandidates,
   useSaveElection,
   type Election,
-  type ElectionFormInput,
   type VotingAlgorithm,
 } from '@/lib/elections'
 
-type CandidateDraft = { id: string; name: string }
-type FormState = Omit<ElectionFormInput, 'candidates' | 'open'> & {
-  candidates: CandidateDraft[]
-}
+type FormState = ElectionDraftForm
 
-const initialState: FormState = {
-  title: '',
-  description: null,
-  algorithms: ['approval'],
-  allow_voter_candidates: false,
-  realtime_results: false,
-  include_fptp: true,
-  public_ballots: false,
-  candidates: [newCandidate(), newCandidate()],
+function initialState(): FormState {
+  return {
+    title: '',
+    description: null,
+    algorithms: ['approval'],
+    allow_voter_candidates: false,
+    realtime_results: false,
+    include_fptp: true,
+    public_ballots: false,
+    candidates: [newCandidate(), newCandidate()],
+  }
 }
 
 function newCandidate(name = ''): CandidateDraft {
@@ -107,9 +113,16 @@ function ElectionFormContent({ election }: { election?: Election }) {
   const { user } = useAuth()
   const candidatesQuery = useCandidates(electionId ?? '')
   const save = useSaveElection(electionId)
-  const [form, setForm] = useState<FormState>(initialState)
+  const draftKey = electionDraftKey(editing ? electionId : undefined)
+  const [createDraft] = useState(() =>
+    editing ? null : readElectionDraft(draftKey),
+  )
+  const sourceUpdatedAt = useRef<string | null>(null)
+  const [form, setForm] = useState<FormState>(
+    () => createDraft?.form ?? initialState(),
+  )
   const [initialized, setInitialized] = useState(!editing)
-  const [dirty, setDirty] = useState(false)
+  const [dirty, setDirty] = useState(createDraft != null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const allowNavigation = useRef(false)
   const blocker = useBlocker(
@@ -120,18 +133,9 @@ function ElectionFormContent({ election }: { election?: Election }) {
   )
 
   useEffect(() => {
-    if (!dirty) return
-    const preventUnload = (event: BeforeUnloadEvent) => event.preventDefault()
-    window.addEventListener('beforeunload', preventUnload)
-    return () => window.removeEventListener('beforeunload', preventUnload)
-  }, [dirty])
-
-  useEffect(() => {
     if (!editing || initialized || !election || !candidatesQuery.data)
       return
-    // Hydrate the local draft exactly once after both edit queries resolve.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setForm({
+    const serverForm: FormState = {
       title: election.title,
       description: election.description,
       algorithms: election.algorithms.filter(isAlgorithm),
@@ -142,9 +146,22 @@ function ElectionFormContent({ election }: { election?: Election }) {
       candidates: normalize(
         candidatesQuery.data.map((candidate) => newCandidate(candidate.name)),
       ),
-    })
+    }
+    const draft = readElectionDraft(draftKey)
+    const resumeDraft = draft?.sourceUpdatedAt === election.updated_at
+    sourceUpdatedAt.current = election.updated_at
+    // Hydrate the local draft exactly once after both edit queries resolve.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForm(resumeDraft ? draft.form : serverForm)
+    setDirty(resumeDraft)
+    if (draft && !resumeDraft) clearElectionDraft(draftKey)
     setInitialized(true)
-  }, [editing, initialized, election, candidatesQuery.data])
+  }, [draftKey, editing, initialized, election, candidatesQuery.data])
+
+  useEffect(() => {
+    if (!initialized || !dirty) return
+    writeElectionDraft(draftKey, form, sourceUpdatedAt.current)
+  }, [dirty, draftKey, form, initialized])
 
   const loading =
     editing && (!initialized || candidatesQuery.isPending)
@@ -193,6 +210,7 @@ function ElectionFormContent({ election }: { election?: Election }) {
         candidates: names,
         open,
       })
+      clearElectionDraft(draftKey)
       allowNavigation.current = true
       setDirty(false)
       blocker.reset?.()
@@ -388,9 +406,10 @@ function ElectionFormContent({ election }: { election?: Election }) {
       >
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Discard unsaved changes?</DialogTitle>
+            <DialogTitle>Draft saved — resume later?</DialogTitle>
             <DialogDescription>
-              Your election changes have not been saved.
+              Your changes are saved in this browser. You can leave now and
+              continue when you return.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -398,17 +417,10 @@ function ElectionFormContent({ election }: { election?: Election }) {
               Keep editing
             </Button>
             <Button
-              variant="destructive"
-              onClick={() => {
-                setDirty(false)
-                blocker.proceed?.()
-              }}
+              onClick={() => blocker.proceed?.()}
             >
-              Discard
+              Leave
             </Button>
-            {!editing && (
-              <Button onClick={() => void submit(false)}>Save as Draft</Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
