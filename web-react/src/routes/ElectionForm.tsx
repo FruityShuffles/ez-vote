@@ -75,10 +75,9 @@ function newCandidate(name = ''): CandidateDraft {
   return { id: crypto.randomUUID(), name }
 }
 
-const algorithmCopy: Record<
-  VotingAlgorithm,
-  { title: string; description: string }
-> = {
+// Keyed by AlgoKey, not VotingAlgorithm: FPTP sits in this group in the UI (#130)
+// while staying a flag rather than an entry in `algorithms`.
+const algorithmCopy: Record<AlgoKey, { title: string; description: string }> = {
   approval: {
     title: 'Approval Voting',
     description:
@@ -93,6 +92,11 @@ const algorithmCopy: Record<
     title: 'STAR Voting',
     description:
       'Score candidates 0-5; the top two advance to an automatic runoff.',
+  },
+  fptp: {
+    title: 'First Past the Post (FPTP) comparison',
+    description:
+      'Compare results to plurality voting, where the candidate with the most first choices wins.',
   },
 }
 
@@ -193,8 +197,10 @@ function ElectionFormContent({ election }: { election?: Election }) {
     ) {
       nextErrors.candidates = 'Candidate names must be unique'
     }
+    // `include_fptp` deliberately does not count: FPTP reinterprets ballots cast
+    // for another method, so it cannot be the only thing selected.
     if (form.algorithms.length === 0)
-      nextErrors.algorithms = 'Select at least one algorithm'
+      nextErrors.algorithms = 'Select at least one of Approval, IRV, or STAR'
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0 ? names : null
   }
@@ -290,36 +296,36 @@ function ElectionFormContent({ election }: { election?: Election }) {
         />
 
         <FieldSet>
-          <FieldLegend>
+          {/* A <legend> shrink-wraps its content, so it needs an explicit
+              width before justify-between can push the link to the far edge. */}
+          <FieldLegend className="flex w-full items-baseline justify-between gap-3">
             <h2>Voting Algorithms</h2>
+            <LearnDialogLink />
           </FieldLegend>
           {(['approval', 'irv', 'star'] as VotingAlgorithm[]).map(
             (algorithm) => (
-              <Field key={algorithm} orientation="horizontal">
-                <Checkbox
-                  id={`algorithm-${algorithm}`}
-                  checked={form.algorithms.includes(algorithm)}
-                  onCheckedChange={(checked) =>
-                    update({
-                      algorithms: checked
-                        ? [...form.algorithms, algorithm]
-                        : form.algorithms.filter(
-                            (value) => value !== algorithm,
-                          ),
-                    })
-                  }
-                />
-                <div>
-                  <FieldLabel htmlFor={`algorithm-${algorithm}`}>
-                    {algorithmCopy[algorithm].title}
-                  </FieldLabel>
-                  <FieldDescription>
-                    {algorithmCopy[algorithm].description}
-                  </FieldDescription>
-                </div>
-              </Field>
+              <AlgorithmOption
+                key={algorithm}
+                algorithm={algorithm}
+                checked={form.algorithms.includes(algorithm)}
+                onChange={(checked) =>
+                  update({
+                    algorithms: checked
+                      ? [...form.algorithms, algorithm]
+                      : form.algorithms.filter((value) => value !== algorithm),
+                  })
+                }
+              />
             ),
           )}
+          {/* FPTP rides along in this group (#130) but stays bound to its own
+              flag — it never joins `algorithms`, and on its own it does not
+              satisfy the validation below. */}
+          <AlgorithmOption
+            algorithm="fptp"
+            checked={form.include_fptp}
+            onChange={(checked) => update({ include_fptp: checked })}
+          />
           <FieldError>{errors.algorithms}</FieldError>
         </FieldSet>
 
@@ -338,18 +344,6 @@ function ElectionFormContent({ election }: { election?: Election }) {
             description="Results update after each vote"
             checked={form.realtime_results}
             onChange={(value) => update({ realtime_results: value })}
-          />
-          <Setting
-            id="setting-include-fptp"
-            label="Include first-past-the-post (FPTP) comparison"
-            description={
-              <>
-                Compare results to plurality voting, where the candidate with
-                the most first choices wins. <LearnDialogLink />
-              </>
-            }
-            checked={form.include_fptp}
-            onChange={(value) => update({ include_fptp: value })}
           />
           <Setting
             label="Public ballots"
@@ -630,6 +624,29 @@ function CandidateRow({
   )
 }
 
+function AlgorithmOption({
+  algorithm,
+  checked,
+  onChange,
+}: {
+  algorithm: AlgoKey
+  checked: boolean
+  onChange: (value: boolean) => void
+}) {
+  const id = `algorithm-${algorithm}`
+  return (
+    <Field orientation="horizontal">
+      <Checkbox id={id} checked={checked} onCheckedChange={onChange} />
+      <div>
+        <FieldLabel htmlFor={id}>{algorithmCopy[algorithm].title}</FieldLabel>
+        <FieldDescription>
+          {algorithmCopy[algorithm].description}
+        </FieldDescription>
+      </div>
+    </Field>
+  )
+}
+
 function Setting({
   id: explicitId,
   label,
@@ -677,15 +694,16 @@ function LearnDialogLink() {
       }}
     >
       <DialogTrigger
+        className="text-sm font-normal whitespace-nowrap text-primary underline-offset-4 hover:underline"
         render={
           <Link
-            to={{ pathname: location.pathname, search: '?learn=fptp' }}
+            to={{ pathname: location.pathname, search: '?learn=approval' }}
             state={{ from: 'learn-dialog' }}
             preventScrollReset
           />
         }
       >
-        What&rsquo;s this?
+        What&rsquo;s the difference?
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
@@ -695,7 +713,7 @@ function LearnDialogLink() {
           </DialogDescription>
         </DialogHeader>
         <LearnContent
-          selected={selected ?? 'fptp'}
+          selected={selected ?? 'approval'}
           onSelect={(key) =>
             setParams(
               { learn: key },

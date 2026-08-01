@@ -6,13 +6,14 @@ FPTP is not an entry in `election.algorithms` — it's a boolean flag that overl
 
 ## Why It's a Flag, Not an Algorithm
 
-FPTP is included primarily for educational/comparative purposes — to show how a simple plurality vote would have decided the election differently from ranked or scored methods. The flag approach keeps it clearly secondary and avoids having it appear as a peer to IRV/STAR/Approval in the UI.
+FPTP is included primarily for educational/comparative purposes — to show how a simple plurality vote would have decided the election differently from ranked or scored methods. The flag keeps that asymmetry enforceable: an election always has at least one *real* method, and FPTP is layered on top of the ballots those methods collected. The create screen presents it alongside the other three (#130), but the data model never lets it stand alone.
 
 ## Explaining It to Organizers
 
-The toggle is the only one of the create screen's four settings defaulted **on**, so it affects nearly every election and has to be understandable without prior knowledge (#112):
+FPTP is on by default, so it affects nearly every election and has to be understandable without prior knowledge (#112):
 
-- The create/edit screen (`web-react/src/routes/ElectionForm.tsx`) labels it "Include first-past-the-post (FPTP) comparison" — the acronym is never bare — and its description ends in a "What's this?" link. The link adds `?learn=fptp` to the current pathname and opens `LearnContent` in place, so an organizer can consult the explainer without abandoning an unsaved form. Closing uses the link's explicit history-origin marker, with a same-path fallback for direct deep links.
+- The create/edit screen (`web-react/src/routes/ElectionForm.tsx`) shows it as the fourth checkbox in the **Voting Algorithms** group, below Approval/IRV/STAR (#130) — it was previously a switch marooned among the unrelated Settings toggles. The label reads "First Past the Post (FPTP) comparison": the acronym is never bare, and "comparison" carries the secondary framing that the old placement carried structurally. The checkbox is still bound to `include_fptp`, never to `algorithms`, and validation requires at least one of Approval/IRV/STAR — so checking FPTP alone is rejected with "Select at least one of Approval, IRV, or STAR".
+- The section heading carries a "What's the difference?" link (formerly a per-option "What's this?" on the FPTP row). It adds `?learn=approval` to the current pathname and opens `LearnContent` in place, so an organizer can consult the explainer without abandoning an unsaved form; `?learn=fptp` and the other keys still resolve, so older deep links keep working. Closing uses the link's explicit history-origin marker, with a same-path fallback for direct deep links.
 - `/learn` (`web-react/src/routes/Learn.tsx`) carries a fourth **FPTP** tab alongside Approval/IRV/STAR, in the same strengths/weaknesses/how-it-works shape. It sits last, matching `RESULT_ALGORITHM_ORDER` in `web-react/src/lib/results.ts` and the "clearly secondary" reasoning above; the default tab is still Approval.
 - That tab's copy is net-new rather than ported from the frozen Flutter learn screen, and it says explicitly that EZVote never *runs* an FPTP election — it reinterprets ballots already cast.
 

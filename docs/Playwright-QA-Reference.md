@@ -52,7 +52,7 @@ This UI uses **base-ui** components, which render **two** accessibility nodes pe
 control — the real ARIA element *and* a hidden `<input>`. So `getByLabel(...)` is
 ambiguous for switches and checkboxes. Target by **role** instead:
 
-- Switch: `getByRole('switch', { name: 'Include FPTP comparison' })`
+- Switch: `getByRole('switch', { name: 'Public ballots' })`
 - Checkbox: `getByRole('checkbox', { name: 'Alice' })`
 
 Also: candidate name inputs use `aria-label="Candidate N"`, which collides under

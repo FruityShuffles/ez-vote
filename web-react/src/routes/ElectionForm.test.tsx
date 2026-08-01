@@ -117,8 +117,8 @@ describe('M11 create election', () => {
       screen.getByRole('checkbox', { name: 'Approval Voting' }),
     ).toBeChecked()
     expect(
-      screen.getByRole('switch', {
-        name: 'Include first-past-the-post (FPTP) comparison',
+      screen.getByRole('checkbox', {
+        name: 'First Past the Post (FPTP) comparison',
       }),
     ).toBeChecked()
     expect(
@@ -138,12 +138,11 @@ describe('M11 create election', () => {
     ).toEqual(['Candidates', 'Voting Algorithms', 'Settings'])
   })
 
-  it('opens the FPTP explainer on the current form path', () => {
+  it('opens the algorithm explainer on the current form path', () => {
     renderRoute()
-    expect(screen.getByRole('link', { name: /What.s this\?/ })).toHaveAttribute(
-      'href',
-      '/create?learn=fptp',
-    )
+    expect(
+      screen.getByRole('link', { name: /What.s the difference\?/ }),
+    ).toHaveAttribute('href', '/create?learn=approval')
     expect(
       screen.getByText(/candidate with the most first choices wins/),
     ).toBeInTheDocument()
@@ -154,12 +153,14 @@ describe('M11 create election', () => {
     const router = renderRoute()
     const title = screen.getByLabelText('Election Title')
     await user.type(title, 'Draft title')
-    await user.click(screen.getByRole('link', { name: /What.s this\?/ }))
+    await user.click(
+      screen.getByRole('link', { name: /What.s the difference\?/ }),
+    )
 
     expect(router.state.location.pathname).toBe('/create')
-    expect(router.state.location.search).toBe('?learn=fptp')
+    expect(router.state.location.search).toBe('?learn=approval')
     expect(
-      screen.getByRole('heading', { name: 'First Past the Post (FPTP)' }),
+      screen.getByRole('heading', { name: 'Approval Voting' }),
     ).toBeInTheDocument()
     expect(
       screen.queryByText('Discard unsaved changes?'),
@@ -183,10 +184,12 @@ describe('M11 create election', () => {
     const router = renderRoute('/election/e1/edit')
     const title = await screen.findByLabelText('Election Title')
     await user.type(title, ' revised')
-    await user.click(screen.getByRole('link', { name: /What.s this\?/ }))
+    await user.click(
+      screen.getByRole('link', { name: /What.s the difference\?/ }),
+    )
 
     expect(router.state.location.pathname).toBe('/election/e1/edit')
-    expect(router.state.location.search).toBe('?learn=fptp')
+    expect(router.state.location.search).toBe('?learn=approval')
     await router.navigate(-1)
 
     await waitFor(() =>
@@ -233,7 +236,9 @@ describe('M11 create election', () => {
   it('preserves the origin marker while switching explainer algorithms', async () => {
     const user = userEvent.setup()
     const router = renderRoute()
-    const trigger = screen.getByRole('link', { name: /What.s this\?/ })
+    const trigger = screen.getByRole('link', {
+      name: /What.s the difference\?/,
+    })
     await user.click(trigger)
     await user.click(screen.getByRole('tab', { name: 'STAR' }))
 
@@ -259,7 +264,30 @@ describe('M11 create election', () => {
       screen.getByText('At least 2 candidates required'),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Select at least one algorithm'),
+      screen.getByText('Select at least one of Approval, IRV, or STAR'),
+    ).toBeInTheDocument()
+    expect(mocks.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  // #130 moved FPTP into the Voting Algorithms group, but it still only
+  // reinterprets ballots cast for another method — it cannot stand alone.
+  it('does not accept the FPTP comparison as the only selected method', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+    await user.type(screen.getByLabelText('Election Title'), 'City Council')
+    await user.type(screen.getByLabelText('Candidate 1'), 'Alice')
+    await user.type(screen.getByLabelText('Candidate 2'), 'Bob')
+    await user.click(screen.getByRole('checkbox', { name: 'Approval Voting' }))
+
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'First Past the Post (FPTP) comparison',
+      }),
+    ).toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Save & Open' }))
+
+    expect(
+      screen.getByText('Select at least one of Approval, IRV, or STAR'),
     ).toBeInTheDocument()
     expect(mocks.mutateAsync).not.toHaveBeenCalled()
   })
@@ -280,8 +308,8 @@ describe('M11 create election', () => {
       screen.getByRole('switch', { name: 'Show real-time results' }),
     )
     await user.click(
-      screen.getByRole('switch', {
-        name: 'Include first-past-the-post (FPTP) comparison',
+      screen.getByRole('checkbox', {
+        name: 'First Past the Post (FPTP) comparison',
       }),
     )
     await user.click(screen.getByRole('switch', { name: 'Public ballots' }))

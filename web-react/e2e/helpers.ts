@@ -61,10 +61,11 @@ export async function createOpenApprovalElection(
     }
   }
 
+  // #130: FPTP is a checkbox in the Voting Algorithms group, not a setting.
   if (!opts.includeFptp) {
     await page
-      .getByRole('switch', {
-        name: 'Include first-past-the-post (FPTP) comparison',
+      .getByRole('checkbox', {
+        name: 'First Past the Post (FPTP) comparison',
       })
       .click()
   }
