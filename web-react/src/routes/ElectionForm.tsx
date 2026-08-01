@@ -338,6 +338,10 @@ export function ElectionForm() {
               keep editing privately.
             </p>
           )}
+          {/* Primary last in the DOM: right-most on desktop, and on top on
+              mobile via flex-col-reverse. Same recipe as the shared
+              DialogFooter — see the action row convention in
+              docs/Migration/Design System.md. */}
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
               type="button"

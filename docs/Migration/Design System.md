@@ -58,6 +58,18 @@ Owned source under `web-react/src/components/ui/` (added via the shadcn CLI on t
 
 The **bespoke ballot widgets** (drag-reorder, tie-break, auto-score-zero — parity checklist §4) are deliberately *not* here; they're built in M10 on top of these primitives, per [[Migration/Tech Stack]].
 
+### Action row convention
+
+Wherever a surface offers a primary action alongside a secondary or cancel one, the **primary comes last in the DOM** and the row is laid out with:
+
+```
+flex flex-col-reverse gap-3 sm:flex-row sm:justify-end
+```
+
+So the primary sits right-most on desktop and on *top* on mobile, where `flex-col-reverse` flips the visual order without touching DOM/tab order. This is baked into `DialogFooter` (`ui/dialog.tsx`) and repeated by hand where there is no dialog — `ElectionForm`'s submit row, `ElectionDetail`'s owner controls, `ElectionCard`'s delete confirmation, `Settings`' delete-account dialog.
+
+The desktop/mobile flip is deliberate (resolved in #117): reading order keeps the destructive/secondary choice first, while the thumb-reachable top slot on a phone goes to the action most people want. A lone action goes full-width (`w-full`) instead — see `Ballot.tsx`'s submit.
+
 ## Accessibility posture
 
 Accessibility is the migration's central justification ([[Migration/Overview]]), so it's a first-class concern here:
