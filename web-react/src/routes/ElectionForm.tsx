@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
+import {
+  Link,
+  useBlocker,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom'
 import { arrayMove } from '@dnd-kit/sortable'
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -8,6 +15,7 @@ import { useAuth } from '@/auth/context'
 import { AppShell } from '@/components/ui/app-shell'
 import { SortableList, SortableRow } from '@/components/ballot/SortableList'
 import { Button } from '@/components/ui/button'
+import { CenteredState } from '@/components/ui/centered-state'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
@@ -16,6 +24,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   Field,
@@ -31,6 +40,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { H1, Muted } from '@/components/ui/typography'
 import { friendlyError, isUniqueViolation } from '@/lib/errors'
+import { LearnContent, type AlgoKey } from '@/routes/Learn'
 import {
   useCandidates,
   useElection,
@@ -318,8 +328,7 @@ export function ElectionForm() {
             description={
               <>
                 Compare results to plurality voting, where the candidate with
-                the most first choices wins.{' '}
-                <Link to="/learn?algo=fptp">What&rsquo;s this?</Link>
+                the most first choices wins. <LearnDialogLink />
               </>
             }
             checked={form.include_fptp}
@@ -630,11 +639,67 @@ function Setting({
   )
 }
 
-function CenteredState({ children }: { children: React.ReactNode }) {
+function LearnDialogLink() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const learn = params.get('learn')
+  const selected = isLearnAlgorithm(learn) ? learn : null
+
+  function close() {
+    if (location.state?.from === 'learn-dialog') navigate(-1)
+    else navigate(location.pathname, { replace: true })
+  }
+
   return (
-    <AppShell width="md">
-      <div className="flex justify-center py-20">{children}</div>
-    </AppShell>
+    <Dialog
+      open={selected != null}
+      onOpenChange={(open) => {
+        if (!open) close()
+      }}
+    >
+      <DialogTrigger
+        render={
+          <Link
+            to={{ pathname: location.pathname, search: '?learn=fptp' }}
+            state={{ from: 'learn-dialog' }}
+            preventScrollReset
+          />
+        }
+      >
+        What&rsquo;s this?
+      </DialogTrigger>
+      <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Learn About Voting Algorithms</DialogTitle>
+          <DialogDescription className="sr-only">
+            Compare the voting algorithms supported by EZVote.
+          </DialogDescription>
+        </DialogHeader>
+        <LearnContent
+          selected={selected ?? 'fptp'}
+          onSelect={(key) =>
+            setParams(
+              { learn: key },
+              {
+                replace: true,
+                state: { from: 'learn-dialog' },
+                preventScrollReset: true,
+              },
+            )
+          }
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function isLearnAlgorithm(value: string | null): value is AlgoKey {
+  return (
+    value === 'approval' ||
+    value === 'irv' ||
+    value === 'star' ||
+    value === 'fptp'
   )
 }
 

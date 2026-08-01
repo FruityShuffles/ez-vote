@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { EZVoteLogo } from '@/components/EZVoteLogo'
 import { H1, Muted } from '@/components/ui/typography'
@@ -20,7 +22,13 @@ export function AuthCard({
       <Card className="w-full max-w-sm [--card-spacing:--spacing(6)]">
         <CardContent className="flex flex-col gap-6">
           <header className="flex flex-col items-center gap-1.5 text-center">
-            <EZVoteLogo className="text-base" />
+            <Link
+              to="/"
+              aria-label="EZVote home"
+              className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <EZVoteLogo className="text-base" />
+            </Link>
             {/* The page's h1 (size matched to the old H2 to keep the visual
                 identity); each auth screen has exactly one. */}
             <H1 className="text-2xl">{title}</H1>

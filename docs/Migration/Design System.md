@@ -49,6 +49,7 @@ Owned source under `web-react/src/components/ui/` (added via the shadcn CLI on t
 | `card` | `Card` | M8 results, M9 dashboard |
 | `badge` | `Chip` | M8 winners, M9 status |
 | `spinner` | `CircularProgressIndicator` | everywhere (loading) |
+| `centered-state` | centered loading/error scaffold | create/edit, public ballots, counterfactual explorer |
 | `separator` | `Divider` | auth, forms |
 | `dialog` | `Dialog`/`AlertDialog` | M9/M11/M14 confirmations |
 | `sonner` (toast) | `SnackBar` | M9/M11/M12 |

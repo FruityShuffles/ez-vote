@@ -12,11 +12,11 @@ FPTP is included primarily for educational/comparative purposes — to show how 
 
 The toggle is the only one of the create screen's four settings defaulted **on**, so it affects nearly every election and has to be understandable without prior knowledge (#112):
 
-- The create screen (`web-react/src/routes/ElectionForm.tsx`) labels it "Include first-past-the-post (FPTP) comparison" — the acronym is never bare — and its description ends in a "What's this?" link to `/learn?algo=fptp`.
+- The create/edit screen (`web-react/src/routes/ElectionForm.tsx`) labels it "Include first-past-the-post (FPTP) comparison" — the acronym is never bare — and its description ends in a "What's this?" link. The link adds `?learn=fptp` to the current pathname and opens `LearnContent` in place, so an organizer can consult the explainer without abandoning an unsaved form. Closing uses the link's explicit history-origin marker, with a same-path fallback for direct deep links.
 - `/learn` (`web-react/src/routes/Learn.tsx`) carries a fourth **FPTP** tab alongside Approval/IRV/STAR, in the same strengths/weaknesses/how-it-works shape. It sits last, matching `RESULT_ALGORITHM_ORDER` in `web-react/src/lib/results.ts` and the "clearly secondary" reasoning above; the default tab is still Approval.
 - That tab's copy is net-new rather than ported from the frozen Flutter learn screen, and it says explicitly that EZVote never *runs* an FPTP election — it reinterprets ballots already cast.
 
-Learn tabs are selected by the `?algo=` query param (`approval` | `irv` | `star` | `fptp`), falling back to Approval on anything unrecognized, so any surface can deep link to a method. The dashboard embeds `LearnContent` uncontrolled and is unaffected.
+Standalone Learn tabs are selected by the `?algo=` query param (`approval` | `irv` | `star` | `fptp`), falling back to Approval on anything unrecognized, so any surface can deep link to a method. The form dialog uses the same keys under `?learn=` on `/create` or `/election/:id/edit`, and re-stamps its history-origin marker when the selected method changes. The dashboard embeds `LearnContent` uncontrolled and is unaffected.
 
 ## Per-Template Behavior
 

@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 // it has no Flutter ancestor, because the create screen needed somewhere to
 // explain the comparison toggle.
 
-type AlgoKey = 'approval' | 'irv' | 'star' | 'fptp'
+export type AlgoKey = 'approval' | 'irv' | 'star' | 'fptp'
 
 interface AlgoPoint {
   title: string

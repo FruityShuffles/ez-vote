@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -85,13 +86,19 @@ describe('Button', () => {
 describe('AuthCard', () => {
   it('renders its title as the page-level h1', () => {
     render(
-      <AuthCard title="Sign in" subtitle="Sign in to continue">
-        <button>Submit</button>
-      </AuthCard>,
+      <MemoryRouter>
+        <AuthCard title="Sign in" subtitle="Sign in to continue">
+          <button>Submit</button>
+        </AuthCard>
+      </MemoryRouter>,
     )
     expect(
       screen.getByRole('heading', { level: 1, name: 'Sign in' }),
     ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'EZVote home' })).toHaveAttribute(
+      'href',
+      '/',
+    )
   })
 })
 

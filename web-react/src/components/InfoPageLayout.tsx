@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { AppShell } from '@/components/ui/app-shell'
 import { H1, H3, Prose } from '@/components/ui/typography'
@@ -15,14 +15,23 @@ export function InfoPageLayout({
   title: string
   children: React.ReactNode
 }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const fromSettings = location.state?.from === 'settings'
+
   return (
     <AppShell brandTo="/" width="md">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <Link
           to="/"
+          onClick={(event) => {
+            if (!fromSettings) return
+            event.preventDefault()
+            navigate(-1)
+          }}
           className="text-sm text-primary underline-offset-4 hover:underline"
         >
-          ← Back to home
+          ← Back to {fromSettings ? 'settings' : 'home'}
         </Link>
         <H1>{title}</H1>
         {children}

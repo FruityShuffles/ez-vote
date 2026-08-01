@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppShell } from '@/components/ui/app-shell'
 import { BallotView } from '@/components/ballot/BallotView'
 import { Button } from '@/components/ui/button'
+import { CenteredState } from '@/components/ui/centered-state'
 import { Stack } from '@/components/ui/layout'
 import { Spinner } from '@/components/ui/spinner'
 import { H1, Muted } from '@/components/ui/typography'
@@ -33,11 +34,9 @@ export function PublicBallot() {
     ballotsQuery.isPending
   ) {
     return (
-      <AppShell width="sm">
-        <div className="flex justify-center py-16">
-          <Spinner className="size-6 text-muted-foreground" />
-        </div>
-      </AppShell>
+      <CenteredState width="sm">
+        <Spinner className="size-6 text-muted-foreground" />
+      </CenteredState>
     )
   }
   if (
@@ -50,9 +49,9 @@ export function PublicBallot() {
     index >= (ballotsQuery.data?.length ?? 0)
   ) {
     return (
-      <AppShell width="sm">
+      <CenteredState width="sm">
         <Muted role="alert">Could not load this public ballot.</Muted>
-      </AppShell>
+      </CenteredState>
     )
   }
 

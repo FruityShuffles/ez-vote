@@ -62,6 +62,7 @@ function LinkRow({ to, label }: { to: string; label: string }) {
   return (
     <Link
       to={to}
+      state={{ from: 'settings' }}
       className={cn(
         'flex items-center justify-between px-4 py-3 text-sm outline-none transition-colors',
         'hover:bg-muted/40 focus-visible:bg-muted/40',

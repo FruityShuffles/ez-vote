@@ -14,6 +14,7 @@ import {
 import { HypotheticalBallot } from '@/components/counterfactual/HypotheticalBallot'
 import { AppShell } from '@/components/ui/app-shell'
 import { Button } from '@/components/ui/button'
+import { CenteredState } from '@/components/ui/centered-state'
 import { Stack } from '@/components/ui/layout'
 import { Spinner } from '@/components/ui/spinner'
 import { H1, Muted } from '@/components/ui/typography'
@@ -186,11 +187,9 @@ function ExplorerUnavailable({
   ineligible: boolean
 }) {
   return (
-    <AppShell width="lg">
+    <CenteredState width="lg">
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Spinner className="size-6 text-muted-foreground" />
-        </div>
+        <Spinner className="size-6 text-muted-foreground" />
       ) : (
         <Muted role="alert">
           {ineligible
@@ -198,7 +197,7 @@ function ExplorerUnavailable({
             : 'Could not load the what-if explorer. Please try again.'}
         </Muted>
       )}
-    </AppShell>
+    </CenteredState>
   )
 }
 
@@ -225,9 +224,9 @@ export function CounterfactualPicker() {
   if (simulation.isPending || simulation.data == null) {
     if (simulation.isError) {
       return (
-        <AppShell width="lg">
+        <CenteredState width="lg">
           <Muted role="alert">{simulation.error.message}</Muted>
-        </AppShell>
+        </CenteredState>
       )
     }
     return <ExplorerUnavailable loading ineligible={false} />
@@ -334,17 +333,17 @@ export function CounterfactualEditor() {
     explorer.data.ballots.find((ballot) => ballot.voter_id === voterId) ?? null
   if (selected == null) {
     return (
-      <AppShell width="lg">
+      <CenteredState width="lg">
         <Muted role="alert">Could not find that public ballot.</Muted>
-      </AppShell>
+      </CenteredState>
     )
   }
   if (simulation.isPending || simulation.data == null) {
     if (simulation.isError) {
       return (
-        <AppShell width="lg">
+        <CenteredState width="lg">
           <Muted role="alert">{simulation.error.message}</Muted>
-        </AppShell>
+        </CenteredState>
       )
     }
     return <ExplorerUnavailable loading ineligible={false} />

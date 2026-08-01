@@ -121,14 +121,97 @@ describe('M11 create election', () => {
     ).toEqual(['Candidates', 'Voting Algorithms', 'Settings'])
   })
 
-  it('points the FPTP setting at the learn page instead of leaving the jargon bare', () => {
+  it('opens the FPTP explainer on the current form path', () => {
     renderRoute()
-    expect(
-      screen.getByRole('link', { name: /What.s this\?/ }),
-    ).toHaveAttribute('href', '/learn?algo=fptp')
+    expect(screen.getByRole('link', { name: /What.s this\?/ })).toHaveAttribute(
+      'href',
+      '/create?learn=fptp',
+    )
     expect(
       screen.getByText(/candidate with the most first choices wins/),
     ).toBeInTheDocument()
+  })
+
+  it('keeps a create draft intact when browser Back closes the explainer', async () => {
+    const user = userEvent.setup()
+    const router = renderRoute()
+    const title = screen.getByLabelText('Election Title')
+    await user.type(title, 'Draft title')
+    await user.click(screen.getByRole('link', { name: /What.s this\?/ }))
+
+    expect(router.state.location.pathname).toBe('/create')
+    expect(router.state.location.search).toBe('?learn=fptp')
+    expect(
+      screen.getByRole('heading', { name: 'First Past the Post (FPTP)' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Discard unsaved changes?'),
+    ).not.toBeInTheDocument()
+
+    await router.navigate(-1)
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    )
+    expect(title).toHaveValue('Draft title')
+    expect(
+      screen.queryByText('Discard unsaved changes?'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps an edit draft intact when browser Back closes the explainer', async () => {
+    const user = userEvent.setup()
+    mocks.election = election
+    mocks.candidates = candidates
+    const router = renderRoute('/election/e1/edit')
+    const title = await screen.findByLabelText('Election Title')
+    await user.type(title, ' revised')
+    await user.click(screen.getByRole('link', { name: /What.s this\?/ }))
+
+    expect(router.state.location.pathname).toBe('/election/e1/edit')
+    expect(router.state.location.search).toBe('?learn=fptp')
+    await router.navigate(-1)
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    )
+    expect(title).toHaveValue('Board Election revised')
+    expect(
+      screen.queryByText('Discard unsaved changes?'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('closes a direct explainer deep link without leaving the app', async () => {
+    const user = userEvent.setup()
+    const router = renderRoute('/create?learn=fptp')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    )
+    expect(router.state.location.pathname).toBe('/create')
+    expect(router.state.location.search).toBe('')
+  })
+
+  it('preserves the origin marker while switching explainer algorithms', async () => {
+    const user = userEvent.setup()
+    const router = renderRoute()
+    const trigger = screen.getByRole('link', { name: /What.s this\?/ })
+    await user.click(trigger)
+    await user.click(screen.getByRole('tab', { name: 'STAR' }))
+
+    expect(router.state.location.search).toBe('?learn=star')
+    expect(router.state.location.state).toEqual({ from: 'learn-dialog' })
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    )
+    expect(router.state.location.pathname).toBe('/create')
+    expect(router.state.location.search).toBe('')
+    expect(trigger).toHaveFocus()
   })
 
   it('validates title, candidate count, and algorithm selection before writing', async () => {
