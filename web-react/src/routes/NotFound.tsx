@@ -5,7 +5,11 @@ import { buttonVariants } from '@/components/ui/button'
 // (the path that exercises the Pages `_redirects` fallback at the edge).
 export function NotFound() {
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-6 p-8 text-center">
+    <main
+      data-route-focus
+      tabIndex={-1}
+      className="flex min-h-svh flex-col items-center justify-center gap-6 p-8 text-center outline-none"
+    >
       <h1 className="text-3xl font-semibold tracking-tight">Page not found</h1>
       <Link to="/" className={buttonVariants({ variant: 'outline' })}>
         Go home

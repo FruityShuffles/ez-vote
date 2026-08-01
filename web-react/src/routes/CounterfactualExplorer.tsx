@@ -12,7 +12,6 @@ import {
   type LedgerEntry,
 } from '@/components/counterfactual/EditLedger'
 import { HypotheticalBallot } from '@/components/counterfactual/HypotheticalBallot'
-import { AppShell } from '@/components/ui/app-shell'
 import { Button } from '@/components/ui/button'
 import { CenteredState } from '@/components/ui/centered-state'
 import { Stack } from '@/components/ui/layout'
@@ -187,7 +186,7 @@ function ExplorerUnavailable({
   ineligible: boolean
 }) {
   return (
-    <CenteredState width="lg">
+    <CenteredState>
       {loading ? (
         <Spinner className="size-6 text-muted-foreground" />
       ) : (
@@ -224,7 +223,7 @@ export function CounterfactualPicker() {
   if (simulation.isPending || simulation.data == null) {
     if (simulation.isError) {
       return (
-        <CenteredState width="lg">
+        <CenteredState>
           <Muted role="alert">{simulation.error.message}</Muted>
         </CenteredState>
       )
@@ -241,8 +240,7 @@ export function CounterfactualPicker() {
   const hasEdits = ledger.entries.length > 0
 
   return (
-    <AppShell width="lg">
-      <Stack gap={4}>
+    <Stack gap={4}>
         <div>
           <Button
             variant="ghost"
@@ -301,8 +299,7 @@ export function CounterfactualPicker() {
           targetId="consequence-rail"
           className="lg:hidden"
         />
-      </Stack>
-    </AppShell>
+    </Stack>
   )
 }
 
@@ -333,7 +330,7 @@ export function CounterfactualEditor() {
     explorer.data.ballots.find((ballot) => ballot.voter_id === voterId) ?? null
   if (selected == null) {
     return (
-      <CenteredState width="lg">
+      <CenteredState>
         <Muted role="alert">Could not find that public ballot.</Muted>
       </CenteredState>
     )
@@ -341,7 +338,7 @@ export function CounterfactualEditor() {
   if (simulation.isPending || simulation.data == null) {
     if (simulation.isError) {
       return (
-        <CenteredState width="lg">
+        <CenteredState>
           <Muted role="alert">{simulation.error.message}</Muted>
         </CenteredState>
       )
@@ -361,8 +358,7 @@ export function CounterfactualEditor() {
   const hasEdits = ledger.entries.length > 0
 
   return (
-    <AppShell width="lg">
-      <Stack gap={4}>
+    <Stack gap={4}>
         <div>
           <Button
             variant="ghost"
@@ -430,8 +426,7 @@ export function CounterfactualEditor() {
           targetId="consequence-rail"
           className="lg:hidden"
         />
-      </Stack>
-    </AppShell>
+    </Stack>
   )
 }
 

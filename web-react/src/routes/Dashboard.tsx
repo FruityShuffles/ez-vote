@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Settings } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { AppShell } from '@/components/ui/app-shell'
 import { Spinner } from '@/components/ui/spinner'
 import { H1, H2, Muted } from '@/components/ui/typography'
 import { Stack } from '@/components/ui/layout'
@@ -15,7 +14,6 @@ import {
   usePendingInvitations,
   useVotedElections,
 } from '@/lib/elections'
-import { signOut } from '@/lib/auth'
 
 // The election-list dashboard (M9), ported from Flutter `HomeScreen`. Three
 // tabs, matching Flutter: My Elections (owned), My Votes (pending invitations
@@ -27,68 +25,41 @@ type Tab = 'owned' | 'votes' | 'learn'
 export function Dashboard() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('owned')
-  const [signingOut, setSigningOut] = useState(false)
-
-  async function handleSignOut() {
-    setSigningOut(true)
-    await signOut() // session clears → RequireAuth bounces to /login
-  }
 
   return (
-    <AppShell
-      width="md"
-      actions={
-        <>
-          <Button onClick={() => navigate('/create')}>
-            <Plus /> New Election
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Settings"
-            onClick={() => navigate('/settings')}
-          >
-            <Settings />
-          </Button>
-          <Button
-            variant="outline"
-            disabled={signingOut}
-            onClick={handleSignOut}
-          >
-            {signingOut ? 'Signing out…' : 'Sign out'}
-          </Button>
-        </>
-      }
-    >
-      <Stack gap={6}>
+    <Stack gap={6}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <H1>Dashboard</H1>
+        <Button onClick={() => navigate('/create')}>
+          <Plus /> New Election
+        </Button>
+      </div>
 
-        <div role="tablist" aria-label="Dashboard sections" className="flex gap-1 border-b">
-          <TabButton
-            active={tab === 'owned'}
-            onClick={() => setTab('owned')}
-          >
-            My Elections
-          </TabButton>
-          <TabButton
-            active={tab === 'votes'}
-            onClick={() => setTab('votes')}
-          >
-            My Votes
-          </TabButton>
-          <TabButton
-            active={tab === 'learn'}
-            onClick={() => setTab('learn')}
-          >
-            Learn
-          </TabButton>
-        </div>
+      <div role="tablist" aria-label="Dashboard sections" className="flex gap-1 border-b">
+        <TabButton
+          active={tab === 'owned'}
+          onClick={() => setTab('owned')}
+        >
+          My Elections
+        </TabButton>
+        <TabButton
+          active={tab === 'votes'}
+          onClick={() => setTab('votes')}
+        >
+          My Votes
+        </TabButton>
+        <TabButton
+          active={tab === 'learn'}
+          onClick={() => setTab('learn')}
+        >
+          Learn
+        </TabButton>
+      </div>
 
-        {tab === 'owned' && <OwnedElections />}
-        {tab === 'votes' && <VotedElections />}
-        {tab === 'learn' && <LearnContent />}
-      </Stack>
-    </AppShell>
+      {tab === 'owned' && <OwnedElections />}
+      {tab === 'votes' && <VotedElections />}
+      {tab === 'learn' && <LearnContent />}
+    </Stack>
   )
 }
 

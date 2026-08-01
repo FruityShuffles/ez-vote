@@ -1,7 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { AppShell } from '@/components/ui/app-shell'
 import { BallotView } from '@/components/ballot/BallotView'
 import { Button } from '@/components/ui/button'
 import { CenteredState } from '@/components/ui/centered-state'
@@ -34,7 +33,7 @@ export function PublicBallot() {
     ballotsQuery.isPending
   ) {
     return (
-      <CenteredState width="sm">
+      <CenteredState>
         <Spinner className="size-6 text-muted-foreground" />
       </CenteredState>
     )
@@ -49,7 +48,7 @@ export function PublicBallot() {
     index >= (ballotsQuery.data?.length ?? 0)
   ) {
     return (
-      <CenteredState width="sm">
+      <CenteredState>
         <Muted role="alert">Could not load this public ballot.</Muted>
       </CenteredState>
     )
@@ -107,8 +106,7 @@ function PublicBallotView({
   })
 
   return (
-    <AppShell width="sm">
-      <Stack gap={4}>
+    <Stack gap={4}>
         <div>
           <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={onBack}>
             <ChevronLeft /> Back to voters
@@ -139,7 +137,6 @@ function PublicBallotView({
             Next <ChevronRight />
           </Button>
         </div>
-      </Stack>
-    </AppShell>
+    </Stack>
   )
 }

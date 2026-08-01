@@ -98,11 +98,11 @@ It seeds from `supabase.auth.getSession()` — which covers a persisted session 
 
 ## Route Guards
 
-There is no central redirect callback. Guards wrap routes individually in `src/router.tsx`:
+There is no central redirect callback. The auth screens retain their own `RedirectIfAuthed` guards, while one `RequireAuth` wraps the pathless protected layout in `src/router.tsx`:
 
 | Guard | Wraps | Behavior |
 |---|---|---|
-| `RequireAuth` | every protected route | No session → `<Navigate to={withRedirect('/login', here)} replace />`, where `here` is the current path + search + hash |
+| `RequireAuth` | the protected `AppLayout` branch | No session → `<Navigate to={withRedirect('/login', here)} replace />`, where `here` is the current path + search + hash; its `<Outlet>` and app bar render only after auth resolves |
 | `RedirectIfAuthed` | `/login`, `/signup`, `/forgot-password` | Has session → `<Navigate to={safeRedirect(params.get('redirect'))} replace />` |
 
 Both render a brief loading placeholder while `loading` is true, so a guard never flashes a redirect before auth state is known.

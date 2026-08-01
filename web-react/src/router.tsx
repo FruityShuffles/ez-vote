@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { Home } from '@/routes/Home'
 import { Learn } from '@/routes/Learn'
 import { Privacy } from '@/routes/Privacy'
@@ -18,7 +18,15 @@ import {
 import { ElectionForm } from '@/routes/ElectionForm'
 import { JoinElection } from '@/routes/JoinElection'
 import { Settings } from '@/routes/Settings'
-import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
+import { RedirectIfAuthed } from '@/auth/guards'
+import {
+  AppLayout,
+  AppLayoutError,
+  type AppRouteHandle,
+} from '@/components/AppLayout'
+import { RootLayout } from '@/components/RootLayout'
+import { RouteError } from '@/components/RouteError'
+import { AppShell } from '@/components/ui/app-shell'
 
 // Browser (history-API) routing. The Cloudflare Pages `_redirects` SPA fallback
 // (public/_redirects) rewrites every unknown path to index.html so deep links
@@ -28,160 +36,119 @@ import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
 // to their `redirect=` destination); protected routes in RequireAuth (signed-out
 // users are bounced to /login?redirect=<here>). This reproduces the GoRouter
 // redirect callback in `lib/config/router.dart`.
-export const router = createBrowserRouter([
+export const routes: RouteObject[] = [
   {
     path: '/',
-    element: <Home />,
-  },
-  {
-    // Public info pages (M13). Unguarded — these are hit by external links and
-    // must render for signed-out visitors. Paths match the Flutter routes
-    // (/learn, /privacy, /tos in lib/config/router.dart) to keep deep links
-    // stable across the cutover.
-    path: '/learn',
-    element: <Learn />,
-  },
-  {
-    path: '/privacy',
-    element: <Privacy />,
-  },
-  {
-    path: '/tos',
-    element: <Terms />,
-  },
-  {
-    path: '/login',
-    element: (
-      <RedirectIfAuthed>
-        <Login />
-      </RedirectIfAuthed>
+    element: <RootLayout />,
+    errorElement: (
+      <AppShell brandTo="/" width="md">
+        <RouteError />
+      </AppShell>
     ),
+    children: [
+      { index: true, element: <Home /> },
+      // Public and auth routes stay outside AppLayout.
+      { path: 'learn', element: <Learn /> },
+      { path: 'privacy', element: <Privacy /> },
+      { path: 'tos', element: <Terms /> },
+      {
+        path: 'login',
+        element: (
+          <RedirectIfAuthed>
+            <Login />
+          </RedirectIfAuthed>
+        ),
+      },
+      {
+        path: 'signup',
+        element: (
+          <RedirectIfAuthed>
+            <Signup />
+          </RedirectIfAuthed>
+        ),
+      },
+      {
+        path: 'forgot-password',
+        element: (
+          <RedirectIfAuthed>
+            <ForgotPassword />
+          </RedirectIfAuthed>
+        ),
+      },
+      {
+        element: <AppLayout />,
+        errorElement: <AppLayoutError />,
+        children: [
+          {
+            path: 'dashboard',
+            element: <Dashboard />,
+            handle: { width: 'md' } satisfies AppRouteHandle,
+          },
+          {
+            path: 'create',
+            element: <ElectionForm />,
+            handle: { width: 'md' } satisfies AppRouteHandle,
+          },
+          {
+            path: 'election/:id/edit',
+            element: <ElectionForm />,
+            handle: { width: 'md' } satisfies AppRouteHandle,
+          },
+          {
+            path: 'election/:id',
+            element: <ElectionDetail />,
+            handle: { width: 'md' } satisfies AppRouteHandle,
+          },
+          {
+            path: 'election/:id/vote',
+            element: <Ballot />,
+            handle: { width: 'sm' } satisfies AppRouteHandle,
+          },
+          {
+            path: 'election/:id/ballot/:index',
+            element: <PublicBallot />,
+            handle: { width: 'sm' } satisfies AppRouteHandle,
+          },
+          {
+            path: 'election/:id/explore',
+            element: <CounterfactualPicker />,
+            handle: { width: 'lg' } satisfies AppRouteHandle,
+          },
+          {
+            path: 'election/:id/explore/:voterId',
+            element: <CounterfactualEditor />,
+            handle: { width: 'lg' } satisfies AppRouteHandle,
+          },
+          {
+            // Join remains protected but fetches no election data before its RPC.
+            path: 'election/:id/join',
+            element: <JoinElection />,
+            handle: { width: 'md' } satisfies AppRouteHandle,
+          },
+          {
+            path: 'settings',
+            element: <Settings />,
+            handle: { width: 'md' } satisfies AppRouteHandle,
+          },
+        ],
+      },
+      {
+        path: 'design',
+        lazy: async () => {
+          const { Design } = await import('@/routes/Design')
+          return { Component: Design }
+        },
+      },
+      {
+        path: 'design/explore',
+        lazy: async () => {
+          const { DesignExplore } = await import('@/routes/DesignExplore')
+          return { Component: DesignExplore }
+        },
+      },
+      { path: '*', element: <NotFound /> },
+    ],
   },
-  {
-    path: '/signup',
-    element: (
-      <RedirectIfAuthed>
-        <Signup />
-      </RedirectIfAuthed>
-    ),
-  },
-  {
-    path: '/forgot-password',
-    element: (
-      <RedirectIfAuthed>
-        <ForgotPassword />
-      </RedirectIfAuthed>
-    ),
-  },
-  {
-    path: '/dashboard',
-    element: (
-      <RequireAuth>
-        <Dashboard />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: '/create',
-    element: (
-      <RequireAuth>
-        <ElectionForm />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: '/election/:id/edit',
-    element: (
-      <RequireAuth>
-        <ElectionForm />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: '/election/:id',
-    element: (
-      <RequireAuth>
-        <ElectionDetail />
-      </RequireAuth>
-    ),
-  },
-  {
-    // Ballot / voting flow (M10). Reached from the detail surface; renders
-    // read-only when the election is closed (the "View Ballot" affordance).
-    path: '/election/:id/vote',
-    element: (
-      <RequireAuth>
-        <Ballot />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: '/election/:id/ballot/:index',
-    element: (
-      <RequireAuth>
-        <PublicBallot />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: '/election/:id/explore',
-    element: (
-      <RequireAuth>
-        <CounterfactualPicker />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: '/election/:id/explore/:voterId',
-    element: (
-      <RequireAuth>
-        <CounterfactualEditor />
-      </RequireAuth>
-    ),
-  },
-  {
-    // Join via an invite link / QR (M12). RequireAuth threads `redirect=` so an
-    // unauthenticated visitor lands back here after login/signup (INV-04). The
-    // screen joins and forwards to the election detail.
-    path: '/election/:id/join',
-    element: (
-      <RequireAuth>
-        <JoinElection />
-      </RequireAuth>
-    ),
-  },
-  {
-    // Settings / account management (M14). Auth-gated, matching the Flutter
-    // GoRoute('/settings') reached from the dashboard's settings affordance.
-    path: '/settings',
-    element: (
-      <RequireAuth>
-        <Settings />
-      </RequireAuth>
-    ),
-  },
-  {
-    // Internal design-system gallery (M7). Not linked from the app nav; it has no
-    // data and no auth guard, and exists for visual verification of the shared
-    // components against Flutter (and the M18 side-by-side review).
-    path: '/design',
-    lazy: async () => {
-      const { Design } = await import('@/routes/Design')
-      return { Component: Design }
-    },
-  },
-  {
-    // Design surface for the what-if explorer (M21), same posture as /design:
-    // unlinked, unguarded, mock data only. Reviewed before the feature is wired
-    // to the simulate-counterfactual endpoint.
-    path: '/design/explore',
-    lazy: async () => {
-      const { DesignExplore } = await import('@/routes/DesignExplore')
-      return { Component: DesignExplore }
-    },
-  },
-  {
-    path: '*',
-    element: <NotFound />,
-  },
-])
+]
+
+export const router = createBrowserRouter(routes)

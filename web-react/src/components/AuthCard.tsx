@@ -18,7 +18,11 @@ export function AuthCard({
   children: React.ReactNode
 }) {
   return (
-    <main className="grid min-h-svh place-items-center bg-muted/30 p-6">
+    <main
+      data-route-focus
+      tabIndex={-1}
+      className="grid min-h-svh place-items-center bg-muted/30 p-6 outline-none"
+    >
       <Card className="w-full max-w-sm [--card-spacing:--spacing(6)]">
         <CardContent className="flex flex-col gap-6">
           <header className="flex flex-col items-center gap-1.5 text-center">

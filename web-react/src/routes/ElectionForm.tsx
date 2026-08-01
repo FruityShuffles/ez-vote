@@ -12,7 +12,6 @@ import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuth } from '@/auth/context'
-import { AppShell } from '@/components/ui/app-shell'
 import { SortableList, SortableRow } from '@/components/ballot/SortableList'
 import { Button } from '@/components/ui/button'
 import { CenteredState } from '@/components/ui/centered-state'
@@ -219,19 +218,7 @@ export function ElectionForm() {
   }
 
   return (
-    <AppShell
-      width="md"
-      actions={
-        <Button
-          variant="outline"
-          onClick={() =>
-            navigate(editing ? `/election/${electionId}` : '/dashboard')
-          }
-        >
-          Cancel
-        </Button>
-      }
-    >
+    <>
       <form
         className="mx-auto max-w-2xl space-y-8"
         onSubmit={(event) => {
@@ -362,6 +349,15 @@ export function ElectionForm() {
             <Button
               type="button"
               variant="outline"
+              onClick={() =>
+                navigate(editing ? `/election/${electionId}` : '/dashboard')
+              }
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
               disabled={save.isPending}
               onClick={() => void submit(false)}
             >
@@ -406,7 +402,7 @@ export function ElectionForm() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppShell>
+    </>
   )
 }
 

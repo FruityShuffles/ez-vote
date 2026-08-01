@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { AppShell } from '@/components/ui/app-shell'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -28,8 +27,7 @@ import { friendlyError } from '@/lib/errors'
 
 export function Settings() {
   return (
-    <AppShell width="md">
-      <Stack gap={6}>
+    <Stack gap={6}>
         <H1>Settings</H1>
 
         <section>
@@ -47,8 +45,7 @@ export function Settings() {
             <DeleteAccountRow />
           </Card>
         </section>
-      </Stack>
-    </AppShell>
+    </Stack>
   )
 }
 

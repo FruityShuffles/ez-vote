@@ -59,6 +59,8 @@ Owned source under `web-react/src/components/ui/` (added via the shadcn CLI on t
 
 The **bespoke ballot widgets** (drag-reorder, tie-break, auto-score-zero — parity checklist §4) are deliberately *not* here; they're built in M10 on top of these primitives, per [[Migration/Tech Stack]].
 
+`AppShell` accepts separate content and header widths. The protected `AppLayout` keeps the global app bar at `lg` while selecting the content width from the deepest matched route, so a narrow ballot does not squeeze global navigation. Protected screens render content only; they do not mount their own shell.
+
 ### Action row convention
 
 Wherever a surface offers a primary action alongside a secondary or cancel one, the **primary comes last in the DOM** and the row is laid out with:

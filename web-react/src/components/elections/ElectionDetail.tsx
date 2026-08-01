@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { AppShell } from '@/components/ui/app-shell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -62,7 +61,7 @@ export function ElectionDetail() {
   useElectionRealtime(electionQuery.data)
 
   return (
-    <AppShell width="md">
+    <>
       {electionQuery.isPending ? (
         <div className="flex justify-center py-16">
           <Spinner className="size-6 text-muted-foreground" />
@@ -79,7 +78,7 @@ export function ElectionDetail() {
           currentUserId={user?.id ?? null}
         />
       )}
-    </AppShell>
+    </>
   )
 }
 

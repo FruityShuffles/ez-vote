@@ -18,19 +18,21 @@ export function AppShell({
   actions,
   brandTo = '/dashboard',
   width = 'lg',
+  headerWidth = 'lg',
   className,
 }: {
   children: React.ReactNode
   actions?: React.ReactNode
   brandTo?: string
   width?: React.ComponentProps<typeof Container>['width']
+  headerWidth?: React.ComponentProps<typeof Container>['width']
   className?: string
 }) {
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-sm">
         <Container
-          width={width}
+          width={headerWidth}
           className="flex h-14 items-center justify-between gap-4"
         >
           <Link
@@ -43,7 +45,11 @@ export function AppShell({
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </Container>
       </header>
-      <main className={cn('flex-1 py-8', className)}>
+      <main
+        data-route-focus
+        tabIndex={-1}
+        className={cn('flex-1 py-8 outline-none', className)}
+      >
         <Container width={width}>{children}</Container>
       </main>
     </div>

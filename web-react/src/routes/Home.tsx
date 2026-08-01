@@ -31,7 +31,7 @@ export function Home() {
   const { user } = useAuth()
 
   return (
-    <main className="min-h-svh">
+    <main data-route-focus tabIndex={-1} className="min-h-svh outline-none">
       <div className="mx-auto flex max-w-xl flex-col items-center px-8 py-16">
         <img
           src="/ezvote-logo-large.png"

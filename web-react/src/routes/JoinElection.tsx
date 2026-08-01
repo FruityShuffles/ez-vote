@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { AppShell } from '@/components/ui/app-shell'
+import { CenteredState } from '@/components/ui/centered-state'
 import { Spinner } from '@/components/ui/spinner'
 import { useJoinElection } from '@/lib/elections'
 
@@ -34,10 +34,8 @@ export function JoinElection() {
   }, [electionId, joinElection, navigate])
 
   return (
-    <AppShell width="md">
-      <div className="flex justify-center py-16">
-        <Spinner className="size-6 text-muted-foreground" />
-      </div>
-    </AppShell>
+    <CenteredState>
+      <Spinner className="size-6 text-muted-foreground" />
+    </CenteredState>
   )
 }

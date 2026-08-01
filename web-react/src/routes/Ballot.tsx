@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { AppShell } from '@/components/ui/app-shell'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Stack } from '@/components/ui/layout'
@@ -55,7 +54,7 @@ export function Ballot() {
     electionQuery.isError || candidatesQuery.isError || ballotQuery.isError
 
   return (
-    <AppShell width="sm">
+    <>
       {loading ? (
         <div className="flex justify-center py-16">
           <Spinner className="size-6 text-muted-foreground" />
@@ -69,7 +68,7 @@ export function Ballot() {
           existingBallot={ballotQuery.data ?? null}
         />
       )}
-    </AppShell>
+    </>
   )
 }
 

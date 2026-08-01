@@ -17,7 +17,8 @@ Rationale for each choice is in [[Migration/Tech Stack]]; design tokens and the 
 
 ```
 web-react/src/
-  router.tsx          → route table + auth guards
+  router.tsx          → nested route table + per-route content widths
+  components/RootLayout.tsx, AppLayout.tsx → scroll/focus/error + protected chrome
   routes/             → one file per screen
   components/         → presentational components, grouped by surface
     ui/               → owned shadcn / Base UI primitives
@@ -77,6 +78,10 @@ The in-progress ballot is component state via `useBallotState`, not a global sto
 
 `createBrowserRouter` in `src/router.tsx` (history API — no `#` fragments). The Cloudflare Pages `_redirects` rule (`/* /index.html 200`) rewrites unknown paths to `index.html` so deep links resolve client-side.
 
+The route table is nested without changing any URL. `RootLayout` wraps every route and owns one `ScrollRestoration`, pathname-only focus management, and the root error boundary. A pathless `AppLayout` wraps the protected branch, applies `RequireAuth` once around the app shell and `<Outlet>`, and provides a second error boundary. Auth routes remain outside that branch so their full-page cards cannot enter an auth redirect loop.
+
+The authenticated app bar is global but deliberately limited to **Settings** and **Sign out**. **New Election** remains dashboard-only so it never appears during a ballot or edit flow. Route `handle.width` values set the content container width (`sm` ballot, `md` standard, `lg` explorer) while the app-bar container remains `lg`; global navigation therefore does not narrow with route content.
+
 | Path | Route component | Access |
 |---|---|---|
 | `/` | `Home` | Public |
@@ -99,7 +104,7 @@ The in-progress ballot is component state via `useBallotState`, not a global sto
 
 The public paths and the `/election/:id/...` shapes are a stability contract: they were preserved verbatim across the React cutover so links shared in past elections keep resolving.
 
-**Auth redirect:** unauthenticated users go to `/login?redirect=<encoded-path>`; on sign-in the param is resolved by `safeRedirect` and honored. It threads through the entire login → signup → OTP chain. Guards, not a central redirect callback, drive this — see [[Auth Flow]].
+**Auth redirect:** unauthenticated users go to `/login?redirect=<encoded-path>`; on sign-in the param is resolved by `safeRedirect` and honored. It threads through the entire login → signup → OTP chain. The single guard on the protected layout, not a central redirect callback, drives this — see [[Auth Flow]].
 
 ## Environment / Credentials
 
