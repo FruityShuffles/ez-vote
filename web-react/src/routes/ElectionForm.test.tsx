@@ -172,6 +172,25 @@ describe('M11 create election', () => {
     )
   })
 
+  it('spells out that Open starts voting and Draft does not', () => {
+    renderRoute()
+    expect(
+      screen.getByText(/voters can start voting right away/),
+    ).toHaveTextContent('Draft — keep editing privately.')
+  })
+
+  it('drops that line in edit mode, where there is no draft button to explain', () => {
+    mocks.election = election
+    mocks.candidates = candidates
+    renderRoute('/election/e1/edit')
+    expect(
+      screen.getByRole('button', { name: 'Save Changes' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/voters can start voting right away/),
+    ).not.toBeInTheDocument()
+  })
+
   it('prompts before abandoning dirty form state', async () => {
     const user = userEvent.setup()
     renderRoute()

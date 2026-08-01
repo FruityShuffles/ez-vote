@@ -326,18 +326,31 @@ export function ElectionForm() {
           />
         </FieldSet>
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={save.isPending}
-            onClick={() => void submit(false)}
-          >
-            {editing ? 'Save Changes' : 'Save as Draft'}
-          </Button>
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending && <Spinner className="size-4" />}Save & Open
-          </Button>
+        <div className="flex flex-col gap-3">
+          {/* "Open" starts voting immediately, which nothing else on the
+              screen says. Edit mode has no draft button, so the line would
+              describe an action that isn't there. */}
+          {!editing && (
+            <p className="text-sm text-muted-foreground sm:text-right">
+              <strong className="font-medium text-foreground">Open</strong> —
+              voters can start voting right away.{' '}
+              <strong className="font-medium text-foreground">Draft</strong> —
+              keep editing privately.
+            </p>
+          )}
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={save.isPending}
+              onClick={() => void submit(false)}
+            >
+              {editing ? 'Save Changes' : 'Save as Draft'}
+            </Button>
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending && <Spinner className="size-4" />}Save & Open
+            </Button>
+          </div>
         </div>
       </form>
 
