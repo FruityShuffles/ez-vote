@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { BallotPicker } from '@/components/counterfactual/BallotPicker'
@@ -12,7 +11,7 @@ import {
   type LedgerEntry,
 } from '@/components/counterfactual/EditLedger'
 import { HypotheticalBallot } from '@/components/counterfactual/HypotheticalBallot'
-import { Button } from '@/components/ui/button'
+import { useWorkspaceElection } from '@/lib/electionWorkspace'
 import { CenteredState } from '@/components/ui/centered-state'
 import { Stack } from '@/components/ui/layout'
 import { Spinner } from '@/components/ui/spinner'
@@ -32,7 +31,6 @@ import {
 } from '@/lib/ballotState'
 import {
   useCandidates,
-  useElection,
   usePublicBallots,
   type Candidate,
   type Election,
@@ -67,24 +65,19 @@ function canonicalPayload(
   )
 }
 
-function useExplorerData(electionId: string) {
-  const electionQuery = useElection(electionId)
+function useExplorerData(electionId: string, election: Election) {
   const candidatesQuery = useCandidates(electionId)
-  const eligible =
-    electionQuery.data?.status === 'closed' && electionQuery.data.public_ballots
+  const eligible = election.status === 'closed' && election.public_ballots
   const ballotsQuery = usePublicBallots(electionId, { enabled: eligible })
 
   const loading =
-    electionQuery.isPending ||
-    candidatesQuery.isPending ||
-    (eligible && ballotsQuery.isPending)
-  const error =
-    electionQuery.isError || candidatesQuery.isError || ballotsQuery.isError
+    candidatesQuery.isPending || (eligible && ballotsQuery.isPending)
+  const error = candidatesQuery.isError || ballotsQuery.isError
 
   const data =
-    !loading && !error && electionQuery.data && eligible
+    !loading && !error && eligible
       ? {
-          election: electionQuery.data,
+          election,
           candidates: candidatesQuery.data ?? [],
           // A deleted account leaves voter_id null. It still counts in the
           // simulation, but the endpoint deliberately provides no stable handle
@@ -105,10 +98,7 @@ function useExplorerData(electionId: string) {
     data,
     loading,
     error,
-    ineligible:
-      electionQuery.data != null &&
-      (electionQuery.data.status !== 'closed' ||
-        !electionQuery.data.public_ballots),
+    ineligible: election.status !== 'closed' || !election.public_ballots,
   }
 }
 
@@ -203,8 +193,9 @@ function ExplorerUnavailable({
 export function CounterfactualPicker() {
   const { id } = useParams<{ id: string }>()
   const electionId = id ?? ''
+  const election = useWorkspaceElection()
   const navigate = useNavigate()
-  const explorer = useExplorerData(electionId)
+  const explorer = useExplorerData(electionId, election)
   const ledger = useLedger(electionId, explorer.data)
   const simulation = useSimulate(
     electionId,
@@ -242,14 +233,6 @@ export function CounterfactualPicker() {
   return (
     <Stack gap={4}>
         <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-ml-2 mb-1"
-            onClick={() => navigate(`/election/${electionId}`)}
-          >
-            <ArrowLeft aria-hidden /> Back to results
-          </Button>
           <H1>Explore what-ifs</H1>
           <Muted className="mt-1">
             Change a ballot hypothetically and compare how each method reacts.
@@ -309,8 +292,9 @@ export function CounterfactualEditor() {
     voterId: string
   }>()
   const electionId = id ?? ''
+  const election = useWorkspaceElection()
   const navigate = useNavigate()
-  const explorer = useExplorerData(electionId)
+  const explorer = useExplorerData(electionId, election)
   const ledger = useLedger(electionId, explorer.data)
   const simulation = useSimulate(
     electionId,
@@ -360,14 +344,6 @@ export function CounterfactualEditor() {
   return (
     <Stack gap={4}>
         <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-ml-2 mb-1"
-            onClick={() => navigate(`/election/${electionId}/explore`)}
-          >
-            <ArrowLeft aria-hidden /> All voters
-          </Button>
           <H1>Change {voterName(selected)}&apos;s ballot</H1>
           <Muted className="mt-1">Nothing here is saved to the election.</Muted>
         </div>

@@ -18,7 +18,7 @@ The existing "N ballots submitted" row on `ElectionDetail` opens the URL-control
 - `PublicBallot` fetches the ordered list again and renders the selected payload through `BallotView` in read-only mode.
 - The screen shows `"<voter name>'s ballot"` and `"<idx+1> of <total>"`.
 - Previous/Next replace the current ballot URL and re-stamp the origin marker, so paging never grows the history stack.
-- Back uses numeric history only when that marker is present, reopening the voters dialog. A cold ballot deep link instead replaces to `/election/:id?voters=open`, so it always has an in-app back path.
+- The election breadcrumb uses numeric history only when that marker is present, reopening the voters dialog. A cold ballot deep link instead replaces to `/election/:id?voters=open`, so it always has an in-app back path.
 
 ## Privacy guarantees
 

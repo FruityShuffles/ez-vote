@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -9,10 +8,10 @@ import { Spinner } from '@/components/ui/spinner'
 import { Stack } from '@/components/ui/layout'
 import { H1, Muted } from '@/components/ui/typography'
 import { BallotView } from '@/components/ballot/BallotView'
+import { useWorkspaceElection } from '@/lib/electionWorkspace'
 import {
   electionKeys,
   useCandidates,
-  useElection,
   useExistingBallot,
   type Ballot as BallotRow,
   type Candidate,
@@ -41,17 +40,14 @@ const APPROVAL_TEMPLATES = ['C', 'D', 'E', 'G']
 export function Ballot() {
   const { id } = useParams<{ id: string }>()
   const electionId = id ?? ''
+  const election = useWorkspaceElection()
 
-  const electionQuery = useElection(electionId)
   const candidatesQuery = useCandidates(electionId)
   const ballotQuery = useExistingBallot(electionId)
 
   const loading =
-    electionQuery.isPending ||
-    candidatesQuery.isPending ||
-    ballotQuery.isPending
-  const errored =
-    electionQuery.isError || candidatesQuery.isError || ballotQuery.isError
+    candidatesQuery.isPending || ballotQuery.isPending
+  const errored = candidatesQuery.isError || ballotQuery.isError
 
   return (
     <>
@@ -59,11 +55,11 @@ export function Ballot() {
         <div className="flex justify-center py-16">
           <Spinner className="size-6 text-muted-foreground" />
         </div>
-      ) : errored || !electionQuery.data ? (
+      ) : errored ? (
         <Muted role="alert">Could not load this ballot. Please try again.</Muted>
       ) : (
         <BallotForm
-          election={electionQuery.data}
+          election={election}
           candidates={candidatesQuery.data ?? []}
           existingBallot={ballotQuery.data ?? null}
         />
@@ -195,14 +191,6 @@ function BallotForm({
   return (
     <Stack gap={4}>
       <div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="-ml-2 mb-1 w-fit"
-          onClick={() => navigate(`/election/${election.id}`)}
-        >
-          <ArrowLeft /> Back
-        </Button>
         <H1>{title}</H1>
         <Muted className="mt-1">{election.title}</Muted>
       </div>

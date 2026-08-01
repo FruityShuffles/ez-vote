@@ -1,9 +1,14 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import {
+  createMemoryRouter,
+  RouterProvider,
+  type InitialEntry,
+} from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ElectionForm } from '@/routes/ElectionForm'
+import { ElectionEdit, ElectionForm } from '@/routes/ElectionForm'
+import { ElectionWorkspace } from '@/components/ElectionWorkspace'
 import type { Candidate, Election, ElectionFormInput } from '@/lib/elections'
 
 const mocks = vi.hoisted(() => ({
@@ -68,15 +73,21 @@ const candidates: Candidate[] = ['Charlie', 'Alice', 'Bob'].map(
   }),
 )
 
-function renderRoute(path = '/create') {
+function renderRoute(path = '/create', initialEntries: InitialEntry[] = [path]) {
   const router = createMemoryRouter(
     [
       { path: '/create', element: <ElectionForm /> },
-      { path: '/election/:id/edit', element: <ElectionForm /> },
-      { path: '/election/:id', element: <div>Election detail</div> },
+      {
+        path: '/election/:id',
+        element: <ElectionWorkspace />,
+        children: [
+          { index: true, element: <div>Election detail</div> },
+          { path: 'edit', element: <ElectionEdit /> },
+        ],
+      },
       { path: '/dashboard', element: <div>Dashboard</div> },
     ],
-    { initialEntries: [path] },
+    { initialEntries },
   )
   render(<RouterProvider router={router} />)
   return router
@@ -231,7 +242,7 @@ describe('M11 create election', () => {
 
   it('submits ordered candidates and independently selected feature flags', async () => {
     const user = userEvent.setup()
-    renderRoute()
+    const router = renderRoute()
     await user.type(screen.getByLabelText('Election Title'), '  City Council  ')
     await user.type(screen.getByLabelText('Candidate 1'), 'Alice')
     await user.type(screen.getByLabelText('Candidate 2'), 'Bob')
@@ -265,7 +276,7 @@ describe('M11 create election', () => {
       }),
     )
     await waitFor(() =>
-      expect(screen.getByText('Election detail')).toBeInTheDocument(),
+      expect(router.state.location.pathname).toBe('/election/saved-1'),
     )
   })
 
@@ -286,6 +297,26 @@ describe('M11 create election', () => {
     expect(
       screen.queryByText(/voters can start voting right away/),
     ).not.toBeInTheDocument()
+  })
+
+  it('replaces a dashboard-entered editor so Back cannot reopen it', async () => {
+    const user = userEvent.setup()
+    mocks.election = election
+    mocks.candidates = candidates
+    const router = renderRoute('/election/e1/edit', [
+      '/dashboard',
+      {
+        pathname: '/election/e1/edit',
+        state: { from: 'dashboard' },
+      },
+    ])
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }))
+    expect(router.state.location.pathname).toBe('/election/e1')
+    await act(() => router.navigate(-1))
+
+    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/dashboard')
   })
 
   it('prompts before abandoning dirty form state', async () => {

@@ -1,7 +1,8 @@
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { BallotView } from '@/components/ballot/BallotView'
+import { useWorkspaceElection } from '@/lib/electionWorkspace'
 import { Button } from '@/components/ui/button'
 import { CenteredState } from '@/components/ui/centered-state'
 import { Stack } from '@/components/ui/layout'
@@ -9,7 +10,6 @@ import { Spinner } from '@/components/ui/spinner'
 import { H1, Muted } from '@/components/ui/typography'
 import {
   useCandidates,
-  useElection,
   usePublicBallots,
   type Candidate,
 } from '@/lib/elections'
@@ -22,16 +22,13 @@ export function PublicBallot() {
   const { id, index: indexParam } = useParams<{ id: string; index: string }>()
   const electionId = id ?? ''
   const index = Number(indexParam)
-  const electionQuery = useElection(electionId)
+  const election = useWorkspaceElection()
   const candidatesQuery = useCandidates(electionId)
   const ballotsQuery = usePublicBallots(electionId)
   const navigate = useNavigate()
-  const location = useLocation()
 
   if (
-    electionQuery.isPending ||
-    candidatesQuery.isPending ||
-    ballotsQuery.isPending
+    candidatesQuery.isPending || ballotsQuery.isPending
   ) {
     return (
       <CenteredState>
@@ -40,10 +37,8 @@ export function PublicBallot() {
     )
   }
   if (
-    electionQuery.isError ||
     candidatesQuery.isError ||
     ballotsQuery.isError ||
-    !electionQuery.data ||
     !Number.isInteger(index) ||
     index < 0 ||
     index >= (ballotsQuery.data?.length ?? 0)
@@ -62,8 +57,8 @@ export function PublicBallot() {
       total={ballots.length}
       voterName={ballots[index].display_name || 'Unnamed voter'}
       payload={ballots[index].payload as Payload}
-      algorithms={electionQuery.data.algorithms}
-      includeFptp={electionQuery.data.include_fptp}
+      algorithms={election.algorithms}
+      includeFptp={election.include_fptp}
       candidates={candidatesQuery.data ?? []}
       onPrevious={() =>
         navigate(`/election/${electionId}/ballot/${index - 1}`, {
@@ -77,11 +72,6 @@ export function PublicBallot() {
           state: { from: 'voters' },
         })
       }
-      onBack={() => {
-        if (location.state?.from === 'voters') navigate(-1)
-        else
-          navigate(`/election/${electionId}?voters=open`, { replace: true })
-      }}
     />
   )
 }
@@ -96,7 +86,6 @@ function PublicBallotView({
   candidates,
   onPrevious,
   onNext,
-  onBack,
 }: {
   index: number
   total: number
@@ -107,7 +96,6 @@ function PublicBallotView({
   candidates: Candidate[]
   onPrevious: () => void
   onNext: () => void
-  onBack: () => void
 }) {
   const ballot = useBallotState({
     candidates,
@@ -119,9 +107,6 @@ function PublicBallotView({
   return (
     <Stack gap={4}>
         <div>
-          <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={onBack}>
-            <ChevronLeft /> Back to voters
-          </Button>
           <H1>{voterName}'s ballot</H1>
           <Muted className="mt-1">
             {index + 1} of {total}

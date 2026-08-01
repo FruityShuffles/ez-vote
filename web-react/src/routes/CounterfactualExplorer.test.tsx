@@ -7,6 +7,7 @@ import {
   CounterfactualEditor,
   CounterfactualPicker,
 } from '@/routes/CounterfactualExplorer'
+import { ElectionWorkspace } from '@/components/ElectionWorkspace'
 import { useCounterfactualStore } from '@/lib/counterfactualStore'
 import type { Candidate, Election } from '@/lib/elections'
 import type { SimulationResponse } from '@/lib/counterfactual'
@@ -82,14 +83,10 @@ function renderRoutes(initial: string) {
   return render(
     <MemoryRouter initialEntries={[initial]}>
       <Routes>
-        <Route
-          path="/election/:id/explore"
-          element={<CounterfactualPicker />}
-        />
-        <Route
-          path="/election/:id/explore/:voterId"
-          element={<CounterfactualEditor />}
-        />
+        <Route path="/election/:id" element={<ElectionWorkspace />}>
+          <Route path="explore" element={<CounterfactualPicker />} />
+          <Route path="explore/:voterId" element={<CounterfactualEditor />} />
+        </Route>
       </Routes>
     </MemoryRouter>,
   )

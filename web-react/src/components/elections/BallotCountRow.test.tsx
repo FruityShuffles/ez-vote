@@ -2,12 +2,16 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   createMemoryRouter,
+  Outlet,
   RouterProvider,
   useParams,
 } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BallotCountRow } from '@/components/elections/BallotCountRow'
+import { AuthContext, type AuthContextValue } from '@/auth/context'
+import { Breadcrumbs, ElectionCrumb } from '@/components/Breadcrumbs'
+import { ElectionWorkspace } from '@/components/ElectionWorkspace'
 import { PublicBallot } from '@/routes/PublicBallot'
 
 const ballots = ['Ada', 'Bo', 'Cy'].map((display_name, index) => ({
@@ -23,7 +27,13 @@ vi.mock('@/lib/elections', async (importOriginal) => ({
   useElectionVoters: () => ({ data: [], isPending: false, isError: false }),
   usePublicBallots: () => ({ data: ballots, isPending: false, isError: false }),
   useElection: () => ({
-    data: { algorithms: ['approval'], include_fptp: false },
+    data: {
+      id: 'e1',
+      owner_id: 'owner',
+      title: 'Election One',
+      algorithms: ['approval'],
+      include_fptp: false,
+    },
     isPending: false,
     isError: false,
   }),
@@ -40,15 +50,54 @@ function Overview() {
   return <BallotCountRow electionId={id} publicBallots />
 }
 
+function TestLayout() {
+  return (
+    <>
+      <Breadcrumbs />
+      <Outlet />
+    </>
+  )
+}
+
+const auth = {
+  session: {} as AuthContextValue['session'],
+  user: { id: 'owner' } as AuthContextValue['user'],
+  loading: false,
+}
+
 function renderFlow(initialEntry = '/election/e1') {
   const router = createMemoryRouter(
     [
-      { path: '/election/:id', element: <Overview /> },
-      { path: '/election/:id/ballot/:index', element: <PublicBallot /> },
+      {
+        element: <TestLayout />,
+        children: [
+          {
+            path: '/election/:id',
+            children: [
+              {
+                element: <ElectionWorkspace />,
+                handle: { crumb: ElectionCrumb },
+                children: [
+                  { index: true, element: <Overview /> },
+                  {
+                    path: 'ballot/:index',
+                    element: <PublicBallot />,
+                    handle: { crumb: 'Ballot' },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     ],
     { initialEntries: [initialEntry] },
   )
-  render(<RouterProvider router={router} />)
+  render(
+    <AuthContext.Provider value={auth}>
+      <RouterProvider router={router} />
+    </AuthContext.Provider>,
+  )
   return router
 }
 
@@ -65,7 +114,7 @@ describe('addressable voters dialog history', () => {
     expect(router.state.location.pathname).toBe('/election/e1/ballot/1')
     expect(router.state.location.state).toEqual({ from: 'voters' })
 
-    await user.click(screen.getByRole('button', { name: 'Back to voters' }))
+    await user.click(screen.getByRole('link', { name: 'Election One' }))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(router.state.location.pathname + router.state.location.search).toBe(
       '/election/e1?voters=open',
@@ -88,7 +137,7 @@ describe('addressable voters dialog history', () => {
 
     expect(router.state.location.pathname).toBe('/election/e1/ballot/2')
     expect(router.state.location.state).toEqual({ from: 'voters' })
-    await user.click(screen.getByRole('button', { name: 'Back to voters' }))
+    await user.click(screen.getByRole('link', { name: 'Election One' }))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
   })
 
@@ -96,7 +145,7 @@ describe('addressable voters dialog history', () => {
     const user = userEvent.setup()
     const router = renderFlow('/election/e1/ballot/2')
 
-    await user.click(screen.getByRole('button', { name: 'Back to voters' }))
+    await user.click(screen.getByRole('link', { name: 'Election One' }))
 
     expect(router.state.location.pathname + router.state.location.search).toBe(
       '/election/e1?voters=open',

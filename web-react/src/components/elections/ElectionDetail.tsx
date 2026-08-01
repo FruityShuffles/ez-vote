@@ -24,11 +24,11 @@ import { BallotCountRow } from '@/components/elections/BallotCountRow'
 import { PendingInviteesRow } from '@/components/elections/PendingInviteesRow'
 import { AddCandidateField } from '@/components/elections/AddCandidateField'
 import { InviteVotersDialog } from '@/components/elections/InviteVotersDialog'
+import { useWorkspaceElection } from '@/lib/electionWorkspace'
 import { useAuth } from '@/auth/context'
 import {
   useCandidates,
   useCloseElection,
-  useElection,
   useExistingBallot,
   useOpenElection,
 } from '@/lib/elections'
@@ -50,7 +50,7 @@ export function ElectionDetail() {
   const { id } = useParams<{ id: string }>()
   const electionId = id ?? ''
 
-  const electionQuery = useElection(electionId)
+  const election = useWorkspaceElection()
   const candidatesQuery = useCandidates(electionId)
   const ballotQuery = useExistingBallot(electionId)
   const { user } = useAuth()
@@ -58,27 +58,17 @@ export function ElectionDetail() {
   // Live auto-refresh while the election is open (results, voters, invitees,
   // ad-hoc candidates). No-ops for closed/draft elections and those without a
   // live-updating surface.
-  useElectionRealtime(electionQuery.data)
+  useElectionRealtime(election)
 
   return (
-    <>
-      {electionQuery.isPending ? (
-        <div className="flex justify-center py-16">
-          <Spinner className="size-6 text-muted-foreground" />
-        </div>
-      ) : electionQuery.isError ? (
-        <Muted role="alert">Could not load election. Please try again.</Muted>
-      ) : (
-        <ElectionDetailView
-          election={electionQuery.data}
-          candidates={candidatesQuery.data ?? []}
-          candidatesLoading={candidatesQuery.isPending}
-          candidatesError={candidatesQuery.isError}
-          ballot={ballotQuery.data ?? null}
-          currentUserId={user?.id ?? null}
-        />
-      )}
-    </>
+    <ElectionDetailView
+      election={election}
+      candidates={candidatesQuery.data ?? []}
+      candidatesLoading={candidatesQuery.isPending}
+      candidatesError={candidatesQuery.isError}
+      ballot={ballotQuery.data ?? null}
+      currentUserId={user?.id ?? null}
+    />
   )
 }
 
@@ -283,7 +273,11 @@ function OwnerControls({ election }: { election: Election }) {
             <>
               <Button
                 variant="outline"
-                onClick={() => navigate(`/election/${election.id}/edit`)}
+                onClick={() =>
+                  navigate(`/election/${election.id}/edit`, {
+                    state: { from: 'election-detail' },
+                  })
+                }
               >
                 Edit Election
               </Button>

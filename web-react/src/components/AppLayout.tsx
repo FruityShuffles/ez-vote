@@ -3,13 +3,15 @@ import { Outlet, useMatches, useNavigate } from 'react-router-dom'
 import { Settings } from 'lucide-react'
 
 import { RequireAuth } from '@/auth/guards'
+import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { RouteError } from '@/components/RouteError'
 import { AppShell } from '@/components/ui/app-shell'
 import { Button } from '@/components/ui/button'
 import { signOut } from '@/lib/auth'
 
-export type AppRouteHandle = {
+export type RouteHandle = {
   width?: React.ComponentProps<typeof AppShell>['width']
+  crumb?: string | React.ComponentType<{ current: boolean }>
 }
 
 export function AppLayout() {
@@ -42,7 +44,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
   const [signingOut, setSigningOut] = useState(false)
   const width = matches.reduce<React.ComponentProps<typeof AppShell>['width']>(
     (current, match) =>
-      (match.handle as AppRouteHandle | undefined)?.width ?? current,
+      (match.handle as RouteHandle | undefined)?.width ?? current,
     'lg',
   )
 
@@ -78,7 +80,10 @@ function AppFrame({ children }: { children: React.ReactNode }) {
         </>
       }
     >
-      {children}
+      <div className="flex flex-col gap-4">
+        <Breadcrumbs />
+        {children}
+      </div>
     </AppShell>
   )
 }

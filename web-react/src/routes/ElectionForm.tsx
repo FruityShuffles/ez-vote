@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 
 import { useAuth } from '@/auth/context'
 import { SortableList, SortableRow } from '@/components/ballot/SortableList'
+import { useWorkspaceElection } from '@/lib/electionWorkspace'
 import { Button } from '@/components/ui/button'
 import { CenteredState } from '@/components/ui/centered-state'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -42,8 +43,8 @@ import { friendlyError, isUniqueViolation } from '@/lib/errors'
 import { LearnContent, type AlgoKey } from '@/routes/Learn'
 import {
   useCandidates,
-  useElection,
   useSaveElection,
+  type Election,
   type ElectionFormInput,
   type VotingAlgorithm,
 } from '@/lib/elections'
@@ -90,11 +91,20 @@ const algorithmCopy: Record<
 }
 
 export function ElectionForm() {
+  return <ElectionFormContent />
+}
+
+export function ElectionEdit() {
+  const election = useWorkspaceElection()
+  return <ElectionFormContent election={election} />
+}
+
+function ElectionFormContent({ election }: { election?: Election }) {
   const { id: electionId } = useParams()
-  const editing = electionId != null
+  const editing = election != null
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
-  const electionQuery = useElection(electionId ?? '')
   const candidatesQuery = useCandidates(electionId ?? '')
   const save = useSaveElection(electionId)
   const [form, setForm] = useState<FormState>(initialState)
@@ -117,9 +127,8 @@ export function ElectionForm() {
   }, [dirty])
 
   useEffect(() => {
-    if (!editing || initialized || !electionQuery.data || !candidatesQuery.data)
+    if (!editing || initialized || !election || !candidatesQuery.data)
       return
-    const election = electionQuery.data
     // Hydrate the local draft exactly once after both edit queries resolve.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
@@ -135,15 +144,18 @@ export function ElectionForm() {
       ),
     })
     setInitialized(true)
-  }, [editing, initialized, electionQuery.data, candidatesQuery.data])
+  }, [editing, initialized, election, candidatesQuery.data])
 
   const loading =
-    editing &&
-    (!initialized || electionQuery.isPending || candidatesQuery.isPending)
-  const loadError =
-    editing && (electionQuery.isError || candidatesQuery.isError)
-  const unauthorized =
-    editing && electionQuery.data && electionQuery.data.owner_id !== user?.id
+    editing && (!initialized || candidatesQuery.isPending)
+  const loadError = editing && candidatesQuery.isError
+  const unauthorized = editing && election && election.owner_id !== user?.id
+
+  function cancel() {
+    if (!editing) navigate('/dashboard')
+    else if (location.state?.from === 'election-detail') navigate(-1)
+    else navigate(`/election/${electionId}`, { replace: true })
+  }
 
   function update(next: Partial<FormState>) {
     setForm((current) => ({ ...current, ...next }))
@@ -209,7 +221,7 @@ export function ElectionForm() {
         <Muted role="alert">Could not load this election.</Muted>
       </CenteredState>
     )
-  if (unauthorized || (editing && electionQuery.data?.status !== 'draft')) {
+  if (unauthorized || (editing && election?.status !== 'draft')) {
     return (
       <CenteredState>
         <Muted role="alert">This draft cannot be edited.</Muted>
@@ -349,9 +361,7 @@ export function ElectionForm() {
             <Button
               type="button"
               variant="outline"
-              onClick={() =>
-                navigate(editing ? `/election/${electionId}` : '/dashboard')
-              }
+              onClick={cancel}
             >
               Cancel
             </Button>

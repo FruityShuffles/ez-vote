@@ -8,6 +8,8 @@ import { Login } from '@/routes/Login'
 import { Signup } from '@/routes/Signup'
 import { ForgotPassword } from '@/routes/ForgotPassword'
 import { Dashboard } from '@/routes/Dashboard'
+import { ElectionCrumb } from '@/components/Breadcrumbs'
+import { ElectionWorkspace } from '@/components/ElectionWorkspace'
 import { ElectionDetail } from '@/components/elections/ElectionDetail'
 import { Ballot } from '@/routes/Ballot'
 import { PublicBallot } from '@/routes/PublicBallot'
@@ -15,14 +17,14 @@ import {
   CounterfactualEditor,
   CounterfactualPicker,
 } from '@/routes/CounterfactualExplorer'
-import { ElectionForm } from '@/routes/ElectionForm'
+import { ElectionEdit, ElectionForm } from '@/routes/ElectionForm'
 import { JoinElection } from '@/routes/JoinElection'
 import { Settings } from '@/routes/Settings'
 import { RedirectIfAuthed } from '@/auth/guards'
 import {
   AppLayout,
   AppLayoutError,
-  type AppRouteHandle,
+  type RouteHandle,
 } from '@/components/AppLayout'
 import { RootLayout } from '@/components/RootLayout'
 import { RouteError } from '@/components/RouteError'
@@ -82,53 +84,72 @@ export const routes: RouteObject[] = [
           {
             path: 'dashboard',
             element: <Dashboard />,
-            handle: { width: 'md' } satisfies AppRouteHandle,
+            handle: { width: 'md' } satisfies RouteHandle,
           },
           {
             path: 'create',
             element: <ElectionForm />,
-            handle: { width: 'md' } satisfies AppRouteHandle,
-          },
-          {
-            path: 'election/:id/edit',
-            element: <ElectionForm />,
-            handle: { width: 'md' } satisfies AppRouteHandle,
+            handle: { width: 'md' } satisfies RouteHandle,
           },
           {
             path: 'election/:id',
-            element: <ElectionDetail />,
-            handle: { width: 'md' } satisfies AppRouteHandle,
-          },
-          {
-            path: 'election/:id/vote',
-            element: <Ballot />,
-            handle: { width: 'sm' } satisfies AppRouteHandle,
-          },
-          {
-            path: 'election/:id/ballot/:index',
-            element: <PublicBallot />,
-            handle: { width: 'sm' } satisfies AppRouteHandle,
-          },
-          {
-            path: 'election/:id/explore',
-            element: <CounterfactualPicker />,
-            handle: { width: 'lg' } satisfies AppRouteHandle,
-          },
-          {
-            path: 'election/:id/explore/:voterId',
-            element: <CounterfactualEditor />,
-            handle: { width: 'lg' } satisfies AppRouteHandle,
-          },
-          {
-            // Join remains protected but fetches no election data before its RPC.
-            path: 'election/:id/join',
-            element: <JoinElection />,
-            handle: { width: 'md' } satisfies AppRouteHandle,
+            children: [
+              {
+                // Join is deliberately beside the election read gate.
+                path: 'join',
+                element: <JoinElection />,
+                handle: { width: 'md' } satisfies RouteHandle,
+              },
+              {
+                element: <ElectionWorkspace />,
+                handle: {
+                  width: 'md',
+                  crumb: ElectionCrumb,
+                } satisfies RouteHandle,
+                children: [
+                  {
+                    index: true,
+                    element: <ElectionDetail />,
+                    handle: { width: 'md' } satisfies RouteHandle,
+                  },
+                  {
+                    path: 'edit',
+                    element: <ElectionEdit />,
+                    handle: { width: 'md', crumb: 'Edit' } satisfies RouteHandle,
+                  },
+                  {
+                    path: 'vote',
+                    element: <Ballot />,
+                    handle: { width: 'sm', crumb: 'Vote' } satisfies RouteHandle,
+                  },
+                  {
+                    path: 'ballot/:index',
+                    element: <PublicBallot />,
+                    handle: { width: 'sm', crumb: 'Ballot' } satisfies RouteHandle,
+                  },
+                  {
+                    path: 'explore',
+                    handle: { width: 'lg', crumb: 'Explore' } satisfies RouteHandle,
+                    children: [
+                      { index: true, element: <CounterfactualPicker /> },
+                      {
+                        path: ':voterId',
+                        element: <CounterfactualEditor />,
+                        handle: {
+                          width: 'lg',
+                          crumb: 'Edit ballot',
+                        } satisfies RouteHandle,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
           },
           {
             path: 'settings',
             element: <Settings />,
-            handle: { width: 'md' } satisfies AppRouteHandle,
+            handle: { width: 'md' } satisfies RouteHandle,
           },
         ],
       },

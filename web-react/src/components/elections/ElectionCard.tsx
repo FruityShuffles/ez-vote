@@ -59,7 +59,11 @@ export function ElectionCard({
       <CardContent className="flex items-start gap-3">
         <button
           type="button"
-          onClick={() => navigate(destination)}
+          onClick={() =>
+            navigate(destination, {
+              state: { from: 'dashboard' },
+            })
+          }
           className={cn(
             'flex-1 rounded-md text-left outline-none',
             'focus-visible:ring-3 focus-visible:ring-ring/50',
