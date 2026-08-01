@@ -1,125 +1,135 @@
 # Architecture Overview
 
-> **The Flutter → React migration has cut over** ([[Migration/Overview]]). The React app in `web-react/` now serves production. The Flutter app described below is frozen and its Pages project is retained only as a temporary rollback path until M22. This document will be reframed around React at decommission.
+EZVote is a client-rendered React SPA in `web-react/`, backed by Supabase (Postgres + Auth + Edge Functions). It deploys as static assets to the `ez-vote-react` Cloudflare Pages project and serves `https://ez-vote.org`; `https://next.ez-vote.org` and `https://ez-vote-react.pages.dev` are aliases of the same deployment, not separate environments.
 
-## React App (`web-react/`)
+| Concern | Implementation |
+|---|---|
+| Build / rendering | Vite + React Router SPA (`_redirects` fallback for deep links, `_headers` for security headers) |
+| Server state | TanStack Query — one query-key factory per domain area |
+| Client state | Zustand (minimal — chiefly the counterfactual edit ledger) |
+| Styling | Tailwind CSS |
+| Components / a11y | shadcn + Base UI primitives, owned source in `src/components/ui/` |
+| Env / credentials | Vite build-time `import.meta.env.VITE_SUPABASE_*` |
 
-Scaffolded in M5 per the [[Migration/Tech Stack]] decisions. A client-rendered SPA that deploys as static assets to the `ez-vote-react` Cloudflare Pages project (own `_redirects` SPA fallback + `_headers`), against the **same** Supabase backend. Its production deployment serves `https://ez-vote.org`; `https://next.ez-vote.org` and `https://ez-vote-react.pages.dev` are aliases of that same deployment, not separate staging environments.
+Rationale for each choice is in [[Migration/Tech Stack]]; design tokens and the component inventory are in [[Migration/Design System]].
 
-| Concern | Flutter | React (`web-react/`) |
-|---|---|---|
-| Build / rendering | Flutter web (CanvasKit) | Vite + React Router SPA |
-| Server state | Riverpod `FutureProvider`s (see Provider Taxonomy) | TanStack Query (one key per provider) |
-| Client state | Riverpod notifiers | Zustand (minimal — chiefly the ballot draft) |
-| Styling | Flutter theme | Tailwind CSS |
-| Components / a11y | Material widgets | shadcn + Base UI primitives (owned source) |
-| Env / credentials | `--dart-define` → `SUPABASE_*` | Vite build-time `import.meta.env.VITE_SUPABASE_*` |
-
-Layout: routing in `src/router.tsx`; routes in `src/routes/`; Supabase client in `src/lib/supabase.ts`; Zustand stores in `src/stores/`; owned shadcn components in `src/components/ui/`. CI (`.github/workflows/web-react-ci.yml`) runs lint + type-check + Vitest + build on `web-react/**` changes; releases are direct Wrangler uploads from clean `main` to the `ez-vote-react` production branch. Auth/session wiring and all parity-scope surface ports (M6, M8–M16) are complete.
-
-## Three-Layer Clean Architecture
+## Layout
 
 ```
-Data Layer        → lib/data/repositories/
-Domain Layer      → lib/domain/models/, lib/domain/services/
-Presentation      → lib/presentation/screens/, /providers/, /widgets/
+web-react/src/
+  router.tsx          → route table + auth guards
+  routes/             → one file per screen
+  components/         → presentational components, grouped by surface
+    ui/               → owned shadcn / Base UI primitives
+  lib/                → data hooks, pure logic, the Supabase client
+  auth/               → session context, route guards, redirect threading
+  stores/             → Zustand client state
+supabase/functions/
+  _shared/            → tabulate.ts + derive.ts, the algorithm sources of truth
 ```
 
-Data never flows upward. Screens never call repositories directly — they go through Riverpod providers.
+Screens don't call Supabase directly — they go through the hooks in `src/lib/`, which own the query keys and the mutation/invalidation pairs. Parity-critical logic (ballot state, derivation, analysis) is kept in pure, React-free modules so it can be unit-tested directly against fixtures.
 
 ## Data Flow
 
 ```
-Supabase SDK
-  → Repository (lib/data/repositories/)
-    → Riverpod Provider (lib/presentation/providers/providers.dart)
-      → Screen (.when(loading, error, data))
+Supabase JS client (src/lib/supabase.ts)
+  → data hook (src/lib/elections.ts, results.ts, ballot.ts)
+    → TanStack Query cache, keyed by electionKeys / resultsQueryKey
+      → route or component (isPending / isError / data)
 ```
 
-After a mutation, call `ref.invalidate(provider)` to trigger a refetch. There is no manual state sync — invalidation drives everything.
+After a mutation, its `onSuccess` calls `qc.invalidateQueries({ queryKey: … })` to trigger a refetch. There is no manual state sync — invalidation drives everything, exactly as provider invalidation did before.
 
-## Provider Taxonomy
+## Query Keys
 
-All providers live in `providers.dart`.
+All election keys come from the `electionKeys` factory in `src/lib/elections.ts`; results have their own `resultsQueryKey` in `src/lib/results.ts`.
 
-**Infrastructure:**
-- `supabaseClientProvider` — SupabaseClient singleton
-- `authStateProvider` — `Stream<AuthState>`; the root of all auth-dependent state
-- `currentUserProvider` — `User?` extracted from auth stream
-
-**Repository providers** — one per repository, created via `Provider`
-
-**Data providers** — `FutureProvider` or `FutureProvider.family` (parameterized by election ID):
-
-| Provider | Type | What it fetches |
+| Hook | Query key | What it fetches |
 |---|---|---|
-| `ownedElectionsProvider` | FutureProvider | Elections owned by current user |
-| `votedElectionsProvider` | FutureProvider | Elections where user cast a ballot |
-| `pendingInvitationsProvider` | FutureProvider | Open elections with unaccepted invites |
-| `electionProvider(id)` | FutureProvider.family | Single election by ID |
-| `candidatesProvider(id)` | FutureProvider.family | Candidates for an election |
-| `invitesProvider(id)` | FutureProvider.family | Invites sent for an election |
-| `existingBallotProvider(id)` | FutureProvider.family | User's existing ballot (null if none) |
-| `resultsProvider(id)` | FutureProvider.family | Computed results per algorithm |
-| `ballotCountProvider(id)` | FutureProvider.family | Number of ballots cast |
-| `electionVotersProvider(id)` | FutureProvider.family | Voter display names |
-| `pendingInviteesProvider(id)` | FutureProvider.family | Users with pending invites |
-| `priorCovotersProvider(id)` | FutureProvider.family | Users who voted with current user elsewhere |
+| `useOwnedElections()` | `['elections','owned']` | Elections owned by the current user |
+| `useVotedElections()` | `['elections','voted']` | Elections where the user cast a ballot |
+| `usePendingInvitations()` | `['elections','pending-invitations']` | Open elections with unaccepted invites |
+| `useElection(id)` | `['election', id]` | Single election by id |
+| `useCandidates(id)` | `['candidates', id]` | Candidates for an election |
+| `useExistingBallot(id)` | `['existing-ballot', id]` | User's existing ballot (null if none) |
+| `useBallotCount(id)` | `['ballot-count', id]` | Number of ballots cast |
+| `useElectionVoters(id)` | `['voters', id]` | Voter display names |
+| `usePendingInvitees(id)` | `['pending-invitees', id]` | Users with pending invites |
+| `usePriorCovoters(id)` | `['prior-covoters', id]` | Users who voted with the current user elsewhere |
+| `usePublicBallots(id)` | `['public-ballots', id]` | Ballots when `public_ballots` is enabled |
+| `useElectionResults(id)` | `['results', id]` | Computed results per algorithm |
 
-All data providers watch `authStateProvider` and invalidate on user change.
+Mutation hooks live beside them and invalidate the keys they affect — `useSaveElection`, `useOpenElection`, `useCloseElection`, `useAddCandidate`, `useAddVoterToElection`, `useJoinElection`, `useDeleteElection`, `useUpsertBallot`.
+
+Every list above is user-scoped, resolved through `requireUserId()`. Because the `QueryClient` is process-global, `AuthProvider` clears the whole cache on an actual account change — see [[Auth Flow]] → "Auth State in the App".
+
+## Client State
+
+Zustand, kept deliberately small:
+
+- `src/stores/uiStore.ts` — trivial global UI state.
+- `src/lib/counterfactualStore.ts` — the election-scoped reversible edit ledger for the what-if explorer ([[Features/Counterfactual Explorer]]).
+
+The in-progress ballot is component state via `useBallotState`, not a global store — see [[Ballot State Machine]].
 
 ## Routing
 
-GoRouter in `lib/config/router.dart`. `usePathUrlStrategy()` in `main.dart` enables clean paths (no `#`).
+`createBrowserRouter` in `src/router.tsx` (history API — no `#` fragments). The Cloudflare Pages `_redirects` rule (`/* /index.html 200`) rewrites unknown paths to `index.html` so deep links resolve client-side.
 
-**Named routes:**
-
-| Path | Screen | Access |
+| Path | Route component | Access |
 |---|---|---|
-| `/` | LandingScreen | Public |
-| `/login` | LoginScreen | Public |
-| `/signup` | SignupScreen | Public |
-| `/dashboard` | HomeScreen | Auth required |
-| `/create` | CreateElectionScreen | Auth required |
-| `/election/:id` | ElectionDetailScreen | Auth + participant |
-| `/election/:id/edit` | CreateElectionScreen (edit mode) | Owner only |
-| `/election/:id/vote` | BallotScreen | Auth + participant |
-| `/election/:id/join` | JoinElectionScreen | Auth required |
-| `/election/:id/invite` | InviteVotersScreen | Owner only |
-| `/settings` | SettingsScreen | Auth required |
-| `/privacy`, `/tos`, `/learn` | Info screens | Public |
+| `/` | `Home` | Public |
+| `/learn`, `/privacy`, `/tos` | `Learn`, `Privacy`, `Terms` | Public |
+| `/login` | `Login` | `RedirectIfAuthed` |
+| `/signup` | `Signup` | `RedirectIfAuthed` |
+| `/forgot-password` | `ForgotPassword` | `RedirectIfAuthed` |
+| `/dashboard` | `Dashboard` | `RequireAuth` |
+| `/create` | `ElectionForm` | `RequireAuth` |
+| `/election/:id` | `ElectionDetail` | `RequireAuth` |
+| `/election/:id/edit` | `ElectionForm` (edit mode) | `RequireAuth` |
+| `/election/:id/vote` | `Ballot` | `RequireAuth` |
+| `/election/:id/ballot/:index` | `PublicBallot` | `RequireAuth` |
+| `/election/:id/explore` | `CounterfactualPicker` | `RequireAuth` |
+| `/election/:id/explore/:voterId` | `CounterfactualEditor` | `RequireAuth` |
+| `/election/:id/join` | `JoinElection` | `RequireAuth` |
+| `/settings` | `Settings` | `RequireAuth` |
+| `/design`, `/design/explore` | `Design`, `DesignExplore` | Unlinked, unguarded, lazy-loaded design surfaces |
+| `*` | `NotFound` | — |
 
-**Auth redirect:** Unauthenticated users go to `/login?redirect=<encoded-path>`. On successful login, the `redirect` param is decoded and used for `context.go()`. The param threads through the entire signup flow too — login → signup → OTP verification all preserve it.
+The public paths and the `/election/:id/...` shapes are a stability contract: they were preserved verbatim across the React cutover so links shared in past elections keep resolving.
 
-**Navigation conventions:**
-- `context.push()` — forward navigation (preserves back stack)
-- `context.go()` — post-auth transitions (replaces history)
-
-No `refreshListenable` on the router. Auth transitions are handled by explicit `context.go()` calls inside auth callbacks.
+**Auth redirect:** unauthenticated users go to `/login?redirect=<encoded-path>`; on sign-in the param is resolved by `safeRedirect` and honored. It threads through the entire login → signup → OTP chain. Guards, not a central redirect callback, drive this — see [[Auth Flow]].
 
 ## Environment / Credentials
 
-`lib/config/supabase_config.dart` resolves credentials in priority order:
-1. `String.fromEnvironment('SUPABASE_URL')` — baked in at build time via `--dart-define`
-2. `.env` file loaded via `flutter_dotenv` — local dev fallback
-
-`main.dart` wraps Supabase init in try/catch and shows a red error screen if credentials are missing, so misconfiguration is immediately visible.
+`src/lib/supabase.ts` reads `import.meta.env.VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Vite **inlines these at build time**, so the values are fixed by whichever `.env` was present when `npm run build` ran — not by runtime configuration. CI builds with dummy values (it only needs them well-formed); production releases build locally against the real `web-react/.env`. See `web-react/README.md`.
 
 **Email:** Resend is configured as custom SMTP in Supabase (Authentication → Settings → SMTP) to bypass free-tier email rate limits. There is no Resend SDK in the codebase — Supabase sends OTP/auth emails through Resend transparently.
 
 ## Screen Inventory
 
-| Screen | Purpose |
+| Route file | Purpose |
 |---|---|
-| LandingScreen | Unauthenticated homepage with CTA |
-| LoginScreen | Email/password signin + Google OAuth |
-| SignupScreen | Email/password/display name + OTP verification |
-| HomeScreen | 3-tab dashboard: My Elections, My Votes, Learn |
-| CreateElectionScreen | Create or edit election (algorithms, candidates, feature flags) |
-| ElectionDetailScreen | View election, results, candidate list, owner controls |
-| BallotScreen | Vote interface — 7 templates |
-| InviteVotersScreen | Email invite management |
-| JoinElectionScreen | Quick join redirect screen |
-| SettingsScreen | Account settings, delete account |
-| ResultsView (widget) | Algorithm-by-algorithm results cards |
-| LearnScreen | Voting method educational content |
+| `Home.tsx` | Unauthenticated landing page with CTA |
+| `Login.tsx` | Email/password sign-in + Google OAuth |
+| `Signup.tsx` | Email/password/display name + OTP verification |
+| `ForgotPassword.tsx` | Two-stage OTP password recovery |
+| `Dashboard.tsx` | 3-tab dashboard: My Elections, My Votes, Learn |
+| `ElectionForm.tsx` | Create or edit an election (algorithms, candidates, feature flags) |
+| `Ballot.tsx` | Vote interface — 7 templates |
+| `PublicBallot.tsx` | Read-only view of another voter's ballot |
+| `CounterfactualExplorer.tsx` | What-if picker + editor |
+| `JoinElection.tsx` | Quick-join redirect screen |
+| `Settings.tsx` | Account settings, delete account |
+| `Learn.tsx` | Voting-method educational content |
+| `Privacy.tsx`, `Terms.tsx` | Static info pages |
+| `Design.tsx`, `DesignExplore.tsx` | Internal design-system galleries |
+
+`ElectionDetail` (owner controls, participant view, candidate list, results) lives in `src/components/elections/ElectionDetail.tsx` and is routed directly. `ResultsView` (`src/components/results/ResultsView.tsx`) renders the algorithm-by-algorithm result cards plus the analysis card.
+
+## CI and Release
+
+- `.github/workflows/web-react-ci.yml` — lint, type-check, Vitest, and a production build on any `web-react/**` change.
+- `.github/workflows/tabulate-tests.yml` — the Deno golden corpus for `_shared/tabulate.ts` and `_shared/derive.ts`.
+- Releases are direct Wrangler uploads from a clean `main` to the `ez-vote-react` production branch. The full procedure is in `web-react/README.md`.

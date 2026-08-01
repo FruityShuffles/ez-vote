@@ -6,9 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Project documentation lives in `docs/`. Before working on any issue or task, always check `docs/` for relevant files and read them. After making changes that affect architecture, schema, features, or the ballot screen, update the relevant docs.
 
-## Active Migration
-
-A Flutter → React migration is underway. See `docs/Migration/Overview.md` for the plan; issues are filed under the "React migration" milestone. The Flutter app is frozen — no further Flutter development (no bug fixes, no features); all work happens on the React side. Flutter stays deployed only as the parity reference until cutover; bugs found in it are recorded in the parity checklist, not patched in Dart.
+Start at `docs/EZVote.md` — it indexes every other document.
 
 ## GitHub Issues Workflow
 
@@ -29,8 +27,8 @@ Use `gh` CLI (authenticated) to manage work from the GitHub issue tracker at `ht
 
 ## Testing & QA
 
-The React app (`web-react/`) has two browser-based QA workflows against the
-deployed staging site (`ez-vote-react.pages.dev`), each with a skill:
+The app (`web-react/`) has two browser-based QA workflows against the
+deployed site (`ez-vote-react.pages.dev`), each with a skill:
 
 - **`/e2e-test`** — automated, assertion-based Playwright specs (`npm run e2e`
   from `web-react/`).
@@ -42,18 +40,24 @@ Shared setup and conventions for both: `docs/Playwright-QA-Reference.md`.
 
 ## Build & Development Commands
 
+Use `npm.cmd` / `npx.cmd` in this Windows PowerShell workspace; plain `npm` / `npx` elsewhere.
+
 ```bash
-# Install dependencies
-flutter pub get
+# Web app — run from web-react/
+npm.cmd ci
+npm.cmd run dev          # Vite dev server
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run test:run     # Vitest
+npm.cmd run build        # tsc -b && vite build → dist/
 
-# Generate JSON serialization code (run after modifying models)
-flutter pub run build_runner build --delete-conflicting-outputs
+# Production release (from a clean, current main in web-react/)
+# Deploys to the ez-vote-react Cloudflare Pages project, which serves ez-vote.org.
+# --branch main is mandatory, or wrangler publishes a preview instead.
+npx.cmd wrangler pages deploy dist --project-name ez-vote-react --branch main
 
-# Analyze/lint
-flutter analyze
-
-# Run for web
-flutter run -d chrome
+# Algorithm golden tests — run from supabase/functions/
+deno task test
 
 # Deploy edge functions (requires `supabase login` and `supabase link` first)
 # --no-verify-jwt is required because the Supabase gateway rejects ES256 user JWTs;
@@ -65,5 +69,6 @@ supabase functions deploy simulate-counterfactual --no-verify-jwt
 supabase db push
 ```
 
-Flutter is installed at `C:\Users\adria\flutter\bin\flutter.bat`.
+Full release procedure and configuration steps: `web-react/README.md` and
+`docs/Migration/Cutover Plan.md` Appendix A.
 

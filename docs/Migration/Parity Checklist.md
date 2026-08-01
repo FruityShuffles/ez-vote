@@ -1,5 +1,12 @@
 # Parity Checklist
 
+> **Status: discharged.** Every row was signed off at M18 and the cutover completed at M19;
+> Flutter was decommissioned at M22. This is now a **behavior catalog**, not an open test
+> plan — a durable record of the subtle behaviors this app must keep, most of them learned
+> from a production incident. Treat a row as a standing requirement and a pointer to the test
+> that guards it, not as work outstanding. The `IDs` remain the stable references used
+> throughout the code comments and the other docs.
+
 The behaviors the React app must preserve to reach parity with the frozen Flutter app. Most entries were learned from a production incident (a closed bug) or are a deliberate design decision — exactly the subtle, easy-to-lose behavior that a rewrite silently regresses. This is the **test plan** for each Phase-2 surface port (M8–M16): when you port a surface, every box in its section must be verified before that surface is considered at parity.
 
 ## How to use this

@@ -1,8 +1,8 @@
 import { cn } from '@/lib/utils'
 
-// The frozen Flutter reference uses these raster marks throughout the app.
-// Keeping the source artwork in public/ makes the React shell visually familiar
-// while preserving the semantic labels on the surrounding heading or link.
+// The product's raster marks, used throughout the app. The source artwork lives
+// in public/; the semantic label stays on the surrounding heading or link so the
+// image itself can be decorative.
 export function EZVoteMark({
   className,
   ...props

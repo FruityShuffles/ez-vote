@@ -22,10 +22,9 @@ import { cn } from '@/lib/utils'
 import { deleteAccount, signOut } from '@/lib/auth'
 import { friendlyError } from '@/lib/errors'
 
-// Settings surface (M14), ported from Flutter `SettingsScreen`. Two cards: Legal
-// (Privacy / Terms links) and Account (the delete-account flow). Display-name
-// editing is intentionally absent — the frozen Flutter reference has none, and
-// the migration adds no features (Overview.md non-goals).
+// Settings surface (M14). Two cards: Legal (Privacy / Terms links) and Account
+// (the delete-account flow). Display-name editing is intentionally absent — it
+// has never been offered; adding it is a feature decision, not an oversight.
 
 export function Settings() {
   return (

@@ -48,13 +48,12 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Tokens are the Material 3 ColorScheme.fromSeed(Colors.indigo) palette (seed
-   #3F51B5) — the exact scheme the frozen Flutter app renders (lib/app.dart) —
-   mapped to shadcn's semantic roles so the React cutover is non-jarring (M7).
-   Values were generated from @material/material-color-utilities; the seed and
-   role→token mapping are documented in docs/Migration/Design System.md, which is
-   the source of truth for regenerating them. Flutter is light-only; the .dark
-   block is the M3 dark scheme retained for a future toggle (no toggle today). */
+/* Tokens are the Material 3 palette generated from the indigo seed #3F51B5,
+   mapped to shadcn's semantic roles. Values were generated from
+   @material/material-color-utilities; the seed and role→token mapping are
+   documented in docs/Migration/Design System.md, which is the source of truth
+   for regenerating them. The app is light-only; the .dark block is the M3 dark
+   scheme retained for a future toggle (no toggle today). */
 :root {
   --background: oklch(0.9834 0.0097 305.41);
   --foreground: oklch(0.2248 0.0116 285.43);

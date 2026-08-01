@@ -22,7 +22,7 @@ import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
 
 // Browser (history-API) routing. The Cloudflare Pages `_redirects` SPA fallback
 // (public/_redirects) rewrites every unknown path to index.html so deep links
-// resolve client-side — the same trick the Flutter build uses today.
+// resolve client-side.
 //
 // Auth routes are wrapped in RedirectIfAuthed (signed-in users skip them and go
 // to their `redirect=` destination); protected routes in RequireAuth (signed-out

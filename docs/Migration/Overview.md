@@ -1,5 +1,13 @@
 # Flutter → React Migration
 
+> **Status: complete.** Every phase below shipped. `ez-vote.org` has served the React app
+> since the M19 cutover (2026-07-14), and M22 retired the Flutter stack: `lib/` and its
+> config were deleted, the legacy `ez-vote` Cloudflare Pages project was decommissioned, and
+> the docs were reframed around React. The Flutter source is archived at the git tags
+> `flutter-pre-react-cutover` (the deployed pre-cutover commit) and `flutter-final` (the last
+> tree before deletion). This document is kept as the historical record of the rationale and
+> the plan — it is no longer a work plan.
+
 ## Why
 
 EZVote is a public-facing web product, and Flutter web is structurally weak for that profile:
@@ -114,7 +122,7 @@ With no active user traffic, cutover is low-stakes; this phase is about discipli
 
 - **M21: Build the counterfactual feature UI in React.** **Completed.** The authenticated picker and editor call `simulate-counterfactual`, preserve an election-scoped reversible edit ledger, and are available from closed public-ballot results. The unlinked `/design/explore` prototype remains lazy-loaded for design review. See [[Features/Counterfactual Explorer]].
 
-- **M22: Decommission Flutter.** After a short stability window post-cutover (a couple of weeks is plenty given no active traffic), remove the legacy Flutter Pages project/build pipeline. Update [[Architecture/Overview]] and all `lib/`-referencing docs to point at React equivalents.
+- **M22: Decommission Flutter.** **Completed 2026-08-01**, after the post-cutover stability window. `lib/`, `test/`, `tool/`, `web/`, `pubspec.*`, `analysis_options.yaml`, and `.metadata` were deleted from the repo (archived at the `flutter-final` tag); the legacy `ez-vote` Cloudflare Pages project was decommissioned (see [[Migration/Cutover Plan]] §6); [[Architecture/Overview]], [[Architecture/Ballot State Machine]], [[Architecture/Ballot Templates]], and [[Architecture/Auth Flow]] were rewritten around the React implementation, with the remaining `lib/`-referencing docs retargeted; and the "active migration" notices were removed from `CLAUDE.md` / `AGENTS.md`.
 
 ## Risks and Mitigations
 

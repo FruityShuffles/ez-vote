@@ -1,54 +1,42 @@
 # Realtime Results
 
-**Flag:** `election.realtimeResults = true`
+**Flag:** `election.realtime_results = true`
 
 Allows participants to see results update as ballots are cast, without closing the election.
 
 ## How It Works
 
-After every ballot submission (or update), if `realtimeResults` is enabled and the payload actually changed, `BallotScreen` calls:
-
-```dart
-ResultRepository.computeResults(electionId, close: false)
-```
+After every ballot submission (or update), if the flag is enabled and the payload actually changed, `routes/Ballot.tsx` calls `triggerRealtimeCompute(electionId)` from `web-react/src/lib/ballot.ts`.
 
 This triggers the edge function in "realtime mode" (see [[Edge Function]]). The function recomputes all algorithm results and upserts them into the `results` table. The election stays open.
 
-The call is **non-blocking**: errors are caught and logged but do not fail the ballot submission. The voter's experience is not degraded if the compute call fails.
+The call is **non-blocking**: it is not awaited and its errors are swallowed, so it cannot fail the ballot submission. The voter's experience is not degraded if the compute call fails.
 
 ## Ballot Change Detection
 
-To avoid redundant compute calls when a voter re-opens and re-submits without making any changes:
+To avoid redundant compute calls when a voter re-opens and re-submits without making any changes, the new payload is compared to the saved one with `payloadsEqual` (`lib/ballot.ts`) and the compute call is skipped when they match.
 
-```dart
-final oldPayloadStr = jsonEncode(existingBallot?.payload);
-final newPayloadStr = jsonEncode(newPayload);
-if (oldPayloadStr != newPayloadStr) {
-  ResultRepository.computeResults(electionId, close: false);
-}
-```
+Comparison is reliable because payload objects are always built from candidate order by the shared derivation module, so equivalent ballots serialize identically.
 
-JSON serialization order is consistent because payload maps are always built from candidate ID order, making string comparison reliable.
+## Results Polling
 
-## Results Polling in ElectionDetailScreen
-
-When `realtimeResults` is true and the election is open, `ElectionDetailScreen` polls for updated results every 10 seconds:
+When the flag is true and the election is open, `useElectionRealtime` (`web-react/src/lib/useElectionRealtime.ts`) polls every 10 seconds:
 
 ```
-1. Check results.updated_at for the election
-2. If newer than last-seen timestamp: invalidate resultsProvider(electionId)
+1. Read results.updated_at for the election (and, for ad-hoc elections, the candidate count)
+2. If newer than last-seen: invalidate the dependent TanStack Query caches
 3. ResultsView re-renders with fresh data
 ```
 
-The `updated_at` column on `results` (added in migration 014) makes this lightweight — the poll only fetches the timestamp, not the full result data, until a change is detected.
+The `updated_at` column on `results` (added in migration 014) makes this lightweight — the poll only fetches the timestamp, not the full result data, until a change is detected. The hook wraps a pure `runRealtimePoll` core, so the ordering and change-detection logic is unit-tested without a browser (`useElectionRealtime.test.ts`).
+
+On a change it invalidates the results, submitted-count, voter, pending-invitee, and public-ballots queries on the same tick, so every live list on the detail surface stays consistent with the results.
+
+**Why polling, not Supabase Realtime channels.** Polling needs no backend change — no `ALTER PUBLICATION`, no `REPLICA IDENTITY` — and the poll is cheap because it reads a single timestamp. Migrating to Realtime channels is tracked as a follow-up issue.
 
 ## Interaction with Election Close
 
-When the owner closes the election (calls edge function with `close=true`), the same compute logic runs once more — final results are committed and the `status` flips to `'closed'`. After close, realtime polling stops because `ElectionDetailScreen` only polls while `status == 'open' && realtimeResults`.
-
-## React App (post-migration)
-
-The React port keeps the same **10s polling** mechanism rather than switching to Supabase Realtime channels — polling needs no backend change (no `ALTER PUBLICATION` / `REPLICA IDENTITY`) and stays mechanism-identical to the Flutter reference during parity verification. The detail-screen poll lives in `web-react/src/lib/useElectionRealtime.ts` (`useElectionRealtime` hook + a pure `runRealtimePoll` core): it reads the cheap `results.updated_at` (and, for ad-hoc elections, the candidate count) and invalidates the dependent TanStack Query caches only when something actually changed. The non-blocking compute-after-submit lives in `web-react/src/lib/ballot.ts` (`triggerRealtimeCompute`). Migrating to Supabase Realtime channels is tracked as a post-cutover follow-up issue.
+When the owner closes the election (calls the edge function with `close=true`), the same compute logic runs once more — final results are committed and the `status` flips to `'closed'`. After close, polling stops: the hook only polls while the election is open and the flag is set.
 
 ## Authorization
 

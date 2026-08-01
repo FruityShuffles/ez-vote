@@ -3,9 +3,11 @@
 Fixtures that lock the behavior of the shared tabulation helper
 (`../tabulate.ts`). The test runner (`../tabulate.test.ts`) loads every `*.json`
 file under `synthetic/` and `historical/`, runs `tabulate()` against each
-`input`, and asserts the output deep-equals `expected`. This is the M2 safety
-net for the Flutter → React migration: both clients (and the edge function) call
-this one helper, so a green corpus means no algorithm drift.
+`input`, and asserts the output deep-equals `expected`. The app and the edge
+functions all call this one helper, so a green corpus means no algorithm drift.
+
+(`derivation/` is a separate corpus with its own runner — see `../derive.test.ts`
+and [[Decisions/Client-Side Derivation]].)
 
 ## Fixture format
 

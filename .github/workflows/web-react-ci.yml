@@ -1,9 +1,8 @@
 name: web-react CI
 
-# Gates the React migration app (web-react/, scaffolded in M5). Type-checks,
-# lints, runs the Vitest suite, and proves a production build succeeds. Scoped
-# to web-react/ so it stays independent of the Deno algorithm tests
-# (tabulate-tests.yml) and the frozen Flutter app.
+# Gates the web app (web-react/). Type-checks, lints, runs the Vitest suite,
+# and proves a production build succeeds. Scoped to web-react/ so it stays
+# independent of the Deno algorithm tests (tabulate-tests.yml).
 
 on:
   push:

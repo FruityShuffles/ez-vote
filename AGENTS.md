@@ -6,9 +6,7 @@ This file provides guidance to Codex when working with code in this repository.
 
 Project documentation lives in `docs/`. Before working on any issue or task, always check `docs/` for relevant files and read them. After making changes that affect architecture, schema, features, or the ballot screen, update the relevant docs.
 
-## Active Migration
-
-The Flutter → React migration is in its post-cutover stability window. See `docs/Migration/Overview.md` for the plan; issues are filed under the "React migration" milestone. The React app in `web-react/` is the production application. Flutter is frozen — no bug fixes or features — and the legacy Cloudflare Pages project is retained only as a temporary rollback path until M22. Bugs found in Flutter are recorded in the parity checklist, not patched in Dart.
+Start at `docs/EZVote.md` — it indexes every other document.
 
 ## GitHub Issues Workflow
 
@@ -30,7 +28,7 @@ Use `gh` CLI (authenticated) to manage work from the GitHub issue tracker at `ht
 ## Build, Test & Deployment Commands
 
 ```bash
-# React development (run from web-react/)
+# Web app development (run from web-react/)
 npm.cmd ci
 npm.cmd run dev
 npm.cmd run lint
@@ -40,17 +38,21 @@ npm.cmd run build
 
 # Production frontend release (run from a clean, current main in web-react/)
 # This deploys to Cloudflare Pages project ez-vote-react, which serves ez-vote.org.
+# --branch main is mandatory, or wrangler publishes a preview instead.
 npx.cmd wrangler pages deploy dist --project-name ez-vote-react --branch main
 
-# Deploy edge function (requires `supabase login` and `supabase link` first)
+# Algorithm golden tests (run from supabase/functions/)
+deno task test
+
+# Deploy edge functions (requires `supabase login` and `supabase link` first)
 # --no-verify-jwt is required because the Supabase gateway rejects ES256 user JWTs;
 # auth is verified inside the function itself via supabase client getUser()
 supabase functions deploy compute-results --no-verify-jwt
+supabase functions deploy simulate-counterfactual --no-verify-jwt
 
 # Push database migrations
 supabase db push
 ```
 
-Do not deploy application changes to the legacy Flutter Pages project `ez-vote`. See
-`web-react/README.md` for the complete production-release and QA guidance.
+See `web-react/README.md` for the complete production-release and QA guidance.
 

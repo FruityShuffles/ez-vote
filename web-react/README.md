@@ -1,8 +1,8 @@
 # EZVote — React app (`web-react/`)
 
-The React build of EZVote, replacing the Flutter app via the migration in
-[`docs/Migration/Overview.md`](../docs/Migration/Overview.md). Stack decided in
-[`docs/Migration/Tech Stack.md`](../docs/Migration/Tech%20Stack.md):
+The EZVote web application. Stack rationale in
+[`docs/Migration/Tech Stack.md`](../docs/Migration/Tech%20Stack.md); architecture
+in [`docs/Architecture/Overview.md`](../docs/Architecture/Overview.md):
 
 - **Vite + React Router** — client-rendered SPA (no SSR), deployed as static
   assets to Cloudflare Pages.
@@ -11,17 +11,16 @@ The React build of EZVote, replacing the Flutter app via the migration in
   `src/components/ui/`).
 - **Vitest** + Testing Library for tests.
 
-Scaffolded in M5. Auth/session is M6; surface ports are M8+.
-
 ## Setup
 
 ```bash
 npm.cmd install
-cp .env.example .env   # then fill in the Supabase values (same project as Flutter; see root .env)
+cp .env.example .env   # then fill in the Supabase project values
 ```
 
-Vite only exposes `VITE_`-prefixed env vars to the client and inlines them at
-build time (mirrors the Flutter `--dart-define` flow):
+Vite only exposes `VITE_`-prefixed env vars to the client and **inlines them at
+build time** — the values are fixed by whichever `.env` was present when the
+build ran, not by runtime configuration:
 
 | Var | Purpose |
 |---|---|

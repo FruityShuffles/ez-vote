@@ -54,9 +54,7 @@ The [[Backend/Simulate Counterfactual|simulate-counterfactual]] edge function (M
 
 The [[Features/Counterfactual Explorer]] (M21) is the flag's second consumer, and inherits this gate exactly.
 
-The Flutter side calls it through `BallotRepository.getPublicBallots()` and exposes it via `publicBallotsProvider(electionId)`.
-
-## React port (M18)
+## Ballot list UI
 
 `BallotCountRow` switches from the submitted-voter list to the protected public
 ballot list when the election opt-in is enabled. Each participant can open
@@ -69,8 +67,7 @@ remaining on a loading spinner.
 
 ## Realtime polling integration
 
-When `realtimeResults` is also enabled, `ElectionDetailScreen._poll()` invalidates `publicBallotsProvider` and `electionVotersProvider` on the same tick that triggers `resultsProvider` invalidation, so the ballot list stays fresh as new ballots come in.
-
-The React `useElectionRealtime` hook likewise invalidates its public-ballots
-query alongside the results, submitted-count, voter, and pending-invitee
-queries.
+When `realtime_results` is also enabled, `useElectionRealtime` invalidates the
+public-ballots query on the same tick as the results, submitted-count, voter,
+and pending-invitee queries, so the ballot list stays fresh as new ballots come
+in. See [[Realtime Results]].

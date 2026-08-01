@@ -1,15 +1,14 @@
 # Election Analysis
 
-**Flutter:** `lib/domain/services/election_analysis_service.dart` + `lib/domain/models/election_analysis.dart`
-**React (M16):** `web-react/src/lib/analysis.ts` (pure `analyzeResults` + types) rendered by `AnalysisCard` in `web-react/src/components/results/ResultsView.tsx`.
+`web-react/src/lib/analysis.ts` (pure `analyzeResults` + types), rendered by `AnalysisCard` in `web-react/src/components/results/ResultsView.tsx`.
 
 Generates cross-algorithm insights from computed results. Runs client-side after results are loaded — nothing is stored in the database.
 
-> **React port decision (M16 / ANL-01):** kept **client-side** in TypeScript rather than moving to an edge function. It's pure derivation from the already-fetched `result_data`, needs no schema or endpoint change (the migration's no-backend-change non-goal), and stays mechanism-identical to the frozen Flutter app. `analysis.ts` is a verbatim port — same verdict logic, the same five conditional insights, and the same user-visible strings (curly apostrophes and em-dashes preserved) — so the rendered text matches Flutter for parity. `analysis.ts` is UI-free (insight `icon` is a string key resolved to a lucide component in `AnalysisCard`), keeping it unit-testable; see `web-react/src/lib/analysis.test.ts`.
+> **Why client-side (ANL-01):** it is pure derivation from the already-fetched `result_data`, so an edge function would add a round trip, an endpoint, and a deploy step for no gain. `analysis.ts` is UI-free — an insight's `icon` is a string key resolved to a lucide component in `AnalysisCard` — which keeps it unit-testable; see `web-react/src/lib/analysis.test.ts`.
 
 ## When It Runs
 
-`ElectionDetailScreen` invokes the analysis service whenever `resultsProvider` has data and the election has more than one algorithm enabled. The `ElectionAnalysis` object is passed to `ResultsView` for display as an insight card above the per-algorithm result cards.
+`ResultsView` runs the analysis whenever results are loaded and the election has more than one algorithm enabled. The resulting object is displayed as an insight card above the per-algorithm result cards.
 
 ## Output Structure
 

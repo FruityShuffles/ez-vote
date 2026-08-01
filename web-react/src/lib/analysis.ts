@@ -1,16 +1,14 @@
 import type { ElectionResult, ResultData } from '@/lib/results'
 import { winnersOf } from '@/lib/results'
 
-// Client-side port of `lib/domain/services/election_analysis_service.dart` (M16,
-// parity item ANL-01). Pure derivation from the already-fetched `result_data` —
-// no schema or endpoint changes (the migration's no-backend-change non-goal), and
-// mechanism-identical to the frozen Flutter app, which also computes this
-// client-side. Kept UI-free so it's unit-testable without React: `icon` is a
-// string key, resolved to a lucide component in the AnalysisCard.
+// Cross-method election analysis (parity item ANL-01). Pure derivation from the
+// already-fetched `result_data`, so it runs client-side — an edge function would
+// add a round trip and a deploy step for no gain. Kept UI-free so it's
+// unit-testable without React: `icon` is a string key, resolved to a lucide
+// component in the AnalysisCard.
 //
-// User-visible strings (headlines, summaries, insight bodies) are ported
-// character-for-character from the Dart source — including its curly apostrophes
-// (’) and em-dashes (—) — so the rendered text matches Flutter exactly.
+// User-visible strings (headlines, summaries, insight bodies) are exact,
+// including the curly apostrophes (’) and em-dashes (—) — don't "normalize" them.
 
 /** Stable key for the lucide icon an insight renders with (resolved in the UI). */
 export type InsightIcon =

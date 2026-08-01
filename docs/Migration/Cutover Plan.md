@@ -1,10 +1,10 @@
 # Cutover Plan (M17–M19)
 
-> **Status: M19 complete.** `ez-vote.org` is bound to the React Cloudflare Pages project
-> `ez-vote-react` and serves the production app. The legacy Flutter Pages project `ez-vote`
-> has no custom domains and is retained only for the short rollback window. The sections
-> recording M17/M18 below are historical verification evidence; the current release topology
-> and rollback procedure are in §2 and §6.
+> **Status: M19 and M22 complete.** `ez-vote.org` is bound to the React Cloudflare Pages
+> project `ez-vote-react` and serves the production app. The legacy Flutter Pages project
+> `ez-vote` has been decommissioned (§6). The sections recording M17/M18 below are historical
+> verification evidence; the current release topology is §2 and **Appendix A is the live
+> operator runbook**.
 
 The verification gate between "the React app is built" and "the React app is the
 production stack." M17 produces this protocol and a deployed, config-ready staging app;
@@ -54,9 +54,9 @@ These URLs are aliases of the same deployment, not isolated staging environments
 
 **Custom-domain bindings:**
 
-1. `ez-vote.org` and `next.ez-vote.org` are bound to `ez-vote-react`.
-2. The legacy Flutter project `ez-vote` has no custom domains.
-3. Verify `https://ez-vote.org` and a direct SPA deep link resolve (the
+1. `ez-vote.org` and `next.ez-vote.org` are bound to `ez-vote-react`, the only Pages
+   project in the account.
+2. Verify `https://ez-vote.org` and a direct SPA deep link resolve (the
    `public/_redirects` `/* /index.html 200` rule).
 
 **Backend — shared, not forked.** The production React app points at the same Supabase
@@ -215,19 +215,45 @@ M19 is unblocked.
 
 ---
 
-## 6. Rollback procedure
+## 6. Rollback procedure — superseded by M22
 
-Flutter remains deployable for a short window — **days, not weeks**
-([[Migration/Overview]] §109). Because both stacks share one Supabase backend, rollback is a
-Cloudflare custom-domain change with **no data migration**:
+> **The Flutter rollback path no longer exists.** M22 (#108) decommissioned it after the
+> post-cutover stability window elapsed without incident. The Cloudflare Pages project
+> `ez-vote` was deleted along with its build pipeline, and the Flutter source was removed
+> from the repo. This section is retained for the record.
 
-- The Flutter Pages project `ez-vote` has no custom domains but keeps its build pipeline
-  intact. Its source rollback point is `flutter-pre-react-cutover` at `55bc667`.
-- Rollback = move the `ez-vote.org` custom-domain binding back to `ez-vote`; React remains
-  available at `next.ez-vote.org` for verification.
-- Return the custom-domain binding to `ez-vote-react` after the rollback cause is resolved.
-- Final Flutter **decommission is M22 (#108)** — explicitly deferred until after a
-  post-cutover stability window, never bundled into the cutover itself.
+**Historical procedure (no longer available).** Because both stacks shared one Supabase
+backend, rollback was a Cloudflare custom-domain change with no data migration: move the
+`ez-vote.org` binding from `ez-vote-react` back to `ez-vote`, verify, then move it back once
+the cause was resolved.
+
+**Current rollback posture.** The only path back to Flutter is the git archive — tags
+`flutter-pre-react-cutover` (the deployed pre-cutover commit, `55bc667`) and `flutter-final`
+(the last tree before M22 deleted it) — which would require standing up a Pages project and
+rebuilding. It is not a realistic incident response. Rolling back a *React* release is the
+operative procedure: redeploy a previous build per Appendix A, or promote an earlier
+deployment in the `ez-vote-react` project.
+
+### M22 execution record — 2026-08-01
+
+- Repo: `lib/`, `test/`, `tool/`, `web/`, `pubspec.yaml`, `pubspec.lock`,
+  `analysis_options.yaml`, and `.metadata` deleted; `.gitignore` pruned of Flutter/Dart,
+  Android, and symbolication entries; the `tool/**` CI path trigger dropped from
+  `tabulate-tests.yml`.
+- Docs: the four `docs/Architecture/` documents rewritten against the React implementation;
+  remaining `lib/`-referencing Backend, Features, and Decisions docs retargeted; the
+  "active migration" notices removed from `CLAUDE.md` and `AGENTS.md`.
+- Derivation oracle: `tool/derive_fixtures.dart` retired. `supabase/functions/_shared/derive.ts`
+  is now the sole source of truth, with `fixtures/derivation/` a frozen corpus rather than a
+  regenerable snapshot — see [[Decisions/Client-Side Derivation]].
+- Cloudflare (dashboard-only, performed by the maintainer — the build pipeline holds no
+  Pages-delete or DNS-write credentials):
+  - [ ] Confirm `ez-vote-react` owns `ez-vote.org` and `next.ez-vote.org`, and that
+        `ez-vote` owns no custom domain.
+  - [ ] Delete the `ez-vote` Pages project (removes its build pipeline with it).
+  - [ ] Confirm no `legacy.ez-vote.org` DNS record exists in the zone; delete it if it does.
+        (#108 lists it, but no custom domain was ever bound to the Flutter project — see §2.)
+  - [ ] Re-verify `https://ez-vote.org/` and a deep link both return 200.
 
 ---
 

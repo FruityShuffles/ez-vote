@@ -1,68 +1,79 @@
 # Ballot State Machine
 
-Internal state and algorithms for `lib/presentation/screens/ballot_screen.dart`. See [[Ballot Templates]] for what each template looks like to the user.
+Internal state and algorithms for the voting flow. See [[Ballot Templates]] for what each template looks like to the user.
 
-> **Cross-stack note (M23):** the derivation and tie-break logic documented below — `_deriveRanking`, `_deriveApprovalsFromScores`/`FromRanking`, `_syncTieBreaks`, `_rebuildTieBreaksFromOrder`, the drag-reorder score adjustment, and `_autoFptpFromScores` — is mirrored in a pure TypeScript module, `supabase/functions/_shared/derive.ts`, locked to this Dart implementation by cross-language fixtures (`tool/derive_fixtures.dart` → `fixtures/derivation/`). The React ballot port (M10) consumes that module instead of re-deriving. See [[Decisions/Client-Side Derivation]] → "Cross-Stack Source of Truth".
+The logic is split across three layers, deliberately:
 
-## State Variables
+| Layer | File | Role |
+|---|---|---|
+| Derivation | `supabase/functions/_shared/derive.ts` | Pure, runtime-agnostic rules — ranking, approvals, tie-breaks, drag auto-scoring, FPTP auto-select, payload assembly |
+| Transitions | `web-react/src/lib/ballotState.ts` | Pure, React-free `BallotState` + one function per user action; orchestrates which derivation runs for which template |
+| Binding | `web-react/src/lib/useBallotState.ts` | Holds the state in `useState`, exposes named handlers; `web-react/src/routes/Ballot.tsx` owns submission and polling |
 
-```dart
-// Primary voting state
-Map<String, int> _scores         // STAR: score 0–5 per candidate ID
-List<String> _rankings           // IRV: ordered list of candidate IDs (index 0 = rank 1)
-Set<String> _approvals           // Approval: set of approved candidate IDs
-String? _fptpChoice              // FPTP: single selected candidate ID
+> **Why derivation is separate:** the derived `irv` / `approval` fields decide what gets *submitted*, making derivation a second algorithm source of truth alongside tabulation. It lives in `_shared/derive.ts` — importable from any TS runtime — and is locked by the golden fixtures in `supabase/functions/_shared/fixtures/derivation/`, run in CI by `.github/workflows/tabulate-tests.yml`. Nothing derives inline in a component. See [[Decisions/Client-Side Derivation]].
 
-// Derivation controls
-int _approvalCutoff = 3          // Templates E: approve candidates with score >= this
-int _approvalTopK = 0            // Templates D, G: approve top N from ranking
+## State
 
-// Tie-break state (Templates F, G only)
-Map<int, List<String>> _tieBreaks     // score → ordered IDs for candidates tied at that score
-Map<String, Offset> _slideOffsets     // candidate ID → current animation offset
+`BallotState` in `ballotState.ts` — a plain immutable object; every transition returns a new one.
 
-// UX flags
-bool _warnedZeroApprovals = false     // tracks whether zero-approval warning was shown
-bool _isSubmitting = false            // prevents double-submit
+```ts
+interface BallotState {
+  scores: Scores              // STAR: score 0–5 per candidate id (source of truth when STAR is present)
+  rankings: string[]          // IRV-only templates (A/D): direct preference order, index 0 = rank 1
+  approvals: string[]         // Approval-only template (C): approved candidate ids
+  fptpChoice: string | null   // FPTP: single selected candidate id (templates B/C/E)
+
+  approvalCutoff: number      // Template E: approve candidates with score >= this (default 3)
+  approvalTopK: number        // Templates D/G: approve this many top-ranked (default 0)
+
+  tieBreaks: TieBreaks        // Templates F/G: score → ordered ids tied at that score
+}
 ```
 
-## Initialization
+Note what is *absent*: there is no separate ranking field for STAR+IRV templates. In F/G the ranking is always derived from `scores` + `tieBreaks` on read (`displayRanking`), never stored. Row animation is handled by dnd-kit rather than tracked offsets.
 
-On `initState`, called once with the candidate list and optional `initialBallot`:
+## Initialization — `initialBallotState(candidateIds, algos, payload?)`
 
-1. If `initialBallot` exists: deserialize payload into `_scores`, `_rankings`, `_approvals`, `_fptpChoice`.
-2. Otherwise: initialize with defaults — scores 0, rankings in candidate position order, empty approvals.
-3. Call `_syncTieBreaks()` to establish initial tie-break state.
-4. If `allowVoterCandidates`: start `Timer.periodic` for candidate polling (10s interval).
+Called once from `useBallotState`'s lazy `useState` initializer.
 
-## `_syncTieBreaks()`
+1. Seed defaults: scores 0 for every candidate when STAR is present, rankings in candidate position order when IRV is present without STAR, empty approvals, cutoff 3, top-K 0.
+2. If a saved `payload` exists (editing, or viewing an existing/public ballot), rehydrate **every** field from it — scores, ranking, approvals, and FPTP (BAL-08, the #39 regression). Candidates added since the ballot was saved are folded in at score 0 / appended; deleted ones are dropped (BAL-09).
+3. Approval state is recovered indirectly, because only the *result* is stored:
+   - Template C — restore the approved ids directly.
+   - Template E — recover `approvalCutoff` as the minimum score among approved candidates.
+   - Templates D/G — recover `approvalTopK` as the count of approved candidates.
+4. For STAR templates, restore `tieBreaks` from the saved `irv` order via `rebuildTieBreaksFromOrder`, so view-only mode shows exactly what was submitted and an untouched re-submit cannot silently flip a tie.
 
-Called after every score change. Maintains `_tieBreaks` to reflect current tie groups.
+> **Recorded divergence (BAL-03).** The original Flutter implementation rebuilt tie-breaks from candidate order at this point, discarding the voter's saved order. React restores it. This is an accepted, intentional difference — see [[Migration/Parity Checklist]].
+
+## `syncTieBreaks(tieBreaks, scores, candidateIds)`
+
+Runs after every score change. Maintains `tieBreaks` so it reflects the current tie groups:
 
 ```
 For each score value that appears more than once:
   If a tie-break entry already exists for that score:
-    Filter it to only candidates still at that score, preserving order
-    Add any newly-tied candidates at the end
+    Append any newly-tied candidates, then drop candidates no longer at that score
+    (preserving the order of those that remain)
   Else:
-    Create new entry with candidates sorted by current ranking
-Remove entries for scores that no longer have ties
+    Create a new entry with the candidates in current display order
+Remove entries for scores that are no longer tied
 Exclude score-0 ties (zero-scored candidates don't need tie-breaking for IRV)
 ```
 
 Score-0 candidates are always placed at the bottom of the derived ranking in natural candidate order — no tie-break UI needed.
 
-## `_rebuildTieBreaksFromOrder(List<String> newOrder)`
+## `rebuildTieBreaksFromOrder(order, scores)`
 
-Called after a drag reorder in Templates F/G. Rebuilds the entire `_tieBreaks` map from the new list order instead of incrementally patching it. Used when the user manually drags a candidate.
+Rebuilds the entire tie-break map from an explicit display order rather than incrementally patching it. Groups by score **including score 0**, keeping any group with 2+ members. Used after a drag reorder in templates F/G, and when restoring a saved ballot.
 
-## Drag-reorder score adjustment (Templates F/G)
+## Drag-reorder score adjustment — `applyReorder`
 
-When the user drags a candidate in Templates F/G, the `onReorder` handler picks one of two branches before calling `_rebuildTieBreaksFromOrder`:
+When the user drags a candidate in templates F/G, `reorderScored` maps the dnd-kit endpoints onto list indices and calls `applyReorder`, which picks one of two branches before rebuilding tie-breaks:
 
 ```
-draggedScore = _scores[draggedId] ?? 0
-aboveIds = reordered[0 .. newIndex)
+draggedScore = scores[draggedId] ?? 0
+aboveIds     = reordered[0 .. newIndex)
 hasZeroAbove = any id in aboveIds with score 0
 
 If draggedScore == 0 and not hasZeroAbove:
@@ -79,118 +90,115 @@ Else:
   newScore = clamp(draggedScore, belowScore, aboveScore)
 ```
 
-The first branch supports the "rank first, score later" workflow: a voter can drag every candidate into preference order before assigning any scores, and each drag implicitly produces a descending score (5, 4, 3, …) that survives the next resort.
+The first branch supports the "rank first, score later" workflow (#83): a voter can drag every candidate into preference order before assigning any scores, and each drag implicitly produces a descending score (5, 4, 3, …) that survives the next resort.
 
-## `_deriveRanking() → List<String>`
+`applyReorder` takes a raw insertion index that it decrements when moving downward; `reorderScored` converts dnd-kit's final target index into that form before calling it.
 
-Produces the IRV ranking from scores and tie-breaks. Used in Templates F and G.
+## `deriveRanking(scores, tieBreaks, candidateIds)`
+
+Produces the IRV ranking for templates F and G. Surfaced to the UI as `ballot.displayOrder`.
 
 ```
 Sort candidates by:
   1. Score descending (higher score = higher rank)
-  2. Within same score: order from _tieBreaks[score] (user's manual preference)
+  2. Within the same score: order from tieBreaks[score] (the user's manual preference),
+     with any missing members appended in candidate order
   3. Within score 0 (no tie-break): original candidate list order
 ```
 
-## `_deriveApprovalsFromScores() → Set<String>`
+## `deriveApprovalsFromScores` / `deriveApprovalsFromRanking`
 
-Used in Template E. Returns all candidate IDs where `_scores[id] >= _approvalCutoff`.
+- **From scores** (template E): every candidate id whose score ≥ `approvalCutoff`, in candidate order.
+- **From ranking** (templates D and G): the first `approvalTopK` ids of the current ranking.
 
-## `_deriveApprovalsFromRanking() → Set<String>`
+## `autoFptpFromScores(scores, candidateIds, currentChoice)`
 
-Used in Templates D and G. Returns the first `_approvalTopK` IDs from the current ranking.
-
-## `_autoFptpFromScores()`
-
-Used in Templates B and E (STAR-enabled templates with FPTP).
+Used in templates B and E (STAR-enabled templates with FPTP), re-run on every score change by `setScore`.
 
 ```
-maxScore = max value in _scores
-topCandidates = candidates where score == maxScore
+top = candidates at the nonzero maximum score (empty if the max is 0)
 
-If topCandidates.length == 1:
-  _fptpChoice = topCandidates.first.id    // unambiguous top scorer
-Else if _fptpChoice is set and that candidate is no longer in topCandidates:
-  _fptpChoice = null                       // was top scorer, no longer is
-// Otherwise: don't change — preserve user's explicit choice or leave null
+If top.length == 1:
+  → top[0]                          // unambiguous top scorer
+Else if currentChoice is set and no longer in top:
+  → null                            // was top scorer, no longer is
+Else:
+  → currentChoice                   // preserve the user's explicit choice, or leave null
 ```
 
-Called via `WidgetsBinding.addPostFrameCallback` to avoid build-phase mutations.
+Being a pure function of the new scores, it needs no post-frame deferral.
 
-## `_mergeNewCandidates(List<Candidate> fresh)`
+## `mergeCandidates(state, freshCandidateIds, algos)`
 
-Called when candidate polling detects a change. Merges new/removed candidates into current ballot state without resetting the voter's in-progress work.
+Folds a refreshed candidate list into in-progress state without discarding the voter's work (BAL-10):
 
 ```
-newIds = fresh.map(id) - existing candidate ids
-removedIds = existing candidate ids - fresh.map(id)
+For each new id:
+  scores[newId] = 0
+  rankings.push(newId)              // new candidates go to the bottom of the ranking
+  // Never auto-approved — the voter must approve explicitly
 
-For each newId:
-  _scores[newId] = 0
-  _rankings.add(newId)              // new candidates go to bottom of ranking
-  // Don't add to _approvals — user must explicitly approve
+For each removed id:
+  delete from scores, rankings, approvals
+  if fptpChoice == removedId: fptpChoice = null
+  (tie-break groups are rebuilt by syncTieBreaks, which drops departed members)
 
-For each removedId:
-  _scores.remove(removedId)
-  _rankings.remove(removedId)
-  _approvals.remove(removedId)
-  if _fptpChoice == removedId: _fptpChoice = null
-  remove from all _tieBreaks entries
-
-_syncTieBreaks()
+syncTieBreaks()
 ```
 
 ## Candidate Polling (Ad-Hoc Elections)
 
-When `election.allowVoterCandidates = true`, a `Timer.periodic` runs every 10 seconds:
+Driven from `routes/Ballot.tsx`. When `election.allow_voter_candidates` is true and the election is open and not view-only:
 
-1. Call `candidateRepository.countForElection(electionId)` — lightweight, counts IDs only.
-2. Compare to `ref.read(candidatesProvider(electionId)).value?.length`.
-3. If counts differ: invalidate `candidatesProvider` to trigger a full fetch.
-4. When new data arrives: call `_mergeNewCandidates(freshCandidates)`.
-5. Show a snackbar notifying the voter of the change.
+1. `useCandidateCount` polls the count on a 10s TanStack Query `refetchInterval` — lightweight, counts ids only.
+2. When the polled count differs from the loaded candidate list length, invalidate `electionKeys.candidates(id)` to trigger a full fetch, and toast the voter.
+3. A separate effect watches the candidate **ids** (joined as a key, not a count) and calls `merge` whenever they change — so the ballot resyncs however the list changed: the poll above, a background refetch on window focus, or the pre-submit gate's `setQueryData`.
 
-Counts-first approach avoids triggering a loading-state flash on every poll tick when nothing changed.
+Counts-first avoids a loading-state flash on every poll tick when nothing changed. See [[Features/Ad-Hoc Candidates]].
 
 ## Pre-Submit Gate
 
-On submit, before building the payload:
+On submit, before building the payload (only when the election allows voter candidates):
 
-1. Re-fetch current candidate count from DB.
-2. If count differs from current state: merge candidates, show warning, return without submitting.
-3. Voter must review the updated ballot and submit again.
+1. Re-fetch the current candidate list from the DB (`fetchCandidates`).
+2. If it differs from the loaded list, push it into the query cache, warn, and return **without** submitting. The sync effect merges it.
+3. The voter reviews the updated ballot and submits again.
 
-This prevents a ballot from being submitted with stale candidate data.
+This prevents a ballot from being submitted against stale candidate data (BAL-11).
 
-## Payload Construction
+## Payload Construction — `buildSubmitPayload`
 
-After validation, builds the JSONB payload:
+Delegates to `buildPayload` in `derive.ts`, which assembles per template:
 
-```dart
-Map<String, dynamic> payload = {};
-
-if (star):   payload['star'] = { id: score for each candidate }
-if (irv):    payload['irv'] = _rankings   // or _deriveRanking() for Template F/G
-if (approval): payload['approval'] = _approvals.toList()
-              // or derived via _deriveApprovalsFromScores() / _deriveApprovalsFromRanking()
-if (fptp):   payload['fptp'] = _fptpChoice
 ```
+if (star):     payload.star     = { id: score }
+if (irv):      payload.irv      = rankings          // A/D direct
+                                 | deriveRanking()  // F/G derived
+if (approval): payload.approval = approvals         // C direct
+                                 | deriveApprovalsFromScores()   // E
+                                 | deriveApprovalsFromRanking()  // D/G
+if (fptp):     payload.fptp     = fptpChoice
+```
+
+FPTP is emitted **only** for templates B/C/E. `buildSubmitPayload` gates on the template before passing the flag through, so a score-driven `fptpChoice` can never leak into an IRV template's payload (BAL-06).
 
 ## Ballot Change Detection
 
-On edit submit, the new payload is JSON-stringified and compared to the old ballot's payload string. If identical, the realtime compute call is skipped. This prevents redundant edge function calls when a voter opens and re-submits without changing anything.
+On edit submit, the new payload is compared to the saved one with `payloadsEqual` (`lib/ballot.ts`). If identical, the realtime compute call is skipped — this prevents redundant edge-function calls when a voter opens and re-submits without changing anything (BAL-13).
 
 ## Submit Flow
 
+`onSubmit` in `routes/Ballot.tsx`:
+
 ```
-1. Validate: zero-approval check (warn + return on first offense)
-2. Pre-submit gate: check for candidate changes
-3. Build payload
-4. BallotRepository.upsertBallot(electionId, payload)
-5. If realtimeResults && payload changed:
-     ResultRepository.computeResults(electionId, close: false)  // non-blocking
-6. Invalidate: existingBallotProvider, ballotCountProvider
-7. Navigate: context.pop() or context.go('/election/:id')
+1. Zero-approval soft warning: flash the approval section once, return (BAL-12)
+2. Hard validation: getBlockingErrors → error toast, return
+3. Pre-submit candidate gate: refresh + warn + return if candidates changed
+4. Build payload; compare against the saved one
+5. useUpsertBallot.mutateAsync(payload)
+6. If realtime_results && payload changed:
+     triggerRealtimeCompute(electionId)     // fire-and-forget
+7. Toast success; navigate to /election/:id
 ```
 
-Step 5 errors are caught and logged — a failure to compute realtime results does not fail the ballot submission.
+Step 6 is not awaited and its errors are swallowed — a failure to compute realtime results must not fail the ballot submission. The mutation's `onSuccess` invalidates the existing-ballot and ballot-count queries.

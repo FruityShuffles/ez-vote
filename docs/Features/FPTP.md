@@ -1,6 +1,6 @@
 # FPTP (First Past The Post)
 
-**Flag:** `election.includeFptp = true`
+**Flag:** `election.include_fptp = true`
 
 FPTP is not an entry in `election.algorithms` — it's a boolean flag that overlays an additional vote collection on top of whatever algorithms are selected. This distinction matters: you can't have a FPTP-only election (use Approval for that), but you can add FPTP to any other configuration.
 
@@ -21,21 +21,21 @@ For Templates A, D, F, G (those with IRV), no FPTP UI is shown. The edge functio
 
 ## Auto-Selection Logic (Templates B, E)
 
-`_autoFptpFromScores()` runs after every score change:
+`autoFptpFromScores` (`supabase/functions/_shared/derive.ts`) runs after every score change:
 
 ```
-topScore = max score across all candidates
+topScore = max score across all candidates (0 means "no top set")
 topCandidates = candidates where score == topScore
 
 If exactly one top candidate:
-  auto-set _fptpChoice = that candidate's ID
+  auto-set fptpChoice = that candidate's id
 
 If multiple candidates tied at top:
-  if current _fptpChoice is one of the tied candidates: leave it
-  otherwise: clear _fptpChoice (voter must choose)
+  if the current fptpChoice is one of the tied candidates: leave it
+  otherwise: clear fptpChoice (voter must choose)
 
-If _fptpChoice was set but is no longer the top scorer:
-  clear _fptpChoice
+If fptpChoice was set but is no longer in the top set:
+  clear fptpChoice
 ```
 
 The FPTP picker is only shown to the voter when there's a tie requiring manual resolution. For unambiguous top scorers, the auto-selection is silent.

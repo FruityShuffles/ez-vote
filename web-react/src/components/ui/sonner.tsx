@@ -7,9 +7,8 @@ import {
   Loader2Icon,
 } from 'lucide-react'
 
-// The app is light-only at parity (Flutter is Brightness.light), so the theme is
-// pinned rather than read from a theme provider. When a dark toggle lands, thread
-// the active theme through here.
+// The app is light-only, so the theme is pinned rather than read from a theme
+// provider. When a dark toggle lands, thread the active theme through here.
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner

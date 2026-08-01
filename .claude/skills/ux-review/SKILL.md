@@ -23,7 +23,8 @@ assertion-based: the judgement lives in you, looping, not in a fixed script.
    env, accounts, auth, MCP config).
 2. **Confirm scope lightly** — the flow(s) to review, viewport(s), and lens. Sensible
    defaults if unspecified: review **both mobile (~390×844) and desktop
-   (~1280×900)** since this began as a Flutter mobile app, with a **balanced**
+   (~1280×900)** — voters open shared ballot links on whatever device is to
+   hand, so neither viewport is secondary — with a **balanced**
    lens (clarity, friction, consistency, accessibility). Don't over-interview;
    pick defaults and proceed. Canonical flows worth covering: voter (landing →
    join → ballot per method → results), organizer (signup → create → configure →

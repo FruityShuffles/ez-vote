@@ -1,28 +1,37 @@
 # Ballot Templates
 
-`lib/presentation/screens/ballot_screen.dart` dispatches one of 7 templates based on which algorithms the election has enabled. See [[Ballot State Machine]] for the internal state and algorithms that power these templates.
+`web-react/src/components/ballot/BallotView.tsx` dispatches one of 7 templates based on which algorithms the election has enabled. See [[Ballot State Machine]] for the internal state and algorithms that power these templates.
 
 ## Template Dispatch
 
-The template is determined by the combination of algorithms in `election.algorithms`. FPTP is a flag (`election.includeFptp`), not an algorithm entry — it's always additive.
+The template letter is computed by `getTemplate(algorithms)` in `web-react/src/lib/ballotState.ts` from the combination of algorithms in `election.algorithms`; `BallotView` then `switch`es on it. FPTP is a flag (`election.include_fptp`), not an algorithm entry — it's always additive.
 
-| Template | Algorithms | FPTP possible? |
-|---|---|---|
-| A | IRV only | No |
-| B | STAR only | Yes |
-| C | Approval only | Yes |
-| D | IRV + Approval | No |
-| E | STAR + Approval | Yes |
-| F | STAR + IRV | No |
-| G | STAR + IRV + Approval | No |
+| Template | Algorithms | FPTP possible? | Renders |
+|---|---|---|---|
+| A | IRV only | No | `RankList` |
+| B | STAR only | Yes | `ScoreCard` |
+| C | Approval only | Yes | `ApprovalCard` |
+| D | IRV + Approval | No | `RankList` + `TopKStepper` |
+| E | STAR + Approval | Yes | `ScoreCard` + `CutoffStepper` |
+| F | STAR + IRV | No | `ScoredSortableList` |
+| G | STAR + IRV + Approval | No | `ScoredSortableList` + `TopKStepper` |
+
+All of the sub-views listed above are internal to `BallotView.tsx`. They compose four shared input components in the same directory:
+
+| Component | Role |
+|---|---|
+| `SortableList.tsx` | dnd-kit drag-and-drop list (`SortableList` + `SortableRow`), with keyboard-accessible reordering |
+| `ScoreChips.tsx` | the 0–5 score selector, rendered as real radio inputs |
+| `Stepper.tsx` | the numeric stepper behind "approve top N" and "approve score ≥ N" |
+| `FptpPicker.tsx` | single-choice FPTP selector, restricted to eligible candidates |
 
 ## Template A — IRV Only
 
-**UI:** `ReorderableListView` with numbered circle avatars and drag handles.
+**UI:** `SortableList` with numbered position badges and drag handles.
 
 **Interaction:** User drags candidates to set rank order. Rankings are direct — no derivation.
 
-**State used:** `_rankings` (ordered list of candidate IDs)
+**State used:** `state.rankings`; reordering calls `ballot.reorderRanking(from, to)`
 
 **Payload produced:**
 ```json
@@ -31,11 +40,11 @@ The template is determined by the combination of algorithms in `election.algorit
 
 ## Template B — STAR Only
 
-**UI:** Score chips (0–5) per candidate, displayed as a `ChoiceChip` row.
+**UI:** `ScoreChips` (0–5) per candidate in a flat, non-reorderable list.
 
-**Interaction:** User taps a chip to set score. Scores are direct. FPTP auto-selects the top-scored candidate if unambiguous.
+**Interaction:** User picks a chip to set a score. Scores are direct. FPTP auto-selects the top-scored candidate if unambiguous.
 
-**State used:** `_scores`; FPTP uses `_fptpChoice`
+**State used:** `state.scores`; FPTP uses `state.fptpChoice`
 
 **Payload produced:**
 ```json
@@ -48,7 +57,7 @@ The template is determined by the combination of algorithms in `election.algorit
 
 **Interaction:** User checks candidates they approve of. FPTP is a separate single-choice selector among approved candidates.
 
-**State used:** `_approvals`; FPTP uses `_fptpChoice`
+**State used:** `state.approvals`; FPTP uses `state.fptpChoice`
 
 **Payload produced:**
 ```json
@@ -57,13 +66,13 @@ The template is determined by the combination of algorithms in `election.algorit
 
 ## Template D — IRV + Approval
 
-**UI:** Reorderable ranked list + a numeric stepper ("Approve top N").
+**UI:** `SortableList` ranked list + a `Stepper` ("Approve top N"). Approved rows carry an "Approved" badge.
 
 **Interaction:** User ranks candidates by dragging. Approvals are automatically derived as the top K candidates in the ranking (where K is set by the stepper). User does not check individual boxes — they set a cutoff position.
 
-**State used:** `_rankings`, `_approvalTopK`
+**State used:** `state.rankings`, `state.approvalTopK`
 
-**Derivation:** `_approvals = _rankings.take(_approvalTopK).toSet()`
+**Derivation:** `deriveApprovalsFromRanking` — the first `approvalTopK` ids of the ranking.
 
 **Payload produced:**
 ```json
@@ -72,13 +81,13 @@ The template is determined by the combination of algorithms in `election.algorit
 
 ## Template E — STAR + Approval
 
-**UI:** Score chips per candidate + a score-threshold stepper ("Approve score ≥ N").
+**UI:** `ScoreChips` per candidate + a `Stepper` threshold ("Approve score ≥ N").
 
-**Interaction:** User scores candidates. Approvals are automatically derived as all candidates with score ≥ cutoff. FPTP auto-selects from top scorer.
+**Interaction:** User scores candidates. Approvals are automatically derived as all candidates with score ≥ cutoff. FPTP auto-selects from the top scorer.
 
-**State used:** `_scores`, `_approvalCutoff`, `_fptpChoice`
+**State used:** `state.scores`, `state.approvalCutoff`, `state.fptpChoice`
 
-**Derivation:** `_approvals = candidates.where((c) => _scores[c.id]! >= _approvalCutoff).toSet()`
+**Derivation:** `deriveApprovalsFromScores` — every candidate whose score ≥ `approvalCutoff`.
 
 **Payload produced:**
 ```json
@@ -87,13 +96,13 @@ The template is determined by the combination of algorithms in `election.algorit
 
 ## Template F — STAR + IRV
 
-**UI:** `ReorderableListView` where each item shows the candidate name + score chips below it. The list is sorted by score descending; within a score tie, order is manually adjustable.
+**UI:** `ScoredSortableList` — a `SortableList` where each row shows the candidate name plus its `ScoreChips`. The list is sorted by score descending; within a score tie, order is manually adjustable by dragging.
 
-**Interaction:** User assigns scores via chips. IRV ranking is derived from the score-sorted order. User can drag candidates within a tie group to break ties for IRV purposes. Animated slides show candidates repositioning as scores change.
+**Interaction:** User assigns scores via chips. The IRV ranking is derived from the score-sorted order. User can drag candidates within a tie group to break ties for IRV purposes; rows animate to their new position as scores change.
 
-**State used:** `_scores`, `_tieBreaks`, `_slideOffsets`
+**State used:** `state.scores`, `state.tieBreaks`; reordering calls `ballot.reorderScored(activeId, overId)`
 
-**Derivation:** `_deriveRanking()` sorts by score desc → tie-break order → original candidate order
+**Derivation:** `deriveRanking` sorts by score desc → tie-break order → original candidate order. The displayed order is `ballot.displayOrder`.
 
 **Payload produced:**
 ```json
@@ -102,13 +111,13 @@ The template is determined by the combination of algorithms in `election.algorit
 
 ## Template G — STAR + IRV + Approval
 
-**UI:** Same as Template F (score chips in reorderable list) + the top-K stepper from Template D.
+**UI:** Same as Template F (score chips in a sortable list) + the top-K `Stepper` from Template D.
 
-**Interaction:** User assigns scores; IRV ranking derived from score order; approvals derived as top K of derived ranking.
+**Interaction:** User assigns scores; the IRV ranking is derived from score order; approvals are derived as the top K of the derived ranking.
 
-**State used:** `_scores`, `_tieBreaks`, `_slideOffsets`, `_approvalTopK`
+**State used:** `state.scores`, `state.tieBreaks`, `state.approvalTopK`
 
-**Derivation:** ranking from `_deriveRanking()`, then approvals from `_rankings.take(_approvalTopK)`
+**Derivation:** ranking from `deriveRanking`, then approvals as the first `approvalTopK` of that ranking.
 
 **Payload produced:**
 ```json
@@ -117,25 +126,28 @@ The template is determined by the combination of algorithms in `election.algorit
 
 ## FPTP in Templates
 
-FPTP is never a separate algorithm type in `election.algorithms`. It's controlled by `election.includeFptp`. When enabled:
+FPTP is never a separate algorithm type in `election.algorithms`. It's controlled by `election.include_fptp`. When enabled:
 
-- **Templates B, E**: Auto-select the top-scored candidate as FPTP if no score tie at the top. Show a picker if tied or if user wants to override.
-- **Template C**: Show a single-choice picker restricted to approved candidates.
-- **Templates A, D, F, G**: FPTP not applicable (IRV already captures first-choice intent).
+- **Templates B, E**: Auto-select the top-scored candidate as FPTP if there is no score tie at the top. The `FptpPicker` is shown with the tied top scorers as eligible options so the voter can resolve or override.
+- **Template C**: `FptpPicker` restricted to the currently-approved candidates.
+- **Templates A, D, F, G**: FPTP not applicable (IRV already captures first-choice intent). `buildSubmitPayload` refuses to emit an `fptp` key for these templates even if a choice is somehow set (BAL-06).
 
-If the auto-selected FPTP candidate later gets outscored or there's a new tie, `_autoFptpFromScores` clears the selection.
+If the auto-selected FPTP candidate later gets outscored or a new tie appears, `autoFptpFromScores` clears the selection.
 
 ## Zero-Approval Warning
 
 Applies to templates C, D, E, G — any template that produces an `approval` payload key.
 
-If the user submits with zero approvals:
-1. First attempt: show a warning, return without submitting. Set `_warnedZeroApprovals = true`.
-2. Second attempt: allow submit (user's confirmed intent via silence).
-3. Flag resets each ballot session.
+If the user submits with zero approvals (`hasZeroApprovals`):
 
-This is a UX guardrail, not a hard constraint — zero approvals is technically valid.
+1. First attempt: flash the approval section, return without submitting.
+2. Second attempt: allow submit (user's confirmed intent via silence).
+3. The "already warned" flag is a `ref` in `Ballot.tsx`, so it resets each ballot session.
+
+This is a UX guardrail, not a hard constraint — zero approvals is technically valid. Distinct from the *blocking* errors in `getBlockingErrors` (all-zero STAR scores; a missing FPTP pick on B/C/E), which surface as an error toast and never submit.
 
 ## View-Only Mode
 
-`BallotScreen` accepts an `initialBallot` param and a `viewOnly` flag. When `viewOnly = true`, all inputs are disabled and the screen renders the existing ballot for review. This is used from `ElectionDetailScreen` to let a voter review their submitted ballot.
+`BallotView` takes a `viewOnly` flag, set by `Ballot.tsx` when `election.status === 'closed'`. Because the component is stateless, it renders the identical layout with every input disabled — the existing ballot shown for review (BAL-16). This is reached from the election detail surface as "View Ballot".
+
+The related route `/election/:id/ballot/:index` (`routes/PublicBallot.tsx`) renders another voter's ballot the same way when the election has `public_ballots` enabled — see [[Features/Public Ballots]].

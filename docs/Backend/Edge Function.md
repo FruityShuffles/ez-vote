@@ -125,13 +125,13 @@ Each algorithm upserts a row in `results` with `result_data` JSONB:
 }
 ```
 
-The `ResultsView` widget (`lib/presentation/widgets/results_view.dart`) renders each algorithm's `result_data` differently based on the `algorithm` field.
+`ResultsView` (`web-react/src/components/results/ResultsView.tsx`) renders each algorithm's `result_data` differently based on the `algorithm` field.
 
 > Note: the keys inside `tallies` / `scores` / `runoff` / `rounds[].counts` and the `winner` / `winners` / `runner_up` values are candidate **names**, not UUIDs (the helper maps IDs to names before emitting `result_data`). A multi-candidate IRV final elimination renders `runner_up` as an `&`-joined string (e.g. `"Bob & Carol"`).
 
-## Golden corpus (M2)
+## Golden corpus
 
-`tabulate()` is guarded by a golden-test corpus so the algorithms can't drift across the Flutter → React migration (both clients call this one helper).
+`tabulate()` is guarded by a golden-test corpus so the algorithms can't drift. It is the single tabulation implementation — the app and both edge functions call this one helper.
 
 - **Tests:** `supabase/functions/_shared/tabulate.test.ts` — loads every `*.json` fixture under `_shared/fixtures/{synthetic,historical}/`, runs `tabulate()` against each `input`, and asserts the output deep-equals the pinned `expected` (the **full** `result_data` shape, not just winners).
 - **Synthetic fixtures** cover each algorithm plus edge cases (multi-candidate IRV elimination ties, all-tied outcomes, STAR runoff/score-tie tiebreaks, the FPTP `irv[0]` fallback, empty ballots, unknown-algorithm default).

@@ -1,6 +1,6 @@
 # RPC Functions
 
-Postgres functions callable from the Flutter client via `supabase.rpc('function_name', params: {...})`. All are defined in migrations 003+.
+Postgres functions callable from the client via `supabase.rpc('function_name', { ...params })`. All are defined in migrations 003+.
 
 ## User-Callable RPCs
 
