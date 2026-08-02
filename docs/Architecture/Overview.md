@@ -74,7 +74,7 @@ Zustand, kept deliberately small:
 - `src/stores/uiStore.ts` — trivial global UI state.
 - `src/lib/counterfactualStore.ts` — the election-scoped reversible edit ledger for the what-if explorer ([[Features/Counterfactual Explorer]]).
 
-Election form drafts are the one reload-safe exception to in-memory client state. `src/lib/electionDrafts.ts` stores them in browser local storage under `draft:create` or `draft:edit:<id>` and expires them after seven days. Edit drafts record the election's source `updated_at` and are restored only when it still matches the freshly loaded server row; saving clears the corresponding local draft.
+Election form drafts are the one reload-safe exception to in-memory client state. `src/lib/electionDrafts.ts` stores them in browser local storage under `draft:create` or `draft:edit:<id>` and expires them after seven days. Edit drafts record the election's source `updated_at` and are restored only when it still matches the freshly loaded server row; saving clears the corresponding local draft. Because that persistence makes leaving lossless, nothing intercepts navigation away from the form — the confirm-on-leave dialog was removed in #132.
 
 The in-progress ballot is component state via `useBallotState`, not a global store — see [[Ballot State Machine]].
 

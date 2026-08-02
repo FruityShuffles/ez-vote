@@ -78,7 +78,10 @@ const candidates: Candidate[] = ['Charlie', 'Alice', 'Bob'].map(
   }),
 )
 
-function renderRoute(path = '/create', initialEntries: InitialEntry[] = [path]) {
+function renderRoute(
+  path = '/create',
+  initialEntries: InitialEntry[] = [path],
+) {
   const router = createMemoryRouter(
     [
       { path: '/create', element: <ElectionForm /> },
@@ -204,7 +207,10 @@ describe('M11 create election', () => {
   it('restores a create draft after the form remounts', async () => {
     const user = userEvent.setup()
     renderRoute()
-    await user.type(screen.getByLabelText('Election Title'), 'Reload-safe draft')
+    await user.type(
+      screen.getByLabelText('Election Title'),
+      'Reload-safe draft',
+    )
     await user.type(screen.getByLabelText('Candidate 1'), 'Ada')
     await waitFor(() =>
       expect(window.localStorage.getItem(electionDraftKey())).not.toBeNull(),
@@ -372,15 +378,19 @@ describe('M11 create election', () => {
     expect(router.state.location.pathname).toBe('/dashboard')
   })
 
-  it('explains that a dirty form can be resumed before leaving', async () => {
+  it('lets a dirty form leave without a prompt, keeping the draft (#132)', async () => {
     const user = userEvent.setup()
-    renderRoute()
+    const router = renderRoute()
     await user.type(screen.getByLabelText('Election Title'), 'Draft')
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.getByRole('dialog')).toHaveTextContent(
-      'Draft saved — resume later?',
+    await waitFor(() =>
+      expect(window.localStorage.getItem(electionDraftKey())).not.toBeNull(),
     )
-    expect(screen.getByRole('button', { name: 'Leave' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(router.state.location.pathname).toBe('/dashboard')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(window.localStorage.getItem(electionDraftKey())).not.toBeNull()
   })
 })
 
@@ -537,11 +547,7 @@ describe('M11 edit election', () => {
   })
 
   it('resumes an edit draft based on the same server version', () => {
-    writeElectionDraft(
-      electionDraftKey('e1'),
-      localEdit,
-      election.updated_at,
-    )
+    writeElectionDraft(electionDraftKey('e1'), localEdit, election.updated_at)
     mocks.election = election
     mocks.candidates = candidates
 

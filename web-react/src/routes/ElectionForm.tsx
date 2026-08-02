@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Link,
-  useBlocker,
   useLocation,
   useNavigate,
   useParams,
@@ -21,7 +20,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -128,17 +126,9 @@ function ElectionFormContent({ election }: { election?: Election }) {
   const [initialized, setInitialized] = useState(!editing)
   const [dirty, setDirty] = useState(createDraft != null)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const allowNavigation = useRef(false)
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      !allowNavigation.current &&
-      dirty &&
-      currentLocation.pathname !== nextLocation.pathname,
-  )
 
   useEffect(() => {
-    if (!editing || initialized || !election || !candidatesQuery.data)
-      return
+    if (!editing || initialized || !election || !candidatesQuery.data) return
     const serverForm: FormState = {
       title: election.title,
       description: election.description,
@@ -167,8 +157,7 @@ function ElectionFormContent({ election }: { election?: Election }) {
     writeElectionDraft(draftKey, form, sourceUpdatedAt.current)
   }, [dirty, draftKey, form, initialized])
 
-  const loading =
-    editing && (!initialized || candidatesQuery.isPending)
+  const loading = editing && (!initialized || candidatesQuery.isPending)
   const loadError = editing && candidatesQuery.isError
   const unauthorized = editing && election && election.owner_id !== user?.id
 
@@ -217,9 +206,7 @@ function ElectionFormContent({ election }: { election?: Election }) {
         open,
       })
       clearElectionDraft(draftKey)
-      allowNavigation.current = true
       setDirty(false)
-      blocker.reset?.()
       navigate(`/election/${savedId}`, { replace: true })
     } catch (error) {
       toast.error(
@@ -254,171 +241,136 @@ function ElectionFormContent({ election }: { election?: Election }) {
   }
 
   return (
-    <>
-      <form
-        className="mx-auto max-w-2xl space-y-8"
-        onSubmit={(event) => {
-          event.preventDefault()
-          void submit(true)
-        }}
-      >
-        <div>
-          <H1>{editing ? 'Edit Election' : 'Create Election'}</H1>
-          <Muted className="mt-1">
-            Set up the ballot, candidates, and voting options.
-          </Muted>
-        </div>
+    <form
+      className="mx-auto max-w-2xl space-y-8"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void submit(true)
+      }}
+    >
+      <div>
+        <H1>{editing ? 'Edit Election' : 'Create Election'}</H1>
+        <Muted className="mt-1">
+          Set up the ballot, candidates, and voting options.
+        </Muted>
+      </div>
 
-        <Field data-invalid={!!errors.title}>
-          <FieldLabel htmlFor="title">Election Title</FieldLabel>
-          <Input
-            id="title"
-            value={form.title}
-            aria-invalid={!!errors.title}
-            onChange={(event) => update({ title: event.target.value })}
-          />
-          <FieldError>{errors.title}</FieldError>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="description">Description (optional)</FieldLabel>
-          <Textarea
-            id="description"
-            rows={3}
-            value={form.description ?? ''}
-            onChange={(event) => update({ description: event.target.value })}
-          />
-        </Field>
-
-        <CandidateFields
-          candidates={form.candidates}
-          error={errors.candidates}
-          onChange={(candidates) => update({ candidates })}
+      <Field data-invalid={!!errors.title}>
+        <FieldLabel htmlFor="title">Election Title</FieldLabel>
+        <Input
+          id="title"
+          value={form.title}
+          aria-invalid={!!errors.title}
+          onChange={(event) => update({ title: event.target.value })}
         />
+        <FieldError>{errors.title}</FieldError>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="description">Description (optional)</FieldLabel>
+        <Textarea
+          id="description"
+          rows={3}
+          value={form.description ?? ''}
+          onChange={(event) => update({ description: event.target.value })}
+        />
+      </Field>
 
-        <FieldSet>
-          {/* A <legend> shrink-wraps its content, so it needs an explicit
+      <CandidateFields
+        candidates={form.candidates}
+        error={errors.candidates}
+        onChange={(candidates) => update({ candidates })}
+      />
+
+      <FieldSet>
+        {/* A <legend> shrink-wraps its content, so it needs an explicit
               width before justify-between can push the link to the far edge. */}
-          <FieldLegend className="flex w-full items-baseline justify-between gap-3">
-            <h2>Voting Algorithms</h2>
-            <LearnDialogLink />
-          </FieldLegend>
-          {(['approval', 'irv', 'star'] as VotingAlgorithm[]).map(
-            (algorithm) => (
-              <AlgorithmOption
-                key={algorithm}
-                algorithm={algorithm}
-                checked={form.algorithms.includes(algorithm)}
-                onChange={(checked) =>
-                  update({
-                    algorithms: checked
-                      ? [...form.algorithms, algorithm]
-                      : form.algorithms.filter((value) => value !== algorithm),
-                  })
-                }
-              />
-            ),
-          )}
-          {/* FPTP rides along in this group (#130) but stays bound to its own
+        <FieldLegend className="flex w-full items-baseline justify-between gap-3">
+          <h2>Voting Algorithms</h2>
+          <LearnDialogLink />
+        </FieldLegend>
+        {(['approval', 'irv', 'star'] as VotingAlgorithm[]).map((algorithm) => (
+          <AlgorithmOption
+            key={algorithm}
+            algorithm={algorithm}
+            checked={form.algorithms.includes(algorithm)}
+            onChange={(checked) =>
+              update({
+                algorithms: checked
+                  ? [...form.algorithms, algorithm]
+                  : form.algorithms.filter((value) => value !== algorithm),
+              })
+            }
+          />
+        ))}
+        {/* FPTP rides along in this group (#130) but stays bound to its own
               flag — it never joins `algorithms`, and on its own it does not
               satisfy the validation below. */}
-          <AlgorithmOption
-            algorithm="fptp"
-            checked={form.include_fptp}
-            onChange={(checked) => update({ include_fptp: checked })}
-          />
-          <FieldError>{errors.algorithms}</FieldError>
-        </FieldSet>
+        <AlgorithmOption
+          algorithm="fptp"
+          checked={form.include_fptp}
+          onChange={(checked) => update({ include_fptp: checked })}
+        />
+        <FieldError>{errors.algorithms}</FieldError>
+      </FieldSet>
 
-        <FieldSet>
-          <FieldLegend>
-            <h2>Settings</h2>
-          </FieldLegend>
-          <Setting
-            label="Allow voters to add candidates"
-            description="Participants can suggest new candidates while the election is open"
-            checked={form.allow_voter_candidates}
-            onChange={(value) => update({ allow_voter_candidates: value })}
-          />
-          <Setting
-            label="Show real-time results"
-            description="Results update after each vote"
-            checked={form.realtime_results}
-            onChange={(value) => update({ realtime_results: value })}
-          />
-          <Setting
-            label="Public ballots"
-            description="Anyone in the election can see how each voter voted."
-            checked={form.public_ballots}
-            onChange={(value) => update({ public_ballots: value })}
-          />
-        </FieldSet>
+      <FieldSet>
+        <FieldLegend>
+          <h2>Settings</h2>
+        </FieldLegend>
+        <Setting
+          label="Allow voters to add candidates"
+          description="Participants can suggest new candidates while the election is open"
+          checked={form.allow_voter_candidates}
+          onChange={(value) => update({ allow_voter_candidates: value })}
+        />
+        <Setting
+          label="Show real-time results"
+          description="Results update after each vote"
+          checked={form.realtime_results}
+          onChange={(value) => update({ realtime_results: value })}
+        />
+        <Setting
+          label="Public ballots"
+          description="Anyone in the election can see how each voter voted."
+          checked={form.public_ballots}
+          onChange={(value) => update({ public_ballots: value })}
+        />
+      </FieldSet>
 
-        <div className="flex flex-col gap-3">
-          {/* "Open" starts voting immediately, which nothing else on the
+      <div className="flex flex-col gap-3">
+        {/* "Open" starts voting immediately, which nothing else on the
               screen says. Edit mode has no draft button, so the line would
               describe an action that isn't there. */}
-          {!editing && (
-            <p className="text-sm text-muted-foreground sm:text-right">
-              <strong className="font-medium text-foreground">Open</strong> —
-              voters can start voting right away.{' '}
-              <strong className="font-medium text-foreground">Draft</strong> —
-              keep editing privately.
-            </p>
-          )}
-          {/* Primary last in the DOM: right-most on desktop, and on top on
+        {!editing && (
+          <p className="text-sm text-muted-foreground sm:text-right">
+            <strong className="font-medium text-foreground">Open</strong> —
+            voters can start voting right away.{' '}
+            <strong className="font-medium text-foreground">Draft</strong> —
+            keep editing privately.
+          </p>
+        )}
+        {/* Primary last in the DOM: right-most on desktop, and on top on
               mobile via flex-col-reverse. Same recipe as the shared
               DialogFooter — see the action row convention in
               docs/Migration/Design System.md. */}
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={cancel}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={save.isPending}
-              onClick={() => void submit(false)}
-            >
-              {editing ? 'Save Changes' : 'Save as Draft'}
-            </Button>
-            <Button type="submit" disabled={save.isPending}>
-              {save.isPending && <Spinner className="size-4" />}Save & Open
-            </Button>
-          </div>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={cancel}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={save.isPending}
+            onClick={() => void submit(false)}
+          >
+            {editing ? 'Save Changes' : 'Save as Draft'}
+          </Button>
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending && <Spinner className="size-4" />}Save & Open
+          </Button>
         </div>
-      </form>
-
-      <Dialog
-        open={blocker.state === 'blocked'}
-        onOpenChange={(open) => {
-          if (!open) blocker.reset?.()
-        }}
-      >
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Draft saved — resume later?</DialogTitle>
-            <DialogDescription>
-              Your changes are saved in this browser. You can leave now and
-              continue when you return.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => blocker.reset?.()}>
-              Keep editing
-            </Button>
-            <Button
-              onClick={() => blocker.proceed?.()}
-            >
-              Leave
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      </div>
+    </form>
   )
 }
 
