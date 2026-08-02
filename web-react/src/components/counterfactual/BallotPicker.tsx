@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { ChevronRight, Search, Undo2 } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,7 @@ import {
   RELATION_LABELS,
   availableRelations,
   ballotSummary,
+  candidateMatchCounts,
   changedCandidates,
   filterBallots,
   summarizeChange,
@@ -29,7 +30,16 @@ import { BallotFingerprint } from './BallotFingerprint'
 //
 // The candidate filter offers only the relations the ballots can actually
 // answer (see `availableRelations`) — an approval-only election has no first
-// preference, and inventing one would misreport the voter.
+// preference, and inventing one would misreport the voter. Its chips are ranked
+// by how many ballots each leads to, and carry that count (#133).
+
+// The chips answer a question, and that question is exactly what the relation
+// toggle switches between — so stating it in words labels both controls at once
+// (#133). It doubles as the chip group's accessible name.
+const RELATION_CAPTIONS: Record<BallotRelation, string> = {
+  top: 'Show ballots whose top choice was',
+  approved: 'Show ballots that approved',
+}
 
 /** A pending hypothetical, keyed by voter, as the picker needs to render it. */
 export interface PendingEdit {
@@ -69,6 +79,25 @@ export function BallotPicker({
   )
   const activeRelation = relation ?? relations[0] ?? null
   const editCount = Object.keys(edits).length
+  const captionId = useId()
+
+  // Counted over every ballot, not the searched subset, so the chips hold still
+  // while the reader types. Most-supported first; `sort` is stable, so equal
+  // counts keep the election's own candidate order.
+  const counts = useMemo(
+    () =>
+      activeRelation
+        ? candidateMatchCounts(ballots, activeRelation)
+        : new Map<string, number>(),
+    [ballots, activeRelation],
+  )
+  const ranked = useMemo(
+    () =>
+      [...candidates].sort(
+        (a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0),
+      ),
+    [candidates, counts],
+  )
 
   // The fingerprint encodes three things at once, none of them self-evident.
   // Each clause is offered only when the ballots actually carry that dimension,
@@ -143,36 +172,51 @@ export function BallotPicker({
               ))}
             </div>
           )}
+          <p id={captionId} className="text-[11px] text-muted-foreground">
+            {activeRelation
+              ? RELATION_CAPTIONS[activeRelation]
+              : 'Filter by candidate'}
+          </p>
           <div className="flex flex-wrap items-center gap-1.5">
             <div
               role="group"
-              aria-label={`Filter by ${
-                activeRelation
-                  ? RELATION_LABELS[activeRelation].toLowerCase()
-                  : 'candidate'
-              }`}
+              aria-labelledby={captionId}
               className="flex flex-wrap gap-1.5"
             >
-              {candidates.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  aria-pressed={candidateId === c.id}
-                  onClick={() =>
-                    setCandidateId((current) =>
-                      current === c.id ? null : c.id,
-                    )
-                  }
-                  className={cn(
-                    'rounded-4xl border px-2.5 py-0.5 text-xs font-medium transition-colors motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-                    candidateId === c.id
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border text-foreground hover:bg-muted',
-                  )}
-                >
-                  {c.name}
-                </button>
-              ))}
+              {ranked.map((c) => {
+                const count = counts.get(c.id) ?? 0
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    aria-pressed={candidateId === c.id}
+                    // The count sits in the label rather than being read as part
+                    // of the name: "Ada, 3 ballots", not "Ada 3".
+                    aria-label={`${c.name}, ${count} ${
+                      count === 1 ? 'ballot' : 'ballots'
+                    }`}
+                    onClick={() =>
+                      setCandidateId((current) =>
+                        current === c.id ? null : c.id,
+                      )
+                    }
+                    className={cn(
+                      'rounded-4xl border px-2.5 py-0.5 text-xs font-medium transition-colors motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                      candidateId === c.id
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border text-foreground hover:bg-muted',
+                    )}
+                  >
+                    {c.name}
+                    {/* Parenthesised like the "Changed (n)" chip beside it: a
+                        bare number here reads as a score, since the fingerprint
+                        chips in the rows below pair a name with exactly that. */}
+                    <span aria-hidden className="ml-1 tabular-nums opacity-70">
+                      ({count})
+                    </span>
+                  </button>
+                )
+              })}
             </div>
             {/* Only worth offering once there is something to isolate. A rule
                 marks it as a different axis from the candidate chips. */}

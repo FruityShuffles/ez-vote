@@ -5,6 +5,7 @@ import {
   approvedBy,
   availableRelations,
   ballotSummary,
+  candidateMatchCounts,
   changedCandidates,
   filterBallots,
   matchesRelation,
@@ -98,6 +99,48 @@ describe('matchesRelation', () => {
     expect(matchesRelation(payload, 'top', 'ada')).toBe(false)
     expect(matchesRelation(payload, 'approved', 'ada')).toBe(true)
     expect(matchesRelation(payload, 'approved', 'bo')).toBe(false)
+  })
+})
+
+describe('candidateMatchCounts', () => {
+  const ballots: FilterableBallot[] = [
+    { voter_id: 'v1', display_name: 'Priya', payload: { irv: ['ada', 'bo'], approval: ['ada', 'bo'] } },
+    { voter_id: 'v2', display_name: 'Sam', payload: { irv: ['ada', 'cy'], approval: ['ada'] } },
+    { voter_id: 'v3', display_name: 'Nia', payload: { irv: ['bo', 'ada'], approval: [] } },
+  ]
+
+  it('counts first preferences per candidate', () => {
+    const counts = candidateMatchCounts(ballots, 'top')
+    expect(counts.get('ada')).toBe(2)
+    expect(counts.get('bo')).toBe(1)
+  })
+
+  it('counts every approval on a ballot, not just the first', () => {
+    const counts = candidateMatchCounts(ballots, 'approved')
+    expect(counts.get('ada')).toBe(2)
+    expect(counts.get('bo')).toBe(1)
+  })
+
+  it('leaves out a candidate no ballot reached', () => {
+    expect(candidateMatchCounts(ballots, 'top').has('cy')).toBe(false)
+    expect(candidateMatchCounts(ballots, 'approved').has('cy')).toBe(false)
+  })
+
+  it('counts a STAR top-tie for nobody, as topChoiceOf reports it', () => {
+    const counts = candidateMatchCounts(
+      [{ voter_id: 'v1', display_name: null, payload: { star: { ada: 5, bo: 5 } } }],
+      'top',
+    )
+    expect(counts.size).toBe(0)
+  })
+
+  it('agrees with what the matching filter would return', () => {
+    const counts = candidateMatchCounts(ballots, 'top')
+    for (const id of ['ada', 'bo', 'cy']) {
+      expect(counts.get(id) ?? 0).toBe(
+        filterBallots(ballots, { relation: 'top', candidateId: id }).length,
+      )
+    }
   })
 })
 

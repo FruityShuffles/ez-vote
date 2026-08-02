@@ -108,6 +108,23 @@ label.**
 A "Changed (n)" filter isolates edited ballots, which makes the list itself the
 ledger view.
 
+The candidate chips are **ranked by how many ballots each leads to** and carry
+that count (`candidateMatchCounts`, #133) — the most-supported candidate is the
+one a reader most likely wants to interrogate, and a chip that leads nowhere
+should not sit first. Counts are taken over **every** ballot, not the searched
+subset, so the row cannot re-sort under the reader's hands while they type; the
+consequence is that a count can exceed what a search leaves visible. Ties keep
+the election's own candidate order (`sort` is stable). The count is
+parenthesised — "Bo (4)", like the "Changed (n)" chip beside it — because a bare
+number in a pill reads as a *score* next to the fingerprint chips below it. It is
+`aria-hidden` and restated in each chip's `aria-label` ("Ada, 3 ballots") so it
+is not read as part of the name.
+
+Above the chips sits the sentence they complete — "Show ballots whose top choice
+was" / "Show ballots that approved" — which is also the group's accessible name
+via `aria-labelledby`. It follows the relation toggle, so the toggle explains
+itself instead of relying on an `aria-label` no sighted reader ever sees.
+
 The row is an `<li>` with a stretched name button (`after:inset-0`), not one
 large button — undo has to be a real sibling control, since nesting a button
 inside a button is invalid and unreachable by keyboard.

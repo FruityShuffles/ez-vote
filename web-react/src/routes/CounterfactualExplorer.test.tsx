@@ -133,11 +133,11 @@ describe('counterfactual route containers', () => {
       screen.getByRole('heading', { name: 'Explore what-ifs' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Priya' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Cy' }))
+    await user.click(screen.getByRole('button', { name: /^Cy,/ }))
     expect(
       screen.getByText('No ballots match this filter.'),
     ).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Cy' }))
+    await user.click(screen.getByRole('button', { name: /^Cy,/ }))
     await user.click(screen.getByRole('button', { name: 'Priya' }))
     expect(
       screen.getByRole('heading', { name: "Change Priya's ballot" }),

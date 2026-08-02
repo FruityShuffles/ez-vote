@@ -95,6 +95,33 @@ export function matchesRelation(
     : approvedBy(payload).includes(candidateId)
 }
 
+/**
+ * How many ballots each candidate would filter to under this relation.
+ *
+ * Drives the order of the picker's candidate chips (#133): the most-supported
+ * candidate is the one a reader most likely wants to interrogate, and a chip
+ * that leads nowhere should not sit first. Counted over every ballot in the
+ * election rather than the currently-searched subset, so the chip row does not
+ * re-sort under the reader's hands while they type.
+ */
+export function candidateMatchCounts(
+  ballots: FilterableBallot[],
+  relation: BallotRelation,
+): Map<string, number> {
+  const counts = new Map<string, number>()
+  const bump = (id: string) => counts.set(id, (counts.get(id) ?? 0) + 1)
+
+  for (const { payload } of ballots) {
+    if (relation === 'top') {
+      const top = topChoiceOf(payload)
+      if (top != null) bump(top)
+    } else {
+      for (const id of approvedBy(payload)) bump(id)
+    }
+  }
+  return counts
+}
+
 export interface BallotFilter {
   /** Free-text match against the voter's display name. */
   query?: string

@@ -163,10 +163,10 @@ describe('BallotPicker filters', () => {
 
   it('filters by candidate and clears when the chip is pressed again', async () => {
     renderPicker()
-    const chip = screen.getByRole('button', { name: 'Ada', pressed: false })
+    const chip = screen.getByRole('button', { name: /^Ada,/, pressed: false })
     await userEvent.click(chip)
     expect(screen.queryByRole('button', { name: 'Nia Sorensen' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Ada', pressed: true }))
+    await userEvent.click(screen.getByRole('button', { name: /^Ada,/, pressed: true }))
     expect(screen.getByRole('button', { name: 'Nia Sorensen' })).toBeInTheDocument()
   })
 
@@ -186,5 +186,56 @@ describe('BallotPicker filters', () => {
     renderPicker()
     await userEvent.type(screen.getByRole('searchbox'), 'zzz')
     expect(screen.getByText('No ballots match this filter.')).toBeInTheDocument()
+  })
+})
+
+describe('BallotPicker candidate chips (#133)', () => {
+  // Bo leads on first preferences, Cy is nobody's — so the ranked order differs
+  // from the election's own candidate order (Ada, Bo, Cy).
+  const CONTESTED: FilterableBallot[] = [
+    { voter_id: 'v1', display_name: 'Priya', payload: { irv: ['bo', 'ada', 'cy'], approval: ['bo'] } },
+    { voter_id: 'v2', display_name: 'Nia', payload: { irv: ['bo', 'cy', 'ada'], approval: ['bo', 'cy'] } },
+    { voter_id: 'v3', display_name: 'Sam', payload: { irv: ['ada', 'bo', 'cy'], approval: ['ada'] } },
+  ]
+
+  const chipNames = () =>
+    within(screen.getByRole('group', { name: /^Show ballots/ }))
+      .getAllByRole('button')
+      .map((chip) => chip.getAttribute('aria-label'))
+
+  it('ranks the chips by how many ballots each leads to', () => {
+    renderPicker({ ballots: CONTESTED })
+    expect(chipNames()).toEqual(['Bo, 2 ballots', 'Ada, 1 ballot', 'Cy, 0 ballots'])
+  })
+
+  it('re-ranks for the relation actually being filtered on', async () => {
+    renderPicker({ ballots: CONTESTED })
+    await userEvent.click(screen.getByRole('button', { name: 'Approved' }))
+    // On approvals Cy is no longer a dead end (Bo 2, Ada 1, Cy 1), and the
+    // Ada/Cy tie keeps the election's own candidate order.
+    expect(chipNames()).toEqual(['Bo, 2 ballots', 'Ada, 1 ballot', 'Cy, 1 ballot'])
+  })
+
+  it('says in words what the chips do, and follows the relation toggle', async () => {
+    renderPicker({ ballots: CONTESTED })
+    expect(
+      screen.getByText('Show ballots whose top choice was'),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Approved' }))
+    expect(screen.getByText('Show ballots that approved')).toBeInTheDocument()
+  })
+
+  it('holds the counts steady while a name search narrows the list', async () => {
+    renderPicker({ ballots: CONTESTED })
+    await userEvent.type(screen.getByRole('searchbox'), 'sam')
+    expect(chipNames()).toEqual(['Bo, 2 ballots', 'Ada, 1 ballot', 'Cy, 0 ballots'])
+  })
+
+  it('shows exactly the number of ballots a chip advertises', async () => {
+    renderPicker({ ballots: CONTESTED })
+    await userEvent.click(screen.getByRole('button', { name: 'Bo, 2 ballots' }))
+    expect(screen.getByRole('button', { name: 'Priya' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nia' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sam' })).not.toBeInTheDocument()
   })
 })

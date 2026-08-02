@@ -145,8 +145,8 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
     // Keyboard-only pass through the picker: filter to the owner ballot by its
     // current top choice, then open it.
     const cyFilter = page
-      .getByRole('group', { name: 'Filter by top choice' })
-      .getByRole('button', { name: 'Cy' })
+      .getByRole('group', { name: 'Show ballots whose top choice was' })
+      .getByRole('button', { name: 'Cy,' })
     await cyFilter.focus()
     await page.keyboard.press('Enter')
     await expect(page.getByRole('button', { name: ownerName })).toBeVisible()
