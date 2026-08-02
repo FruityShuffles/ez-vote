@@ -17,6 +17,13 @@ import { cn } from '@/lib/utils'
 // single strength and five weaknesses, plus a `verdict` no other method has,
 // because a symmetric three-and-three read as an even trade-off between four
 // comparable options — which is the opposite of what this page is for.
+//
+// The summary and verdict are about voting, not about EZVote: product framing
+// belongs in `howItWorks` and appears nowhere else on the tab, or the two
+// sections a reader actually remembers get spent explaining a feature toggle
+// instead of indicting the method. Both also stay in plain words — no
+// "plurality", no "majority rule" — and argue from what a one-mark ballot
+// costs the voter holding it, not from FPTP's age or pedigree.
 
 export type AlgoKey = 'approval' | 'irv' | 'star' | 'fptp'
 
@@ -166,7 +173,7 @@ const ALGO_DATA: Record<AlgoKey, AlgoInfo> = {
   fptp: {
     name: 'First Past the Post (FPTP)',
     summary:
-      "First past the post is the method most people already know: pick one candidate, and whoever collects the most votes wins. It is also the status quo that every other method on this page was designed to fix. EZVote doesn't run elections this way — it can only show you what the same ballots would have decided under plurality rules, which is the clearest way to see what the other methods are actually buying you.",
+      'First past the post is the pick-one ballot nearly everyone already knows: mark a single name, and whoever collects the most marks wins. With two people running, that works fine. Add a third and it breaks — two candidates who appeal to the same voters split that support between them, and the win goes to the one most voters were trying to stop.',
     strengths: [
       {
         title: 'Everyone already knows it',
@@ -204,7 +211,7 @@ const ALGO_DATA: Record<AlgoKey, AlgoInfo> = {
     howItWorks:
       'Each voter selects exactly one candidate. After voting closes, the ballots are sorted by candidate and counted, and whoever has the largest pile wins — even if that pile is well short of half the votes. There are no further rounds. In EZVote, FPTP is never the election itself: it is an optional comparison that reinterprets the ballots already cast, taking each voter\'s single first choice so you can see whether plurality rules would have produced a different winner.',
     verdict:
-      "EZVote offers FPTP as a baseline to measure against, not as a method worth choosing. Add it to an election and you get a second answer alongside the real one: what a pick-one ballot would have concluded from the same voters. When that answer matches, the choice was uncontroversial. When it differs — and it often does — the gap is exactly what approval, IRV, or STAR saw on those ballots that plurality rules could not.",
+      'First past the post lets you choose one candidate and nothing more. You know who you want, who you could live with, and who you cannot stand, but only one of those fits on the ballot. So voters give up on choosing their favorite and choose whoever looks likeliest to stop the worst outcome. The result then gets reported as what the voters wanted. Approval, IRV, and STAR have room for all three answers.',
   },
 }
 
@@ -277,7 +284,7 @@ function AlgorithmCard({ info }: { info: AlgoInfo }) {
 
       {info.verdict && (
         <>
-          <SectionHeader>The Bottom Line</SectionHeader>
+          <SectionHeader>The Verdict</SectionHeader>
           <p className="text-sm leading-relaxed text-pretty">{info.verdict}</p>
         </>
       )}

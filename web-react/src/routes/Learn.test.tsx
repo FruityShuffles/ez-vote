@@ -94,25 +94,35 @@ describe('#129 FPTP reads as the baseline, not a fourth option', () => {
     ).toBeVisible()
   })
 
-  it('closes with a bottom line framing FPTP as a comparison baseline', () => {
+  it('closes with a verdict on what a one-mark ballot costs the voter', () => {
     renderLearn('/learn?algo=fptp')
+    expect(screen.getByRole('heading', { name: 'The Verdict' })).toBeVisible()
     expect(
-      screen.getByRole('heading', { name: 'The Bottom Line' }),
-    ).toBeVisible()
-    expect(
-      screen.getByText(/baseline to measure against, not as a method worth/),
+      screen.getByText(/give up on choosing their favorite/),
     ).toBeVisible()
   })
 
-  it('gives no bottom line to the methods EZVote actually recommends', async () => {
+  it('gives no verdict to the methods EZVote actually recommends', async () => {
     const user = userEvent.setup()
     renderLearn('/learn?algo=fptp')
     await user.click(screen.getByRole('tab', { name: 'Approval' }))
     expect(
       screen.getByRole('heading', { name: 'Approval Voting' }),
     ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('heading', { name: 'The Bottom Line' }),
-    ).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'The Verdict' })).toBeNull()
+  })
+
+  // The summary and verdict are the first and last things read, so they are the
+  // two places a product aside does the most damage — and the old copy spent
+  // both on one. Neither may name EZVote, and neither may reach for the jargon
+  // ("plurality", "majority rule") a layman would stumble over.
+  it('keeps the summary and verdict about voting, in plain words', () => {
+    renderLearn('/learn?algo=fptp')
+    const summary = screen.getByText(/^First past the post is the pick-one/)
+    const verdict = screen.getByText(/^First past the post lets you choose one/)
+    for (const copy of [summary, verdict]) {
+      expect(copy.textContent).not.toMatch(/EZVote/)
+      expect(copy.textContent).not.toMatch(/plurality|majority rule/i)
+    }
   })
 })
