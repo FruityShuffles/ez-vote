@@ -144,8 +144,15 @@ underneath you.
 ## The edit ledger
 
 `EditLedger` — edits accumulate across voters. It is what makes a counterfactual
-reversible and legible, and it is where the deferred flip search (**#120**) will
-render its answer: the same shape, filled in by the server rather than by hand.
+reversible and legible, and it is where the flip search (**#120**, now live
+server-side as `find_flip` on `simulate-counterfactual`, IRV-only) will render
+its answer: the same shape, filled in by the server rather than by hand. One
+wiring caveat when that lands: the server returns raw edits to the `irv` payload
+key, and this screen's editor canonicalizes payloads through the derivation
+templates (`useBallotState` — templates that derive the ranking from STAR scores
+would silently discard a raw ranking edit). Server-suggested changes must be
+rendered read-only or translated into template-consistent edits, not loaded
+straight into the editor. See [[Backend/Simulate Counterfactual]].
 
 `variant="summary"` (count + Reset all) on the picker, where rows already carry
 their own diffs; full chips on the editor, where there are no rows to carry them.

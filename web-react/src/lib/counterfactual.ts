@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
 import type { Payload } from '@shared/derive'
+import type { FlipSearchResult } from '@shared/flip'
 
 import type { ResultData } from '@/lib/results'
 import { supabase } from '@/lib/supabase'
@@ -31,6 +32,8 @@ export interface SimulationResponse {
   changed: Record<string, boolean>
   ballot_count: { baseline: number; simulated: number }
   applied: { replace: number; remove: number; add: number }
+  /** IRV flip search (#120). Present only when the request set `find_flip`; no UI sends that flag yet — wiring it into the EditLedger is follow-up work. */
+  flip?: FlipSearchResult
 }
 
 export const SIMULATION_ACCESS_ERROR =

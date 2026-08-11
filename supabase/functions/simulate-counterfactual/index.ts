@@ -20,6 +20,10 @@
 // second copy here that could drift. Consequence: simulation is available only
 // on elections that opted into public ballots.
 //
+// The opt-in flip search (`find_flip`) is pure compute over the data already
+// fetched above — it adds no reads and no privileged key, so the property
+// holds for it too.
+//
 // Deploy: supabase functions deploy simulate-counterfactual --no-verify-jwt
 // (--no-verify-jwt for the same reason as compute-results: the gateway rejects
 // ES256 user JWTs, so identity is verified inside the function.)
@@ -34,6 +38,11 @@ import {
   type SimulationBallot,
   validateOverrides,
 } from "../_shared/counterfactual.ts";
+import {
+  findMinimalFlips,
+  type FlipSearchResult,
+  validateFlipInputs,
+} from "../_shared/flip.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,8 +79,11 @@ serve(async (req: Request) => {
     } = await userClient.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { election_id, overrides = [] } = await req.json();
+    const { election_id, overrides = [], find_flip = false } = await req.json();
     if (!election_id) throw new Error("election_id required");
+    if (typeof find_flip !== "boolean") {
+      throw new Error("find_flip must be a boolean");
+    }
 
     const { data: election, error: electionError } = await userClient
       .from("elections")
@@ -131,11 +143,27 @@ serve(async (req: Request) => {
       simulatedBallots,
     );
 
+    // The flip search runs on the BASELINE ballots, not the overridden copy,
+    // so every reported change is a valid `replace` override against the live
+    // election. `overrides` and `find_flip` may arrive together; the search
+    // deliberately ignores the overrides.
+    let flip: FlipSearchResult | undefined;
+    if (find_flip) {
+      const flipErrors = validateFlipInputs(
+        algorithms,
+        candidates ?? [],
+        baselineBallots,
+      );
+      if (flipErrors.length > 0) throw new Error(flipErrors.join("; "));
+      flip = findMinimalFlips(candidates ?? [], baselineBallots);
+    }
+
     return new Response(
       JSON.stringify({
         election_id,
         baseline,
         simulated,
+        ...(flip !== undefined && { flip }),
         changed: diffWinners(baseline, simulated),
         ballot_count: {
           baseline: baselineBallots.length,

@@ -3,8 +3,8 @@
   // The golden-corpus suite (M2) and the historical export script run here.
   "tasks": {
     // Run the golden-corpus tests: tabulation + ballot derivation, plus the
-    // counterfactual override/validation unit tests.
-    "test": "deno test --allow-read _shared/tabulate.test.ts _shared/derive.test.ts _shared/counterfactual.test.ts",
+    // counterfactual override/validation and flip-search unit tests.
+    "test": "deno test --allow-read _shared/tabulate.test.ts _shared/derive.test.ts _shared/counterfactual.test.ts _shared/flip.test.ts",
     // Regenerate historical fixtures from prod. Requires SUPABASE_URL and
     // SUPABASE_SERVICE_ROLE_KEY in the environment. See fixtures/README.md.
     "export-fixtures": "deno run --allow-net --allow-env --allow-read --allow-write scripts/export-fixtures.ts"

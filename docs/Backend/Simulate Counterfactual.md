@@ -67,7 +67,8 @@ This was accepted knowingly when M20 was built: the site had no active user traf
     { "op": "replace", "voter_id": "uuid", "payload": { /* ... */ } },
     { "op": "remove",  "voter_id": "uuid" },
     { "op": "add",     "payload": { /* hypothetical extra voter */ } }
-  ]
+  ],
+  "find_flip": false  // opt in to the flip search (below); defaults to false
 }
 ```
 
@@ -91,6 +92,7 @@ Rejected with a 400 listing every problem found (not just the first). Rejecting 
 - duplicate ids within an `irv` ranking or `approval` list
 - STAR scores outside integer 0–5 (the bound the ballot UI clamps to)
 - more than 500 overrides
+- `find_flip` that isn't a boolean; `find_flip: true` on an election not tabulated with IRV, or with more than 500 ballots or 20 candidates (the flip-search caps)
 
 ## Response
 
@@ -113,12 +115,52 @@ Rejected with a 400 listing every problem found (not just the first). Rejecting 
 
 Errors return 400 with `{ "error": "..." }`, matching `compute-results`.
 
+## Flip search (`find_flip`)
+
+The rest of the original M20 requirement (#106, shipped as #120): *what is the smallest set of ballot changes that would make some other candidate win?* Setting `find_flip: true` runs a budgeted greedy search (`supabase/functions/_shared/flip.ts`) and adds a `flip` field to the response.
+
+**IRV only.** Approval and FPTP flips are analytically uninteresting — the minimum is readable off the tallies — and STAR is deferred until the approach is proven for IRV. The election must therefore include `irv` in its algorithms. The `flip.algorithms` array shape exists so STAR can be added later without a breaking change.
+
+```jsonc
+"flip": {
+  "tabulations_used": 22, "budget": 400, "budget_exhausted": false,
+  "algorithms": [{
+    "algorithm": "irv",
+    "distance_metric": "irv_adjacent_transposition",
+    "baseline_winners": ["Bob"],
+    "best": "cand-c",              // cheapest flipped target: min k, then min total distance
+    "targets": [{                  // one entry per baseline non-winner
+      "candidate_id": "cand-c", "candidate_name": "Carol",
+      "status": "flipped",         // or "no_flip_found" | "budget_exhausted"
+      "k": 1,                      // ballots changed — an UPPER bound
+      "proven": true,              // true only when k = 1
+      "winners": ["Carol"],        // outcome with the changes applied (shows win vs tie)
+      "changes": [{
+        "voter_id": "uuid",
+        "payload": { "irv": ["cand-a", "cand-c", "cand-b"] },  // a ready-made replace override
+        "distance": 1              // adjacent transpositions from the voter's original ranking
+      }]
+    }]
+  }]
+}
+```
+
+**What the answer means — and honestly does not mean.** The per-target question is *"what makes this candidate a (co-)winner?"* — entering a tie counts, consistent with how `changed` treats a win becoming a tie. It is deliberately narrower than `changed`'s whole-array comparison (a tied baseline collapsing to a sole winner is a change no target describes). Three honesty rules are load-bearing, all forced by IRV's non-monotonicity:
+
+- `k` is an **upper bound**. `proven` is true only when `k = 1` (zero changes cannot unseat the baseline outcome); for `k ≥ 2` a cheaper set the greedy never tried may exist.
+- `no_flip_found` means the heuristic found nothing, **not** that no flip exists. The search only tries promoting the target up ballots; flips reachable only by other edits (e.g. demoting the target on a ballot that already ranks them first) are invisible to it. There is a regression test locking exactly that case.
+- Each change is the voter's original ballot with the target bubbled up just far enough ("ladder-minimized", iterated to a fixed point) — heuristically small, **not proven minimal**.
+
+**Search shape.** Greedy: repeatedly rewrite whichever eligible ballot most props up the current leaders to maximally favor the target, re-tabulating each step via the shared `tabulate()` (no duplicated IRV logic), then minimize each change back toward the voter's original ranking. Only attributable ballots (`voter_id` not null) are ever changed. The search runs on the **baseline** ballots and ignores any `overrides` in the same request, so every reported change is a valid `replace` override against the live election.
+
+**Budget.** All tabulations flow through one gate: a count budget (`MAX_FLIP_TABULATIONS = 400`) backed by a wall-clock deadline (`MAX_FLIP_MS = 750`), sized by benchmark (a worst-case 500×20 tabulation ≈ 1.3 ms, so the full count budget ≈ 530 ms) to stay inside the edge function's ~2 s CPU ceiling. Input caps: `MAX_FLIP_BALLOTS = 500` (equal to the override cap, so any answer is replayable), `MAX_FLIP_CANDIDATES = 20`. Exhaustion is never an error: verified flips are always retained (a flip cut short mid-minimization ships less-minimized changes, still `flipped`), unverified targets report `budget_exhausted`, and the top-level `budget_exhausted` flag says the gate tripped.
+
+**No new exposure, still.** Every `voter_id` in `flip` comes from the same `get_public_ballots` rows this response already returned to this caller; the search adds derived payloads for those voters and nothing else. And it is pure compute over data already fetched — no new reads, no service-role key, so the structural mutation guarantee above is untouched.
+
+**M21 caveat.** The changes are raw payload edits to the `irv` key only. The explorer's ballot editor canonicalizes payloads through derivation templates (`ballotState.ts` / `derive.ts` — templates that derive IRV from STAR scores would discard a raw ranking edit), so the UI must render server-suggested changes read-only or translate them into template-consistent edits. That wiring is follow-up work; see [[Features/Counterfactual Explorer]].
+
 ## Tests
 
-`supabase/functions/_shared/counterfactual.test.ts`, run by `deno task test` and by the `Algorithm golden tests` CI workflow (which already triggers on any change under `supabase/functions/`).
+`supabase/functions/_shared/counterfactual.test.ts` and `_shared/flip.test.ts`, run by `deno task test` and by the `Algorithm golden tests` CI workflow (which already triggers on any change under `supabase/functions/`).
 
-Plain unit tests rather than fixtures: the golden corpus exists to lock *algorithm* behavior, and this module does not touch the algorithms. What it guards is the substitution and validation rules — every rejection above, `applyOverrides` not mutating its input, a null-`voter_id` ballot counting but staying untargetable, and `diffWinners` across a flip, a no-op, and a win-becomes-tie.
-
-## Not implemented: minimum changes to flip
-
-The "smallest set of ballot changes that would alter the winner" search was part of the original M20 issue (#106) and was **split into a follow-up issue**. Open questions recorded there: search strategy (greedy substitution of maximally-favorable ballots vs. exhaustive search over small change sets), the compute budget under the edge function's CPU limit, and the need to report honestly whether a result is *proven* minimal or merely the best found within budget — IRV is non-monotonic, so a greedy answer cannot claim minimality.
+Plain unit tests rather than fixtures: the golden corpus exists to lock *algorithm* behavior, and these modules do not touch the algorithms. `counterfactual.test.ts` guards the substitution and validation rules — every rejection above, `applyOverrides` not mutating its input, a null-`voter_id` ballot counting but staying untargetable, and `diffWinners` across a flip, a no-op, and a win-becomes-tie. `flip.test.ts` guards the search contract, above all its honesty: every `flipped` answer must replay through the overrides path to a real flip, `no_flip_found` is locked against a profile where a flip exists but only via a move the greedy never tries, exhaustion at each phase keeps exactly what was verified, and the fixed-point minimization is locked against a profile where a single sweep returns a larger answer.
