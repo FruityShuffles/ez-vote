@@ -80,22 +80,22 @@ describe('election breadcrumbs', () => {
 
     expect(screen.getByRole('link', { name: 'My Elections' })).toHaveAttribute(
       'href',
-      '/dashboard?tab=owned',
+      '/dashboard?tab=elections',
     )
     expect(screen.getByRole('link', { name: 'Budget Vote' })).toBeInTheDocument()
     expect(screen.getByText('Explore')).toHaveAttribute('aria-current', 'page')
   })
 
-  it('links a participant back to My Votes', () => {
+  it('sends a participant back to the same merged tab as the owner', () => {
     mocks.query = {
       isPending: false,
       data: { owner_id: 'someone-else', title: 'Team Lunch' },
     }
     renderBreadcrumbs('voter')
 
-    expect(screen.getByRole('link', { name: 'My Votes' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'My Elections' })).toHaveAttribute(
       'href',
-      '/dashboard?tab=votes',
+      '/dashboard?tab=elections',
     )
   })
 })

@@ -52,6 +52,7 @@ Owned source under `web-react/src/components/ui/` (added via the shadcn CLI on t
 | `centered-state` | centered loading/error scaffold | create/edit, public ballots, counterfactual explorer |
 | `separator` | `Divider` | auth, forms |
 | `dialog` | `Dialog`/`AlertDialog` | M9/M11/M14 confirmations |
+| `tooltip` | `Tooltip` | dashboard owner/voted status icons |
 | `sonner` (toast) | `SnackBar` | M9/M11/M12 |
 | `typography` (`H1`–`H3`, `Lead`, `Prose`, `Muted`) | `TextTheme` | everywhere |
 | `layout` (`Container`, `Stack`), `app-shell` | `Scaffold` / `AppBar` | M9+ surfaces |
@@ -78,10 +79,11 @@ The desktop/mobile flip is deliberate (resolved in #117): reading order keeps th
 Accessibility is the migration's central justification ([[Migration/Overview]]), so it's a first-class concern here:
 
 - **Semantic HTML + Base UI primitives.** Interactive components (dialog, select, switch, checkbox, radio) ride Base UI, which provides keyboard operability, focus management, and ARIA roles. We style; we don't re-implement those.
+- **Tooltips are never the only channel.** Base UI's tooltip opens on hover and keyboard focus, never on touch, and wires no ARIA between trigger and popup — so `ui/tooltip.tsx` is a purely visual aid. Every icon-only trigger repeats the tooltip text as its own accessible name (`role="img"` + `aria-label`), which is what touch and assistive tech actually get.
 - **Form association.** `Field` + `FieldLabel htmlFor` + `Input id` give every control a programmatic label; `FieldError` is `role="alert"`; invalid controls carry `aria-invalid`.
 - **Visible focus.** All focusable elements show an indigo focus ring (`--ring`) via `focus-visible`.
 - **Pointer affordance.** Tailwind v4's Preflight dropped v3's `button { cursor: pointer }` reset, so `index.css`'s `@layer base` re-adds it for `button`, `summary`, and the control roles (`button`/`tab`/`option`/`radio`/`checkbox`/`switch`), plus labels sitting in a `Field` that holds a toggle. Disabled controls fall back to `default`, except the toggles (checkbox/radio/switch), which say `not-allowed` — Base UI renders those as spans, so they gate on `data-disabled:`, not the `disabled:` variant, which never matches a non-form element. It belongs in the base layer, not per component: utilities outrank `@layer base`, so `cursor-grab` on the drag handle and `disabled:cursor-not-allowed` on the form primitives still win (resolved in #131).
-- **Tested.** `src/components/ui/components.test.tsx` asserts label association, alert semantics, keyboard toggling, disabled handling, and dialog open/Escape/focus-restoration.
+- **Tested.** `src/components/ui/components.test.tsx` asserts label association, alert semantics, keyboard toggling, disabled handling, dialog open/Escape/focus-restoration, and the tooltip's focus-open plus name duplication.
 
 ## Verifying it
 

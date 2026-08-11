@@ -1,31 +1,37 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 
+import { useAuth } from '@/auth/context'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { H1, H2, Muted } from '@/components/ui/typography'
+import { H1, Muted } from '@/components/ui/typography'
 import { Stack } from '@/components/ui/layout'
 import { cn } from '@/lib/utils'
 import { ElectionCard } from '@/components/elections/ElectionCard'
+import type { VoteStatus } from '@/components/elections/ElectionCard'
 import { LearnContent } from '@/routes/Learn'
+import type { Election } from '@/lib/elections'
 import {
   useOwnedElections,
   usePendingInvitations,
   useVotedElections,
 } from '@/lib/elections'
 
-// The election-list dashboard (M9), ported from Flutter `HomeScreen`. Three
-// tabs, matching Flutter: My Elections (owned), My Votes (pending invitations
-// + voted), and Learn (the same static explainer as /learn). No polling: tab
+// The election-list dashboard (M9), ported from Flutter `HomeScreen`. Two tabs:
+// My Elections and Learn (the same static explainer as /learn). No polling: tab
 // switches refetch on demand, realtime is M15.
+//
+// Flutter (and React until #134) split the list into My Elections (owned) and
+// My Votes (invited + voted), which double-listed anything you both created and
+// voted in. One list now carries every election you're involved in, and the
+// owner/voted distinction moved onto the row itself as status icons.
 
-type Tab = 'owned' | 'votes' | 'learn'
+type Tab = 'elections' | 'learn'
 
 export function Dashboard() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const rawTab = params.get('tab')
-  const tab: Tab = isTab(rawTab) ? rawTab : 'owned'
+  const tab = resolveTab(params.get('tab'))
 
   function selectTab(nextTab: Tab) {
     const next = new URLSearchParams(params)
@@ -44,16 +50,10 @@ export function Dashboard() {
 
       <div role="tablist" aria-label="Dashboard sections" className="flex gap-1 border-b">
         <TabButton
-          active={tab === 'owned'}
-          onClick={() => selectTab('owned')}
+          active={tab === 'elections'}
+          onClick={() => selectTab('elections')}
         >
           My Elections
-        </TabButton>
-        <TabButton
-          active={tab === 'votes'}
-          onClick={() => selectTab('votes')}
-        >
-          My Votes
         </TabButton>
         <TabButton
           active={tab === 'learn'}
@@ -63,15 +63,19 @@ export function Dashboard() {
         </TabButton>
       </div>
 
-      {tab === 'owned' && <OwnedElections />}
-      {tab === 'votes' && <VotedElections />}
+      {tab === 'elections' && <MyElections />}
       {tab === 'learn' && <LearnContent />}
     </Stack>
   )
 }
 
-function isTab(value: string | null): value is Tab {
-  return value === 'owned' || value === 'votes' || value === 'learn'
+/**
+ * `owned` and `votes` are the pre-#134 tab values. They still resolve — old
+ * bookmarks and links shared before the merge land on the combined list rather
+ * than an error — as does any unknown value.
+ */
+function resolveTab(value: string | null): Tab {
+  return value === 'learn' ? 'learn' : 'elections'
 }
 
 function TabButton({
@@ -102,69 +106,68 @@ function TabButton({
   )
 }
 
-function OwnedElections() {
-  const { data, isPending, isError } = useOwnedElections()
+/**
+ * Every election the user owns or was invited to, newest first. The three
+ * queries stay separate — they are separate RLS paths, and each is invalidated
+ * by different mutations — and are merged here for display.
+ */
+function MyElections() {
+  const { user } = useAuth()
+  const owned = useOwnedElections()
+  const voted = useVotedElections()
+  const invited = usePendingInvitations()
 
-  if (isPending) return <ListSpinner />
-  if (isError) {
+  // Wait for all three before rendering: a partial list would reorder under the
+  // user as the rest arrive.
+  if (owned.isPending || voted.isPending || invited.isPending) {
+    return <ListSpinner />
+  }
+  if (owned.isError && voted.isError && invited.isError) {
     return (
       <Muted role="alert">Could not load your elections. Please try again.</Muted>
     )
   }
-  if (data.length === 0) {
+
+  const votedList = voted.data ?? []
+  // With either vote-derived query down we can't tell voted from not-voted, so
+  // show no icon rather than a wrong one. Ownership still comes through.
+  const voteStatusKnown = !voted.isError && !invited.isError
+  const votedIds = new Set(votedList.map((e) => e.id))
+
+  const byId = new Map<string, Election>()
+  for (const e of [...(owned.data ?? []), ...votedList, ...(invited.data ?? [])]) {
+    byId.set(e.id, e)
+  }
+  const elections = [...byId.values()].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  )
+
+  if (elections.length === 0) {
     return <Muted>No elections yet. Create one!</Muted>
   }
+
   return (
     <Stack gap={3}>
-      {data.map((e) => (
-        <ElectionCard key={e.id} election={e} deletable />
+      {elections.map((e) => (
+        <ElectionCard
+          key={e.id}
+          election={e}
+          owned={e.owner_id === user?.id}
+          voteStatus={voteStatusKnown ? voteStatus(e, votedIds) : null}
+        />
       ))}
     </Stack>
   )
 }
 
-function VotedElections() {
-  const pending = usePendingInvitations()
-  const voted = useVotedElections()
-
-  if (pending.isPending && voted.isPending) return <ListSpinner />
-
-  const pendingList = pending.data ?? []
-  const votedList = voted.data ?? []
-
-  if (pendingList.length === 0 && votedList.length === 0) {
-    if (pending.isError && voted.isError) {
-      return (
-        <Muted role="alert">Could not load your votes. Please try again.</Muted>
-      )
-    }
-    return <Muted>Elections you vote in will appear here.</Muted>
-  }
-
-  return (
-    <Stack gap={6}>
-      {pendingList.length > 0 && (
-        <section>
-          <H2 className="mb-2 text-base">Pending Invitations</H2>
-          <Stack gap={3}>
-            {pendingList.map((e) => (
-              <ElectionCard key={e.id} election={e} />
-            ))}
-          </Stack>
-        </section>
-      )}
-      {votedList.length > 0 && (
-        <section>
-          {pendingList.length > 0 && <H2 className="mb-2 text-base">Voted</H2>}
-          <Stack gap={3}>
-            {votedList.map((e) => (
-              <ElectionCard key={e.id} election={e} />
-            ))}
-          </Stack>
-        </section>
-      )}
-    </Stack>
-  )
+/**
+ * Voted elections are known outright. "Not voted" is claimed only while the
+ * election is still open — a draft has no ballot to cast, and a closed election
+ * you skipped is history, not a call to action.
+ */
+function voteStatus(election: Election, votedIds: Set<string>): VoteStatus | null {
+  if (votedIds.has(election.id)) return 'voted'
+  return election.status === 'open' ? 'not-voted' : null
 }
 
 function ListSpinner() {

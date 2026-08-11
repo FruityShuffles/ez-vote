@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trash2 } from 'lucide-react'
+import { CircleCheck, CircleDashed, Crown, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { StatusBadge } from '@/components/elections/StatusBadge'
 import { useBallotCount, useDeleteElection } from '@/lib/elections'
 import type { Election } from '@/lib/elections'
@@ -25,13 +30,23 @@ import { cn } from '@/lib/utils'
 // description · "N ballots" · winner-label (closed only) with " · ". Tapping a
 // draft jumps to its edit screen (M11), anything else to the detail screen
 // (M9). Owned elections get a delete affordance with a confirm dialog.
+//
+// Since #134 the dashboard is one merged list, so the card also carries the
+// viewer's relationship to the election as status icons: `owned` (which also
+// gates the delete affordance) and `voteStatus`. `voteStatus` is nullable
+// because it is genuinely unknown on a draft — and because the dashboard
+// suppresses it rather than guess when the voted/invitation queries fail.
+
+export type VoteStatus = 'voted' | 'not-voted'
 
 export function ElectionCard({
   election,
-  deletable = false,
+  owned = false,
+  voteStatus = null,
 }: {
   election: Election
-  deletable?: boolean
+  owned?: boolean
+  voteStatus?: VoteStatus | null
 }) {
   const navigate = useNavigate()
 
@@ -77,11 +92,61 @@ export function ElectionCard({
           )}
         </button>
         <div className="flex shrink-0 items-center gap-1">
+          {owned && (
+            <StatusIcon label="You created this election">
+              <Crown className="size-4 text-muted-foreground" />
+            </StatusIcon>
+          )}
+          {voteStatus === 'voted' && (
+            <StatusIcon label="You've voted">
+              <CircleCheck className="size-4 text-green-600" />
+            </StatusIcon>
+          )}
+          {voteStatus === 'not-voted' && (
+            <StatusIcon label="You haven't voted yet">
+              <CircleDashed className="size-4 text-muted-foreground" />
+            </StatusIcon>
+          )}
           <StatusBadge status={election.status} />
-          {deletable && <DeleteButton election={election} />}
+          {owned && <DeleteButton election={election} />}
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * An icon whose only text is its tooltip. The label is duplicated as the
+ * element's accessible name so the meaning survives where tooltips don't fire —
+ * touch, and assistive tech. Focusable so keyboard users can reach the tooltip
+ * too, even though there is nothing to activate.
+ */
+function StatusIcon({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            role="img"
+            aria-label={label}
+            tabIndex={0}
+            className={cn(
+              'flex size-8 items-center justify-center rounded-md outline-none',
+              'focus-visible:ring-3 focus-visible:ring-ring/50',
+            )}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }
 

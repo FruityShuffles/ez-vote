@@ -16,6 +16,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 // Wiring/a11y tests for the M7 shared components. Base UI guarantees the
 // primitive-level accessibility; these assert *our* composition of it — label
@@ -98,6 +103,33 @@ describe('AuthCard', () => {
     expect(screen.getByRole('link', { name: 'EZVote home' })).toHaveAttribute(
       'href',
       '/',
+    )
+  })
+})
+
+describe('Tooltip', () => {
+  it('opens on focus and repeats its text as the trigger name', async () => {
+    const user = userEvent.setup()
+    render(
+      <Tooltip>
+        <TooltipTrigger
+          render={<span role="img" aria-label="You've voted" tabIndex={0} />}
+        />
+        <TooltipContent>You've voted</TooltipContent>
+      </Tooltip>,
+    )
+
+    // Base UI wires no ARIA between trigger and popup — the popup is a purely
+    // visual channel — so the accessible name is what carries the meaning to
+    // assistive tech, and to touch users who never get a hover.
+    const trigger = screen.getByRole('img', { name: "You've voted" })
+    expect(screen.queryByText("You've voted")).not.toBeInTheDocument()
+
+    await user.tab()
+    expect(trigger).toHaveFocus()
+    expect(await screen.findByText("You've voted")).toHaveAttribute(
+      'data-slot',
+      'tooltip-content',
     )
   })
 })

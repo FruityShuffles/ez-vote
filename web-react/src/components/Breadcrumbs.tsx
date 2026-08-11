@@ -6,7 +6,6 @@ import {
   useParams,
 } from 'react-router-dom'
 
-import { useAuth } from '@/auth/context'
 import type { RouteHandle } from '@/components/AppLayout'
 import { useElection } from '@/lib/elections'
 
@@ -52,7 +51,6 @@ export function Breadcrumbs() {
 
 export function ElectionCrumb({ current }: { current: boolean }) {
   const { id = '' } = useParams<{ id: string }>()
-  const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const election = useElection(id)
@@ -65,9 +63,8 @@ export function ElectionCrumb({ current }: { current: boolean }) {
     )
   }
 
-  const owned = election.data?.owner_id === user?.id
-  const dashboardLabel = owned ? 'My Elections' : 'My Votes'
-  const dashboardTarget = `/dashboard?tab=${owned ? 'owned' : 'votes'}`
+  // One dashboard tab since #134, so the top crumb no longer branches on
+  // ownership — owner and participant return to the same list.
   const title = election.data?.title ?? 'Election'
   const publicBallot = location.pathname.includes('/ballot/')
   const electionTarget = publicBallot
@@ -77,8 +74,11 @@ export function ElectionCrumb({ current }: { current: boolean }) {
   return (
     <>
       <li>
-        <Link to={dashboardTarget} className="hover:text-foreground hover:underline">
-          {dashboardLabel}
+        <Link
+          to="/dashboard?tab=elections"
+          className="hover:text-foreground hover:underline"
+        >
+          My Elections
         </Link>
       </li>
       <li className="flex items-center gap-2">

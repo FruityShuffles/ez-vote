@@ -86,11 +86,11 @@ The route table is nested without changing any URL. `RootLayout` wraps every rou
 
 The authenticated app bar is global but deliberately limited to **Settings** and **Sign out**. **New Election** remains dashboard-only so it never appears during a ballot or edit flow. Route `handle.width` values set the content container width (`sm` ballot, `md` standard, `lg` explorer) while the app-bar container remains `lg`; global navigation therefore does not narrow with route content.
 
-Returnable UI state is addressable. Dashboard selection uses `?tab=owned|votes|learn` (unknown values render `owned`), and the submitted-voters dialog on an election overview uses `?voters=open`. Both preserve unrelated parameters. Public-ballot links and paging carry an explicit `location.state.from = 'voters'` marker so Back returns to the open dialog without adding a ballot/overview loop; cold ballot deep links replace to the concrete `?voters=open` overview.
+Returnable UI state is addressable. Dashboard selection uses `?tab=elections|learn` (anything else — including the pre-#134 `owned` and `votes` values still sitting in old bookmarks — resolves to `elections`), and the submitted-voters dialog on an election overview uses `?voters=open`. Both preserve unrelated parameters. Public-ballot links and paging carry an explicit `location.state.from = 'voters'` marker so Back returns to the open dialog without adding a ballot/overview loop; cold ballot deep links replace to the concrete `?voters=open` overview.
 
 `election/:id` is a gate-free namespace. Its `join` child sits directly beneath the namespace so the join RPC can run before RLS grants election-read access. A sibling pathless `ElectionWorkspace` gates every display child (`index`, `vote`, `edit`, public ballot, and explorer) on `useElection(id)`, then provides the resolved election through outlet context; candidates remain child-owned and `useElectionRealtime` remains detail-only.
 
-Breadcrumbs are derived from matched route handles in `AppLayout`. The workspace match owns the subscribed election crumb (and therefore never appears on `/join`); deeper handles add the current page and content width. The top crumb derives from ownership on a cold URL — **My Elections** for the owner, **My Votes** for participants — while the final crumb carries `aria-current="page"`. Public-ballot breadcrumb navigation honors the same marked-history/cold-link fallback as the voters flow.
+Breadcrumbs are derived from matched route handles in `AppLayout`. The workspace match owns the subscribed election crumb (and therefore never appears on `/join`); deeper handles add the current page and content width. The top crumb is always **My Elections**, since owner and participant now return to the same merged tab, while the final crumb carries `aria-current="page"`. Public-ballot breadcrumb navigation honors the same marked-history/cold-link fallback as the voters flow.
 
 | Path | Route component | Access |
 |---|---|---|
@@ -132,7 +132,7 @@ Production screen modules are route-lazy; only the root/app layouts, auth guard,
 | `Login.tsx` | Email/password sign-in + Google OAuth |
 | `Signup.tsx` | Email/password/display name + OTP verification |
 | `ForgotPassword.tsx` | Two-stage OTP password recovery |
-| `Dashboard.tsx` | 3-tab dashboard: My Elections, My Votes, Learn |
+| `Dashboard.tsx` | 2-tab dashboard: My Elections (everything you own or were invited to, with owner/voted status icons), Learn |
 | `ElectionForm.tsx` | Create or edit an election (algorithms, candidates, feature flags) |
 | `Ballot.tsx` | Vote interface — 7 templates |
 | `PublicBallot.tsx` | Read-only view of another voter's ballot |
