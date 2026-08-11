@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { BallotPicker } from '@/components/counterfactual/BallotPicker'
@@ -506,7 +506,18 @@ export function CounterfactualBallotEditor({
     existingPayload: seedPayload,
   })
   const { getPayload } = ballot
-  const reportChange = useCallback(() => {
+  // Report on mount and whenever the *user* changes the ballot — `getPayload`'s
+  // identity tracks the editor state and nothing else. The other inputs are read
+  // through a ref on purpose (#136): reacting to them re-runs the report on
+  // unrelated re-renders, and in particular an undo-from-the-ledger clears the
+  // store, re-renders this still-mounted editor, and would resurrect the edit
+  // from the editor's own state before navigation unmounts it.
+  const report = useRef({ seedPayload, originalPayload, onChange, source })
+  useEffect(() => {
+    report.current = { seedPayload, originalPayload, onChange, source }
+  })
+  useEffect(() => {
+    const { seedPayload, originalPayload, onChange, source } = report.current
     const payload = getPayload()
     if (
       !payloadsEqual(payload, seedPayload) ||
@@ -514,9 +525,7 @@ export function CounterfactualBallotEditor({
     ) {
       onChange(source.voter_id, originalPayload, payload)
     }
-  }, [getPayload, onChange, originalPayload, seedPayload, source.voter_id])
-
-  useEffect(() => reportChange(), [reportChange])
+  }, [getPayload])
 
   return (
     <HypotheticalBallot

@@ -193,7 +193,13 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
     await undo.focus()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(`/election/${electionId}/explore`)
-    await expect(page.getByText('The real result')).toBeVisible()
+    // The rail heading, not getByText('The real result') — that text is a
+    // substring of the always-present "The real results are unchanged."
+    // subtitle, which let an undo that silently failed slip through (#136).
+    await expect(
+      page.getByRole('heading', { name: 'The real result' }),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reset all' })).toBeHidden()
     await expect(
       page.getByRole('status', { name: 'Updating results' }),
     ).toBeHidden({ timeout: 20_000 })

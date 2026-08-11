@@ -259,6 +259,29 @@ describe('counterfactual route containers', () => {
     ])
   })
 
+  it('undoing the open ballot from the editor ledger removes the edit for good', async () => {
+    // #136: the store clears before navigation unmounts the editor, and the
+    // editor's report effect must not resurrect the edit from its own state.
+    const user = userEvent.setup()
+    const original = { irv: ['ada', 'bo', 'cy'] }
+    useCounterfactualStore.getState().selectElection('e1')
+    useCounterfactualStore
+      .getState()
+      .recordEdit('v1', original, { irv: ['cy', 'ada', 'bo'] })
+
+    renderRoutes('/election/e1/explore/v1')
+
+    await user.click(
+      screen.getByRole('button', {
+        name: "Undo the change to Priya's ballot",
+      }),
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Explore what-ifs' }),
+    ).toBeInTheDocument()
+    expect(useCounterfactualStore.getState().edits).toEqual({})
+  })
+
   it('rejects a direct route when the privacy/status gate is not met', () => {
     mocks.useElection.mockReturnValue({
       data: { ...election, public_ballots: false },
