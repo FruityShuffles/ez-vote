@@ -144,15 +144,10 @@ underneath you.
 ## The edit ledger
 
 `EditLedger` — edits accumulate across voters. It is what makes a counterfactual
-reversible and legible, and it is where the flip search (**#120**, now live
-server-side as `find_flip` on `simulate-counterfactual`, IRV-only) will render
-its answer: the same shape, filled in by the server rather than by hand. One
-wiring caveat when that lands: the server returns raw edits to the `irv` payload
-key, and this screen's editor canonicalizes payloads through the derivation
-templates (`useBallotState` — templates that derive the ranking from STAR scores
-would silently discard a raw ranking edit). Server-suggested changes must be
-rendered read-only or translated into template-consistent edits, not loaded
-straight into the editor. See [[Backend/Simulate Counterfactual]].
+reversible and legible, and it is the surface the flip search (below) renders
+its answers into: the same chip shape, filled in by the server rather than by
+hand. Server-sourced entries carry `source: 'flip'` and render with a sparkle
+icon and a "suggested" label.
 
 `variant="summary"` (count + Reset all) on the picker, where rows already carry
 their own diffs; full chips on the editor, where there are no rows to carry them.
@@ -160,6 +155,58 @@ their own diffs; full chips on the editor, where there are no rows to carry them
 The ledger lives in `lib/counterfactualStore.ts`, a small Zustand store scoped to
 one election id. It survives navigation between picker and editor, and selecting
 a different election clears it before any new override payload is constructed.
+
+## The flip search (#120 server, #135 UI)
+
+`FlipSearchPanel` on the picker screen answers "what would it take to make
+someone else the IRV winner?" via the server's `find_flip` search
+([[Backend/Simulate Counterfactual]]). Design decisions:
+
+- **User-initiated, never automatic.** The search costs up to ~500 ms of server
+  compute and most sessions never need it, so it runs from a "Run the search"
+  button. `useFlipSearch` in `lib/counterfactual.ts` is a separate query from
+  `useSimulate` (`staleTime: Infinity` — the election is closed, so the answer
+  never goes stale; and folding `find_flip` into the debounced simulate query
+  would rerun the search on every ballot edit).
+- **Honesty copy mirrors the server contract** (`flipTargetHeadline`):
+  "smallest possible change" only when `proven` (k = 1); otherwise "best found …
+  a smaller set may exist"; `no_flip_found` says a flip may still exist, never
+  "impossible"; `budget_exhausted` blames the search's budget, not the election;
+  multiple `winners` reads as *ties for the IRV win*, never *wins*. Targets are
+  sorted cheapest-first (k, then total distance); the `best` target gets the
+  indigo `--primary` ring and a "Cheapest found" tag — amber stays reserved for
+  winner/tie.
+- **Changes render read-only** in the ledger's chip shape via `summarizeChange`,
+  with per-ballot distance in metric units ("2 swaps" —
+  `irv_adjacent_transposition`).
+- **Applying replaces the whole ledger.** `applyFlipChanges` installs the change
+  set verbatim as `replace` overrides (the round trip the server's tests
+  guarantee) and marks the voters in `flipApplied`. Replacement rather than
+  merge is deliberate: the search ran on the baseline ballots, so only the
+  unmixed set is guaranteed to show the flip through the normal simulate path.
+  The button label carries the consent — "Replace my changes with these" when
+  the ledger is non-empty. A staleness note appears whenever pending edits
+  exist: the answer is relative to the real election, not the current what-if
+  state.
+- **The canonicalization trap.** The server returns raw edits to the `irv`
+  payload key, and this screen's editor canonicalizes payloads through the
+  derivation templates — templates that derive the ranking from STAR scores
+  would silently discard a raw ranking edit *on mount*, before the user touches
+  anything. So a server suggestion never enters the editor: opening a
+  flip-marked voter's ballot seeds from the **original** (with a one-line
+  notice), leaving the suggestion untouched in the store. The first manual edit
+  wins — `recordEdit` replaces the payload and drops the `flipApplied` marker.
+  Template-consistent translation of suggestions remains out of scope.
+- **Gating.** The panel renders only when `algorithms` includes `irv` (the
+  endpoint 400s otherwise). Within that, the server's input caps (500 ballots,
+  20 candidates — mirrored as `FLIP_MAX_*` constants, not imported, to keep the
+  shared tabulator out of the entry bundle) are pre-checked client-side and
+  explained in place; the raw 400 text remains the error-state backstop.
+
+One accepted rough edge: chip phrases diff the server payload against the
+canonicalised original, so a legacy non-canonical stored payload could produce
+spurious non-IRV phrases. Real ballots are built by `buildSubmitPayload`, so in
+practice the diff is IRV-only.
 
 ## Two traps
 
@@ -213,6 +260,8 @@ Both design routes are lazy-loaded so its browser-side shared tabulator stays ou
 of the production entry bundle.
 
 `e2e/counterfactual-explorer.spec.ts` covers the authenticated two-screen flow,
-an edit that changes only IRV's winners, undo, keyboard activation, and reduced
-motion. It snapshots stored `results` rows and public ballot payloads before the
-hypothetical edit and asserts both are structurally identical afterward.
+an edit that changes only IRV's winners, undo, keyboard activation, reduced
+motion, and the flip search (run → honest per-target answers → apply → the rail
+shows the flip). It snapshots stored `results` rows and public ballot payloads
+before the hypothetical edit and asserts both are structurally identical
+afterward.

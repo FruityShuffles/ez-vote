@@ -79,7 +79,7 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
   page,
   browser,
 }) => {
-  test.setTimeout(90_000)
+  test.setTimeout(120_000)
   const title = `E2E what-if ${Date.now()}`
   const electionId = await createOpenApprovalElection(page, {
     title,
@@ -198,8 +198,37 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
       page.getByRole('status', { name: 'Updating results' }),
     ).toBeHidden({ timeout: 20_000 })
 
+    // The flip search (#135): user-initiated, honest about k = 1 minimality,
+    // and applying an answer routes it through the normal simulate path.
+    const flipPanel = page.getByRole('region', { name: 'Flip the outcome' })
+    await expect(flipPanel).toBeVisible()
+    await flipPanel.getByRole('button', { name: 'Run the search' }).click()
+    await expect(flipPanel.getByText(/^As voted, /)).toBeVisible({
+      timeout: 20_000,
+    })
+    // Two ballots, three candidates: a single-ballot promotion always flips
+    // some non-winner, and k = 1 is the one provably minimal case.
+    await expect(
+      flipPanel.getByText(/Change 1 ballot and .+ the smallest possible change\./),
+    ).toBeVisible()
+
+    await flipPanel
+      .getByRole('button', { name: 'Try these changes' })
+      .first()
+      .click()
+    await expect(flipPanel.getByText(/^Applied —/)).toBeVisible()
+    await expect(irvStrip).toHaveAttribute('data-changed', 'true', {
+      timeout: 20_000,
+    })
+
+    // Clear the applied suggestion and let the baseline simulation settle.
+    await page.getByRole('button', { name: 'Reset all' }).click()
+    await expect(
+      page.getByRole('status', { name: 'Updating results' }),
+    ).toBeHidden({ timeout: 20_000 })
+
     // The endpoint has no write credential: prove both persisted surfaces are
-    // byte-for-structure identical after simulation and undo.
+    // byte-for-structure identical after simulation, undo, and the flip search.
     const after = await storedState(db, electionId)
     expect(after.results).toEqual(before.results)
     expect(after.ballots).toEqual(before.ballots)

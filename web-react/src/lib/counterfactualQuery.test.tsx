@@ -6,10 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   SIMULATION_ACCESS_ERROR,
+  useFlipSearch,
   useSimulate,
   type BallotOverride,
   type SimulationResponse,
 } from '@/lib/counterfactual'
+import type { FlipSearchResult } from '@shared/flip'
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }))
 
@@ -147,5 +149,112 @@ describe('useSimulate', () => {
     })
     await waitFor(() => expect(second.result.current.isError).toBe(true))
     expect(second.result.current.error?.message).toBe(SIMULATION_ACCESS_ERROR)
+  })
+})
+
+const flipResult: FlipSearchResult = {
+  algorithms: [
+    {
+      algorithm: 'irv',
+      distance_metric: 'irv_adjacent_transposition',
+      baseline_winners: ['Ada'],
+      best: 'cand-bo',
+      targets: [
+        {
+          candidate_id: 'cand-bo',
+          candidate_name: 'Bo',
+          status: 'flipped',
+          k: 1,
+          proven: true,
+          winners: ['Bo'],
+          changes: [
+            { voter_id: 'v1', payload: { irv: ['bo', 'ada'] }, distance: 1 },
+          ],
+        },
+      ],
+    },
+  ],
+  tabulations_used: 5,
+  budget: 400,
+  budget_exhausted: false,
+}
+
+describe('useFlipSearch', () => {
+  it('does nothing until enabled, then sends find_flip with no overrides', async () => {
+    mocks.invoke.mockResolvedValue({
+      data: { ...response, flip: flipResult },
+      error: null,
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useFlipSearch('e1', enabled),
+      { initialProps: { enabled: false }, wrapper: wrapper(client) },
+    )
+
+    expect(mocks.invoke).not.toHaveBeenCalled()
+
+    rerender({ enabled: true })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mocks.invoke).toHaveBeenCalledExactlyOnceWith(
+      'simulate-counterfactual',
+      { body: { election_id: 'e1', overrides: [], find_flip: true } },
+    )
+    expect(result.current.data).toEqual(flipResult)
+  })
+
+  it('serves later mounts from cache — the search never reruns', async () => {
+    mocks.invoke.mockResolvedValue({
+      data: { ...response, flip: flipResult },
+      error: null,
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const first = renderHook(() => useFlipSearch('e1', true), {
+      wrapper: wrapper(client),
+    })
+    await waitFor(() => expect(first.result.current.isSuccess).toBe(true))
+    first.unmount()
+
+    const second = renderHook(() => useFlipSearch('e1', true), {
+      wrapper: wrapper(client),
+    })
+    await waitFor(() => expect(second.result.current.isSuccess).toBe(true))
+    expect(mocks.invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('surfaces the server cap message verbatim', async () => {
+    const context = {
+      json: vi.fn().mockResolvedValueOnce({
+        error: 'too many ballots for flip search (max 500)',
+      }),
+    }
+    mocks.invoke.mockResolvedValueOnce({ data: null, error: { context } })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(() => useFlipSearch('e1', true), {
+      wrapper: wrapper(client),
+    })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.error?.message).toBe(
+      'too many ballots for flip search (max 500)',
+    )
+  })
+
+  it('treats a response without a flip block as an error', async () => {
+    mocks.invoke.mockResolvedValueOnce({ data: response, error: null })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(() => useFlipSearch('e1', true), {
+      wrapper: wrapper(client),
+    })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.error?.message).toBe(
+      'Could not run the flip search. Please try again.',
+    )
   })
 })

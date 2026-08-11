@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
 import type { Payload } from '@shared/derive'
-import type { FlipSearchResult } from '@shared/flip'
+import type { FlipSearchResult, FlipTarget } from '@shared/flip'
 
 import type { ResultData } from '@/lib/results'
 import { supabase } from '@/lib/supabase'
@@ -32,9 +32,16 @@ export interface SimulationResponse {
   changed: Record<string, boolean>
   ballot_count: { baseline: number; simulated: number }
   applied: { replace: number; remove: number; add: number }
-  /** IRV flip search (#120). Present only when the request set `find_flip`; no UI sends that flag yet — wiring it into the EditLedger is follow-up work. */
+  /** IRV flip search (#120). Present only when the request set `find_flip`; `useFlipSearch` is the one caller that does. */
   flip?: FlipSearchResult
 }
+
+// Mirrors of MAX_FLIP_BALLOTS / MAX_FLIP_CANDIDATES in
+// `supabase/functions/_shared/flip.ts`. Kept as literals because `@shared/flip`
+// value-imports the shared tabulator, which is deliberately confined to lazy
+// routes — importing the constants would pull it into the entry bundle.
+export const FLIP_MAX_BALLOTS = 500
+export const FLIP_MAX_CANDIDATES = 20
 
 export const SIMULATION_ACCESS_ERROR =
   'This election could not be found, or you are not a participant.'
@@ -104,6 +111,63 @@ export function useSimulate(
       return data as SimulationResponse
     },
   })
+}
+
+/**
+ * The user-initiated "what would it take to flip the outcome?" search.
+ *
+ * Deliberately separate from `useSimulate`: the answer depends only on the
+ * election's baseline ballots (the server ignores overrides when searching), so
+ * folding `find_flip` into the debounced simulate query would rerun a ~500 ms
+ * server-side search on every ballot edit and split the cache. The election is
+ * closed, so once computed the answer never goes stale.
+ */
+export function useFlipSearch(electionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['flip-search', electionId],
+    enabled: enabled && electionId !== '',
+    staleTime: Infinity,
+    retry: false,
+    queryFn: async (): Promise<FlipSearchResult> => {
+      const { data, error } = await supabase.functions.invoke(
+        'simulate-counterfactual',
+        { body: { election_id: electionId, overrides: [], find_flip: true } },
+      )
+      if (error) throw await simulationError(error)
+      const flip = (data as SimulationResponse).flip
+      if (flip == null) {
+        throw new Error('Could not run the flip search. Please try again.')
+      }
+      return flip
+    },
+  })
+}
+
+/**
+ * The one-line answer for a flip-search target, honest about what the server
+ * proved. The search's honesty contract carries through to the copy: `k` is an
+ * upper bound, so "smallest possible" appears only when `proven` (k = 1, the
+ * sole provable case); `no_flip_found` means the heuristic found nothing, never
+ * that no flip exists; and entering a tie is called a tie, never a win.
+ */
+export function flipTargetHeadline(target: FlipTarget): string {
+  const name = target.candidate_name
+  switch (target.status) {
+    case 'no_flip_found':
+      return `No flip found for ${name}. This search can't try every possible change, so a flip may still exist.`
+    case 'budget_exhausted':
+      return `The search ran out of budget before finishing ${name}.`
+  }
+  const others = (target.winners ?? []).filter((winner) => winner !== name)
+  const outcome =
+    others.length > 0
+      ? `${name} ties for the IRV win with ${joinNames(others)}`
+      : `${name} wins IRV`
+  if (target.proven) {
+    return `Change 1 ballot and ${outcome} — the smallest possible change.`
+  }
+  const count = target.k === 1 ? '1 ballot' : `${target.k} ballots`
+  return `Best found: change ${count} and ${outcome}. A smaller set may exist.`
 }
 
 /**

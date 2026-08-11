@@ -1,4 +1,4 @@
-import { RotateCcw, X } from 'lucide-react'
+import { RotateCcw, Sparkles, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils'
 // The edit ledger (M21): every hypothetical change made so far, removable.
 //
 // It is what makes a counterfactual reversible and legible instead of a state
-// you can get lost in, and it is the surface the deferred "minimum changes to
-// flip the outcome" search (#120) will render its answer into — the same shape,
-// filled in by the server rather than by hand.
+// you can get lost in. Server-suggested changes from the "minimum changes to
+// flip the outcome" search (#120/#135) land here too — the same shape, filled
+// in by the server rather than by hand, marked `source: 'flip'`.
 
 export interface LedgerEntry {
   voterId: string
@@ -16,6 +16,8 @@ export interface LedgerEntry {
   /** Short phrases from `summarizeChange`; empty for a removed ballot. */
   phrases: string[]
   op: 'replace' | 'remove'
+  /** `'flip'` when the change is a verbatim server flip-search suggestion. */
+  source?: 'flip'
 }
 
 interface EditLedgerProps {
@@ -107,7 +109,16 @@ function ChipLabel({
 
   const text = (
     <>
+      {entry.source === 'flip' && (
+        <Sparkles
+          className="mr-1 inline size-3 align-[-0.125em] text-muted-foreground"
+          aria-hidden
+        />
+      )}
       <span className="font-medium">{entry.voterName}</span>
+      {entry.source === 'flip' && (
+        <span className="text-muted-foreground"> · suggested</span>
+      )}
       <span className="text-muted-foreground"> · {summary}</span>
       {extra > 0 && (
         <span className="text-muted-foreground"> +{extra} more</span>

@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   useCandidates: vi.fn(),
   usePublicBallots: vi.fn(),
   useSimulate: vi.fn(),
+  useFlipSearch: vi.fn(),
 }))
 
 vi.mock('@/lib/elections', async (importOriginal) => ({
@@ -29,6 +30,7 @@ vi.mock('@/lib/elections', async (importOriginal) => ({
 vi.mock('@/lib/counterfactual', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/counterfactual')>()),
   useSimulate: mocks.useSimulate,
+  useFlipSearch: mocks.useFlipSearch,
 }))
 
 const election: Election = {
@@ -93,7 +95,11 @@ function renderRoutes(initial: string) {
 }
 
 beforeEach(() => {
-  useCounterfactualStore.setState({ electionId: null, edits: {} })
+  useCounterfactualStore.setState({
+    electionId: null,
+    edits: {},
+    flipApplied: {},
+  })
   mocks.useElection.mockReturnValue({
     data: election,
     isPending: false,
@@ -121,6 +127,13 @@ beforeEach(() => {
     isPending: false,
     isError: false,
     isFetching: false,
+  })
+  mocks.useFlipSearch.mockReturnValue({
+    data: undefined,
+    error: null,
+    isError: false,
+    isFetching: false,
+    refetch: vi.fn(),
   })
 })
 
@@ -162,6 +175,88 @@ describe('counterfactual route containers', () => {
       .map((node) => node.textContent)
     expect(names).toEqual(['Ada', 'Cy', 'Bo'])
     expect(screen.getByText('Changed ballot')).toBeInTheDocument()
+  })
+
+  it('offers the flip search only for IRV elections', () => {
+    renderRoutes('/election/e1/explore')
+    expect(
+      screen.getByRole('region', { name: 'Flip the outcome' }),
+    ).toBeInTheDocument()
+  })
+
+  it('hides the flip search when the election is not tabulated with IRV', () => {
+    mocks.useElection.mockReturnValue({
+      data: { ...election, algorithms: ['approval'] },
+      isPending: false,
+      isError: false,
+    })
+    renderRoutes('/election/e1/explore')
+    expect(
+      screen.queryByRole('region', { name: 'Flip the outcome' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps a server flip suggestion intact when its ballot is opened, until a manual edit replaces it', async () => {
+    // A STAR+IRV election uses derivation template F: the editor rederives the
+    // irv key from scores, so a server payload seeded into it would be mangled
+    // on mount. The route must seed flip-marked voters from the original.
+    const user = userEvent.setup()
+    mocks.useElection.mockReturnValue({
+      data: { ...election, algorithms: ['irv', 'star'] },
+      isPending: false,
+      isError: false,
+    })
+    mocks.usePublicBallots.mockReturnValue({
+      data: [
+        {
+          voter_id: 'v1',
+          display_name: 'Priya',
+          payload: {
+            star: { ada: 5, bo: 3, cy: 1 },
+            irv: ['ada', 'bo', 'cy'],
+          },
+          updated_at: '',
+        },
+      ],
+      isPending: false,
+      isError: false,
+    })
+    // The server's suggestion: only the irv key rewritten, scores untouched —
+    // exactly what the editor's template would discard.
+    const suggested = {
+      star: { ada: 5, bo: 3, cy: 1 },
+      irv: ['cy', 'ada', 'bo'],
+    }
+    useCounterfactualStore.getState().selectElection('e1')
+    useCounterfactualStore
+      .getState()
+      .applyFlipChanges([{ voterId: 'v1', payload: suggested }])
+
+    renderRoutes('/election/e1/explore/v1')
+
+    // Opening the editor must not touch the suggestion.
+    expect(
+      screen.getByText(/A suggested change to this ballot is active/),
+    ).toBeInTheDocument()
+    expect(useCounterfactualStore.getState().edits.v1).toEqual(suggested)
+    expect(useCounterfactualStore.getState().flipApplied).toEqual({ v1: true })
+
+    // The full ledger labels the server-sourced chip.
+    const ledger = screen.getByRole('region', { name: 'Your changes' })
+    expect(within(ledger).getByText(/· suggested/)).toBeInTheDocument()
+
+    // A manual edit wins: the suggestion is replaced and the marker drops.
+    await user.click(
+      within(
+        screen.getByRole('radiogroup', { name: 'Score for Cy' }),
+      ).getByRole('radio', { name: '4' }),
+    )
+    expect(useCounterfactualStore.getState().flipApplied).toEqual({})
+    expect(useCounterfactualStore.getState().edits.v1?.irv).toEqual([
+      'ada',
+      'cy',
+      'bo',
+    ])
   })
 
   it('rejects a direct route when the privacy/status gate is not met', () => {
