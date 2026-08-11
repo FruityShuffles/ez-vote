@@ -144,9 +144,13 @@ function FlipResults({
 
   return (
     <div className="mt-2">
-      <p className="text-sm">
-        As voted, {joinNames(irv.baseline_winners)} wins IRV.
-      </p>
+      {irv.baseline_winners.length > 0 && (
+        <p className="text-sm">
+          {irv.baseline_winners.length > 1
+            ? `As voted, ${joinNames(irv.baseline_winners)} tie for the IRV win.`
+            : `As voted, ${irv.baseline_winners[0]} wins IRV.`}
+        </p>
+      )}
       {hasEdits && (
         <p className="mt-1 text-xs text-muted-foreground">
           Computed from the ballots as actually voted — your current what-ifs

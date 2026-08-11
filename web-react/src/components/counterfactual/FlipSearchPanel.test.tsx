@@ -183,6 +183,20 @@ describe('FlipSearchPanel', () => {
     ).toBeInTheDocument()
   })
 
+  it('states the baseline in the right number: one winner wins, several tie', () => {
+    renderPanel({ result: RESULT, requested: true })
+    expect(screen.getByText('As voted, Ada wins IRV.')).toBeInTheDocument()
+  })
+
+  it('calls a tied baseline a tie', () => {
+    const tied = structuredClone(RESULT)
+    tied.algorithms[0].baseline_winners = ['Bo', 'Cy']
+    renderPanel({ result: tied, requested: true })
+    expect(
+      screen.getByText('As voted, Bo and Cy tie for the IRV win.'),
+    ).toBeInTheDocument()
+  })
+
   it('surfaces errors and keeps the search offerable', () => {
     renderPanel({ error: new Error('too many ballots for flip search (max 500)'), requested: true })
     expect(screen.getByRole('alert')).toHaveTextContent(
