@@ -19,13 +19,16 @@
 // Adding a case study = drop a JSON fixture in scripts/case-studies/ and re-run.
 //
 // Usage (from supabase/functions/):
-//   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... deno task seed-case-studies
+//   deno task seed-case-studies
 //   deno task seed-case-studies -- --dry-run          # report, write nothing
 //   deno task seed-case-studies -- --only=<slug>
 //   deno task seed-case-studies -- --help
 //
-// Requires the SERVICE ROLE key: it bypasses RLS and reaches the auth admin API
-// to mint the placeholder voters. Never commit it — .env is gitignored.
+// Requires the SERVICE ROLE key in SUPABASE_SERVICE_ROLE_KEY: it bypasses RLS and
+// reaches the auth admin API to mint the placeholder voters. Never put it on a
+// command line, in .env, or in a commit — on Windows,
+// `. .\tools\Set-SupabaseEnv.ps1` supplies it from Credential Manager.
+// See docs/Backend/Service-Role Scripts.md.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { tabulate } from "../_shared/tabulate.ts";
@@ -53,7 +56,11 @@ Flags:
 
 Environment:
   SUPABASE_URL                 Project URL (e.g. https://xxxx.supabase.co)
-  SUPABASE_SERVICE_ROLE_KEY    Service-role key (bypasses RLS; do not commit)
+  SUPABASE_SERVICE_ROLE_KEY    Service-role key. Never pass it on a command line
+                               or store it in .env. On Windows, dot-source
+                               tools/Set-SupabaseEnv.ps1 first — it supplies both
+                               from Windows Credential Manager.
+                               See docs/Backend/Service-Role Scripts.md.
 
 Fixtures:
   scripts/case-studies/*.json  — see docs/Features/Case Studies.md

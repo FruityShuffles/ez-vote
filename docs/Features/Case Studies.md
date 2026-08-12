@@ -44,15 +44,9 @@ deno task seed-case-studies -- --only=<slug>
 The service-role key is required for two reasons: it bypasses RLS, and the placeholder
 voters can only be minted through the auth admin API. Never commit it.
 
-On Windows, `tools/Set-SupabaseEnv.ps1` supplies both variables without the key ever
-touching a file or a shell history — it keeps the key in Windows Credential Manager
-(`EZVote:SupabaseServiceRoleKey`), fetching it once from the linked Supabase CLI project:
-
-```powershell
-. .\tools\Set-SupabaseEnv.ps1        # -Refresh after a key rotation, -Clear to forget it
-cd supabase\functions
-deno task seed-case-studies -- --dry-run
-```
+On Windows, dot-source `tools/Set-SupabaseEnv.ps1` first and it supplies both variables
+from Credential Manager — see [[Backend/Service-Role Scripts]] for that and the rest of the
+handling rules.
 
 ### Idempotency
 

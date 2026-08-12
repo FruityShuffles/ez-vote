@@ -13,12 +13,14 @@
 // by name and the issue scope only requires scrubbing user IDs.
 //
 // Usage (from supabase/functions/):
-//   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... deno task export-fixtures
+//   deno task export-fixtures
 //   deno task export-fixtures -- --dry-run     # report, write nothing
 //   deno task export-fixtures -- --help
 //
-// Requires the SERVICE ROLE key (bypasses RLS to read every election's
-// ballots/results). Never commit it — .env is gitignored.
+// Requires the SERVICE ROLE key in SUPABASE_SERVICE_ROLE_KEY (bypasses RLS to
+// read every election's ballots/results). Never put it on a command line, in
+// .env, or in a commit — on Windows, `. .\tools\Set-SupabaseEnv.ps1` supplies it
+// from Credential Manager. See docs/Backend/Service-Role Scripts.md.
 
 import { createClient } from "@supabase/supabase-js";
 import { type Ballot, type Candidate, tabulate } from "../_shared/tabulate.ts";

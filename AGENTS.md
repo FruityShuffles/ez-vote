@@ -55,6 +55,14 @@ npx.cmd wrangler pages deploy dist --project-name ez-vote-react --branch main
 # Algorithm golden tests (run from supabase/functions/)
 deno task test
 
+# Service-role scripts: seed-case-studies, export-fixtures.
+# The service-role key bypasses RLS — never pass it on a command line or put it
+# in .env. tools/Set-SupabaseEnv.ps1 reads it from Windows Credential Manager,
+# but that credential belongs to the user's Windows account: from the sandbox
+# user it simply looks absent, the same way `gh` credentials do. Escalate outside
+# the sandbox, or ask the user to run the task.
+# See docs/Backend/Service-Role Scripts.md.
+
 # Deploy edge functions (requires `supabase login` and `supabase link` first)
 # --no-verify-jwt is required because the Supabase gateway rejects ES256 user JWTs;
 # auth is verified inside the function itself via supabase client getUser()

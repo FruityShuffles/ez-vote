@@ -61,9 +61,11 @@ npx.cmd wrangler pages deploy dist --project-name ez-vote-react --branch main
 # Algorithm golden tests — run from supabase/functions/
 deno task test
 
-# Seed the public Case Study elections (idempotent; needs the service-role key)
-# See docs/Features/Case Studies.md
-SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... deno task seed-case-studies
+# Service-role scripts (seed-case-studies, export-fixtures). NEVER paste the
+# service-role key on a command line or into .env — dot-source the helper, which
+# reads it from Windows Credential Manager. docs/Backend/Service-Role Scripts.md
+. .\tools\Set-SupabaseEnv.ps1        # then, from supabase/functions/:
+deno task seed-case-studies -- --dry-run
 
 # Deploy edge functions (requires `supabase login` and `supabase link` first)
 # --no-verify-jwt is required because the Supabase gateway rejects ES256 user JWTs;

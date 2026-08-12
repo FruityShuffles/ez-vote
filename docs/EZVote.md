@@ -16,6 +16,7 @@ Multi-algorithm voting application. React (web) + Supabase backend.
 - [[Backend/RPC Functions]] — Each function: signature, caller, purpose
 - [[Backend/Edge Function]] — compute-results: flow, all 4 algorithm implementations
 - [[Backend/Simulate Counterfactual]] — simulate-counterfactual: "what if" re-tabulation, why it holds no service-role key
+- [[Backend/Service-Role Scripts]] — the two scripts that write to production, and how to supply the service-role key without it touching disk
 
 ## Features
 
