@@ -84,7 +84,7 @@ async function storedState(
   }
 }
 
-test('a hypothetical ranking edit flips only IRV, undo restores baseline, and nothing is written', async ({
+test('a hypothetical algorithm edit stays isolated, undo restores baseline, and nothing is written', async ({
   page,
   browser,
 }) => {
@@ -165,18 +165,17 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
     await page.getByRole('button', { name: ownerName }).focus()
     await page.keyboard.press('Enter')
 
-    // Raise Ada into a 5–5 tie. Candidate-order tie-breaking moves Ada ahead
-    // of Cy for IRV, while STAR still elects Cy and approvals do not change.
-    // The editor interaction is keyboard-only as well.
+    // Raise Ada into a 5–5 STAR tie. The counterfactual editor treats each
+    // algorithm payload as authoritative, so IRV and approval stay exactly as
+    // shown while STAR is edited. The interaction is keyboard-only as well.
     const adaFive = page
       .getByRole('radiogroup', { name: 'Score for Ada' })
       .getByRole('radio', { name: '5' })
     await adaFive.focus()
     await page.keyboard.press('Space')
 
-    // The baseline marks (#137): the chip Ada was actually given keeps a dotted
-    // outline, and that is the ONLY mark — Ada overtaking Cy in the list is a
-    // consequence of the score, so no position ghost appears with it.
+    // The chip Ada was actually given keeps a dotted outline, and that is the
+    // only mark because the other algorithm fields were not changed.
     await expect(
       page
         .getByRole('radiogroup', { name: 'Score for Ada' })
@@ -189,7 +188,7 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
       name: 'Effect on each voting method',
     })
     const irvStrip = rail.locator('[data-algorithm="irv"]')
-    await expect(irvStrip).toHaveAttribute('data-changed', 'true', {
+    await expect(irvStrip).toHaveAttribute('data-changed', 'false', {
       timeout: 20_000,
     })
     expect(
@@ -235,7 +234,9 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
     // Two ballots, three candidates: a single-ballot promotion always flips
     // some non-winner, and k = 1 is the one provably minimal case.
     await expect(
-      flipPanel.getByText(/Change 1 ballot and .+ the smallest possible change\./),
+      flipPanel.getByText(
+        /Change 1 ballot and .+ the smallest possible change\./,
+      ),
     ).toBeVisible()
 
     await flipPanel

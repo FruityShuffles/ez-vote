@@ -150,10 +150,11 @@ This is a UX guardrail, not a hard constraint — zero approvals is technically 
 
 When the ballot on screen already exists, `BallotView` takes an optional `marks`
 prop and shadows every control the voter has moved with a dotted outline sitting
-on the value they actually cast. Two screens supply it — `routes/Ballot.tsx` (your
-own vote, in an open election) and the what-if editor via `HypotheticalBallot`
-([[Features/Counterfactual Explorer]]) — and because both render this same
-component, the treatment cannot drift between them.
+on the value they actually cast. `routes/Ballot.tsx` supplies these template-aware
+marks while editing a real vote. The what-if editor has a separate payload-level
+marking path because counterfactual replacements must preserve independently
+suggested algorithm fields rather than re-run the real ballot's derivation rules
+([[Features/Counterfactual Explorer]]).
 
 The rules live in `web-react/src/lib/ballotBaseline.ts`, pure and React-free:
 

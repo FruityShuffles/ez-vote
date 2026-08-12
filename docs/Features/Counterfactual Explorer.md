@@ -133,21 +133,18 @@ inside a button is invalid and unreachable by keyboard.
 
 ## Screen 2 — the editor
 
-Route `/election/:id/explore/:voterId`. `HypotheticalBallot` wraps the existing
-`BallotView` with the dashed/hatched provisional treatment. `BallotView` is
-already fully driven by `useBallotState`, so the seven templates, tie-break drag
-order and auto-score-zero behaviour come for free and cannot drift from the real
-voting screen.
+Route `/election/:id/explore/:voterId`. `CounterfactualBallotView` renders the
+scenario's full replacement payload directly: `irv`, `star`, `approval`, and
+`fptp` remain independent fields. This differs deliberately from the real voting
+screen, where combined templates derive one algorithm's answer from another.
+A search answer is already an authoritative hypothetical payload, so deriving it
+again would make the editor disagree with the ledger and simulation.
 
-The same is true of the baseline marks (#137): the editor passes
-`originalPayload` — which it was already holding to decide ledger entries — through
-`baselineMarks`, and `BallotView` draws them. So "where this answer used to be" is
-rendered by exactly the code the real Edit Ballot screen uses, and the rules for
-which controls are marked live in one place. See [[Architecture/Ballot Templates]].
-`BallotChangeBanner` (also shared with the real screen) replaced this component's
-bespoke "Changed ballot" header. Its `undoAvailable` prop exists for one case: an
-untouched server flip suggestion, where the editor shows the *original* ballot and
-so has no marks to count, but the ledger entry still needs a way out.
+Ranking, score, approval, and FPTP inputs reuse the same low-level controls as
+the real ballot. Their values and baseline marks are computed directly from the
+working and original payloads. Every user action produces another full payload
+and updates the one scenario in `counterfactualStore`; the editor has no private
+copy to reconcile with the picker or ledger.
 
 Routes key on **`voterId`, not list index** — the same reasoning that made the
 endpoint key overrides on `voter_id`: an index shifts if the list changes
@@ -164,9 +161,12 @@ icon and a "suggested" label.
 `variant="summary"` (count + Reset all) on the picker, where rows already carry
 their own diffs; full chips on the editor, where there are no rows to carry them.
 
-The ledger lives in `lib/counterfactualStore.ts`, a small Zustand store scoped to
-one election id. It survives navigation between picker and editor, and selecting
-a different election clears it before any new override payload is constructed.
+The working scenario lives in `lib/counterfactualStore.ts`, a small Zustand store
+scoped to one election id. The ledger, picker badges, editor controls, simulation
+overrides, and consequence rail are all projections of its `edits` payload map;
+there is no separate ledger edit versus ballot edit. It survives navigation
+between picker and editor, and selecting a different election clears it before
+any new override payload is constructed.
 
 ## The flip search (#120 server, #135 UI)
 
@@ -191,24 +191,26 @@ someone else the IRV winner?" via the server's `find_flip` search
 - **Changes render read-only** in the ledger's chip shape via `summarizeChange`,
   with per-ballot distance in metric units ("2 swaps" —
   `irv_adjacent_transposition`).
-- **Applying replaces the whole ledger.** `applyFlipChanges` installs the change
+- **Applying replaces the whole scenario.** `applySuggestion` installs the change
   set verbatim as `replace` overrides (the round trip the server's tests
-  guarantee) and marks the voters in `flipApplied`. Replacement rather than
+  guarantee) and records that exact map as `activeSuggestion`. Replacement rather than
   merge is deliberate: the search ran on the baseline ballots, so only the
   unmixed set is guaranteed to show the flip through the normal simulate path.
   The button label carries the consent — "Replace my changes with these" when
   the ledger is non-empty. A staleness note appears whenever pending edits
   exist: the answer is relative to the real election, not the current what-if
   state.
-- **The canonicalization trap.** The server returns raw edits to the `irv`
-  payload key, and this screen's editor canonicalizes payloads through the
-  derivation templates — templates that derive the ranking from STAR scores
-  would silently discard a raw ranking edit *on mount*, before the user touches
-  anything. So a server suggestion never enters the editor: opening a
-  flip-marked voter's ballot seeds from the **original** (with a one-line
-  notice), leaving the suggestion untouched in the store. The first manual edit
-  wins — `recordEdit` replaces the payload and drops the `flipApplied` marker.
-  Template-consistent translation of suggestions remains out of scope.
+- **Suggestion provenance is scenario-level.** The answer is "applied" only
+  while the working scenario exactly equals its full change set. Any real user
+  mutation anywhere — editing either a suggested or unrelated ballot, undoing,
+  or resetting — clears `activeSuggestion` globally. The current working edits
+  remain, but none are labelled suggested and the button becomes available
+  again. Reapplying replaces everything with the exact original suggestion.
+- **Payload-authoritative editor.** Opening a suggested ballot renders the exact
+  replacement payload that the ledger and simulation use. The counterfactual
+  editor never passes suggestions through voting-template derivation, so an IRV
+  edit cannot be discarded by unchanged STAR scores and a future STAR search
+  uses the same state path without algorithm-specific synchronization logic.
 - **Gating.** The panel renders only when `algorithms` includes `irv` (the
   endpoint 400s otherwise). Within that, the server's input caps (500 ballots,
   20 candidates — mirrored as `FLIP_MAX_*` constants, not imported, to keep the

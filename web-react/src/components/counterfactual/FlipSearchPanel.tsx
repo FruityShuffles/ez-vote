@@ -36,7 +36,7 @@ export interface FlipSearchPanelProps {
   voterNameOf: (voterId: string) => string
   /** The live ledger, for the staleness note and the applied-state check. */
   edits: Record<string, Payload>
-  flipApplied: Record<string, true>
+  activeSuggestion: Record<string, Payload> | null
   onApply: (changes: { voterId: string; payload: Payload }[]) => void
   /** When set, the search is unavailable; render this explanation instead. */
   unavailableReason?: string
@@ -53,7 +53,7 @@ export function FlipSearchPanel({
   nameOf,
   voterNameOf,
   edits,
-  flipApplied,
+  activeSuggestion,
   onApply,
   unavailableReason,
   className,
@@ -110,7 +110,7 @@ export function FlipSearchPanel({
           nameOf={nameOf}
           voterNameOf={voterNameOf}
           edits={edits}
-          flipApplied={flipApplied}
+          activeSuggestion={activeSuggestion}
           hasEdits={hasEdits}
           onApply={onApply}
         />
@@ -126,7 +126,7 @@ function FlipResults({
   nameOf,
   voterNameOf,
   edits,
-  flipApplied,
+  activeSuggestion,
   hasEdits,
   onApply,
 }: {
@@ -136,7 +136,7 @@ function FlipResults({
   nameOf: (candidateId: string) => string
   voterNameOf: (voterId: string) => string
   edits: Record<string, Payload>
-  flipApplied: Record<string, true>
+  activeSuggestion: Record<string, Payload> | null
   hasEdits: boolean
   onApply: (changes: { voterId: string; payload: Payload }[]) => void
 }) {
@@ -172,7 +172,7 @@ function FlipResults({
             originals={originals}
             nameOf={nameOf}
             voterNameOf={voterNameOf}
-            applied={isTargetApplied(target, edits, flipApplied)}
+            applied={isTargetApplied(target, edits, activeSuggestion)}
             hasEdits={hasEdits}
             onApply={onApply}
           />
@@ -190,7 +190,8 @@ function sortTargets(targets: FlipTarget[]): FlipTarget[] {
     budget_exhausted: 2,
   }
   return [...targets].sort((a, b) => {
-    if (a.status !== b.status) return statusRank[a.status] - statusRank[b.status]
+    if (a.status !== b.status)
+      return statusRank[a.status] - statusRank[b.status]
     if (a.status !== 'flipped') return 0
     if (a.k !== b.k) return (a.k ?? 0) - (b.k ?? 0)
     return totalDistance(a) - totalDistance(b)
@@ -198,7 +199,10 @@ function sortTargets(targets: FlipTarget[]): FlipTarget[] {
 }
 
 function totalDistance(target: FlipTarget): number {
-  return (target.changes ?? []).reduce((sum, change) => sum + change.distance, 0)
+  return (target.changes ?? []).reduce(
+    (sum, change) => sum + change.distance,
+    0,
+  )
 }
 
 /**
@@ -209,15 +213,22 @@ function totalDistance(target: FlipTarget): number {
 function isTargetApplied(
   target: FlipTarget,
   edits: Record<string, Payload>,
-  flipApplied: Record<string, true>,
+  activeSuggestion: Record<string, Payload> | null,
 ): boolean {
   const changes = target.changes ?? []
-  if (target.status !== 'flipped' || changes.length === 0) return false
+  if (
+    target.status !== 'flipped' ||
+    changes.length === 0 ||
+    activeSuggestion == null
+  ) {
+    return false
+  }
   return (
     Object.keys(edits).length === changes.length &&
+    Object.keys(activeSuggestion).length === changes.length &&
     changes.every(
       (change) =>
-        flipApplied[change.voter_id] === true &&
+        payloadsEqual(activeSuggestion[change.voter_id], change.payload) &&
         payloadsEqual(edits[change.voter_id], change.payload),
     )
   )
@@ -296,9 +307,7 @@ function FlipTargetRow({
               }
             >
               <Sparkles aria-hidden />
-              {hasEdits
-                ? `Replace my changes with these`
-                : `Try these changes`}
+              {hasEdits ? `Replace my changes with these` : `Try these changes`}
             </Button>
           )}
         </div>

@@ -35,8 +35,16 @@ const RESULT: FlipSearchResult = {
           proven: false,
           winners: ['Ada', 'Cy'],
           changes: [
-            { voter_id: 'v1', payload: { irv: ['cy', 'ada', 'bo'] }, distance: 2 },
-            { voter_id: 'v2', payload: { irv: ['cy', 'ada', 'bo'] }, distance: 1 },
+            {
+              voter_id: 'v1',
+              payload: { irv: ['cy', 'ada', 'bo'] },
+              distance: 2,
+            },
+            {
+              voter_id: 'v2',
+              payload: { irv: ['cy', 'ada', 'bo'] },
+              distance: 1,
+            },
           ],
         },
         {
@@ -47,7 +55,11 @@ const RESULT: FlipSearchResult = {
           proven: true,
           winners: ['Bo'],
           changes: [
-            { voter_id: 'v1', payload: { irv: ['bo', 'ada', 'cy'] }, distance: 1 },
+            {
+              voter_id: 'v1',
+              payload: { irv: ['bo', 'ada', 'cy'] },
+              distance: 1,
+            },
           ],
         },
       ],
@@ -71,7 +83,7 @@ function renderPanel(
     nameOf: (id: string) => NAMES[id] ?? 'Removed candidate',
     voterNameOf: (id: string) => VOTERS[id] ?? 'A voter',
     edits: {},
-    flipApplied: {},
+    activeSuggestion: null,
     onApply: vi.fn(),
     ...overrides,
   }
@@ -124,8 +136,12 @@ describe('FlipSearchPanel', () => {
     const rows = screen.getAllByRole('listitem')
     const cyRow = rows.find((row) => row.textContent?.includes('Cy ties'))
     // First phrase, remainder count, then the distance in metric units.
-    expect(cyRow).toHaveTextContent('Priya Menon · Cy 3rd → 1st +2 more · 2 swaps')
-    expect(cyRow).toHaveTextContent('Nia Sorensen · Cy 2nd → 1st +1 more · 1 swap')
+    expect(cyRow).toHaveTextContent(
+      'Priya Menon · Cy 3rd → 1st +2 more · 2 swaps',
+    )
+    expect(cyRow).toHaveTextContent(
+      'Nia Sorensen · Cy 2nd → 1st +1 more · 1 swap',
+    )
     // Read-only: no undo buttons on suggestion chips.
     expect(
       screen.queryByRole('button', { name: /Undo the change/ }),
@@ -163,7 +179,7 @@ describe('FlipSearchPanel', () => {
       result: RESULT,
       requested: true,
       edits: { v1: { irv: ['bo', 'ada', 'cy'] } },
-      flipApplied: { v1: true },
+      activeSuggestion: { v1: { irv: ['bo', 'ada', 'cy'] } },
     })
     // Bo's exact change set is the ledger: applied, no button.
     expect(screen.getByText(/^Applied —/)).toBeInTheDocument()
@@ -178,9 +194,7 @@ describe('FlipSearchPanel', () => {
       result: { ...RESULT, budget_exhausted: true },
       requested: true,
     })
-    expect(
-      screen.getByText(/hit its compute budget/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/hit its compute budget/)).toBeInTheDocument()
   })
 
   it('states the baseline in the right number: one winner wins, several tie', () => {
@@ -198,7 +212,10 @@ describe('FlipSearchPanel', () => {
   })
 
   it('surfaces errors and keeps the search offerable', () => {
-    renderPanel({ error: new Error('too many ballots for flip search (max 500)'), requested: true })
+    renderPanel({
+      error: new Error('too many ballots for flip search (max 500)'),
+      requested: true,
+    })
     expect(screen.getByRole('alert')).toHaveTextContent(
       'too many ballots for flip search (max 500)',
     )

@@ -158,7 +158,7 @@ The rest of the original M20 requirement (#106, shipped as #120): *what is the s
 
 **No new exposure, still.** Every `voter_id` in `flip` comes from the same `get_public_ballots` rows this response already returned to this caller; the search adds derived payloads for those voters and nothing else. And it is pure compute over data already fetched — no new reads, no service-role key, so the structural mutation guarantee above is untouched.
 
-**M21 caveat.** The changes are raw payload edits to the `irv` key only. The explorer's ballot editor canonicalizes payloads through derivation templates (`ballotState.ts` / `derive.ts` — templates that derive IRV from STAR scores would discard a raw ranking edit), so the UI must never load a server-suggested change into the editor. The shipped UI (#135) renders suggestions read-only and applies them **verbatim** as `replace` overrides — the round trip `flip.test.ts` guarantees; opening a suggestion's ballot seeds the editor from the original, and a manual edit replaces the suggestion. See [[Features/Counterfactual Explorer]].
+**Explorer handling.** The changes are raw payload edits to the `irv` key only and remain ready-made `replace` overrides — the round trip `flip.test.ts` guarantees. The explorer applies and edits the complete replacement payload verbatim rather than passing it through real-ballot derivation templates. This preserves an IRV-only suggestion even in a combined STAR+IRV election and gives future algorithm searches the same payload-authoritative path. See [[Features/Counterfactual Explorer]].
 
 ## Tests
 

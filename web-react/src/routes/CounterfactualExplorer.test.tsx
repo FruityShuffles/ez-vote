@@ -100,7 +100,7 @@ beforeEach(() => {
   useCounterfactualStore.setState({
     electionId: null,
     edits: {},
-    flipApplied: {},
+    activeSuggestion: null,
   })
   mocks.useElection.mockReturnValue({
     data: election,
@@ -202,10 +202,9 @@ describe('counterfactual route containers', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('keeps a server flip suggestion intact when its ballot is opened, until a manual edit replaces it', async () => {
-    // A STAR+IRV election uses derivation template F: the editor rederives the
-    // irv key from scores, so a server payload seeded into it would be mangled
-    // on mount. The route must seed flip-marked voters from the original.
+  it('opens an applied IRV suggestion exactly and preserves it across a STAR edit', async () => {
+    // A combined real ballot derives IRV from STAR. A counterfactual replacement
+    // must instead render both fields exactly as the scenario stores them.
     const user = userEvent.setup()
     mocks.useElection.mockReturnValue({
       data: { ...election, algorithms: ['irv', 'star'] },
@@ -227,8 +226,7 @@ describe('counterfactual route containers', () => {
       isPending: false,
       isError: false,
     })
-    // The server's suggestion: only the irv key rewritten, scores untouched —
-    // exactly what the editor's template would discard.
+    // The server suggestion rewrites only IRV and leaves STAR untouched.
     const suggested = {
       star: { ada: 5, bo: 3, cy: 1 },
       irv: ['cy', 'ada', 'bo'],
@@ -236,38 +234,93 @@ describe('counterfactual route containers', () => {
     useCounterfactualStore.getState().selectElection('e1')
     useCounterfactualStore
       .getState()
-      .applyFlipChanges([{ voterId: 'v1', payload: suggested }])
+      .applySuggestion([{ voterId: 'v1', payload: suggested }])
 
     renderRoutes('/election/e1/explore/v1')
 
-    // Opening the editor must not touch the suggestion.
+    // Opening the editor does not copy or rewrite the scenario.
     expect(
-      screen.getByText(/A suggested change to this ballot is active/),
+      screen.getByText(/part of the active suggestion/),
     ).toBeInTheDocument()
     expect(useCounterfactualStore.getState().edits.v1).toEqual(suggested)
-    expect(useCounterfactualStore.getState().flipApplied).toEqual({ v1: true })
+    expect(useCounterfactualStore.getState().activeSuggestion).toEqual({
+      v1: suggested,
+    })
 
     // The full ledger labels the server-sourced chip.
     const ledger = screen.getByRole('region', { name: 'Your changes' })
     expect(within(ledger).getByText(/· suggested/)).toBeInTheDocument()
 
-    // A manual edit wins: the suggestion is replaced and the marker drops.
+    // A STAR edit preserves the working IRV field, but the scenario is no
+    // longer the exact suggestion and loses suggestion provenance globally.
     await user.click(
       within(
         screen.getByRole('radiogroup', { name: 'Score for Cy' }),
       ).getByRole('radio', { name: '4' }),
     )
-    expect(useCounterfactualStore.getState().flipApplied).toEqual({})
+    expect(useCounterfactualStore.getState().activeSuggestion).toBeNull()
     expect(useCounterfactualStore.getState().edits.v1?.irv).toEqual([
-      'ada',
       'cy',
+      'ada',
       'bo',
     ])
   })
 
+  it('renders a future STAR suggestion from the same authoritative payload path', () => {
+    mocks.useElection.mockReturnValue({
+      data: { ...election, algorithms: ['star', 'irv'] },
+      isPending: false,
+      isError: false,
+    })
+    mocks.usePublicBallots.mockReturnValue({
+      data: [
+        {
+          voter_id: 'v1',
+          display_name: 'Priya',
+          payload: {
+            star: { ada: 5, bo: 3, cy: 1 },
+            irv: ['ada', 'bo', 'cy'],
+          },
+          updated_at: '',
+        },
+      ],
+      isPending: false,
+      isError: false,
+    })
+    const suggested = {
+      star: { ada: 1, bo: 3, cy: 5 },
+      irv: ['ada', 'bo', 'cy'],
+    }
+    useCounterfactualStore.getState().selectElection('e1')
+    useCounterfactualStore
+      .getState()
+      .applySuggestion([{ voterId: 'v1', payload: suggested }])
+
+    renderRoutes('/election/e1/explore/v1')
+
+    expect(
+      within(
+        screen.getByRole('radiogroup', { name: 'Score for Ada' }),
+      ).getByRole('radio', { name: '1' }),
+    ).toBeChecked()
+    expect(
+      within(
+        screen.getByRole('radiogroup', { name: 'Score for Cy' }),
+      ).getByRole('radio', { name: '5' }),
+    ).toBeChecked()
+    const rankCard = screen
+      .getByText('Rank the Candidates')
+      .closest('[data-slot="card"]')
+    expect(
+      within(rankCard as HTMLElement)
+        .getAllByText(/^(Ada|Bo|Cy)$/)
+        .map((node) => node.textContent),
+    ).toEqual(['Ada', 'Bo', 'Cy'])
+    expect(useCounterfactualStore.getState().edits.v1).toEqual(suggested)
+  })
+
   it('undoing the open ballot from the editor ledger removes the edit for good', async () => {
-    // #136: the store clears before navigation unmounts the editor, and the
-    // editor's report effect must not resurrect the edit from its own state.
+    // The editor has no private working copy that can resurrect a cleared edit.
     const user = userEvent.setup()
     const original = { irv: ['ada', 'bo', 'cy'] }
     useCounterfactualStore.getState().selectElection('e1')

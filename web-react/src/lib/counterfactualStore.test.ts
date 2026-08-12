@@ -12,7 +12,7 @@ beforeEach(() => {
   useCounterfactualStore.setState({
     electionId: null,
     edits: {},
-    flipApplied: {},
+    activeSuggestion: null,
   })
 })
 
@@ -76,7 +76,7 @@ describe('counterfactual ledger store', () => {
     store.recordEdit('v9', original, { ...original, approval: ['bo'] })
 
     const suggested = { ...original, irv: ['bo', 'ada'] }
-    useCounterfactualStore.getState().applyFlipChanges([
+    useCounterfactualStore.getState().applySuggestion([
       { voterId: 'v1', payload: suggested },
       { voterId: 'v2', payload: suggested },
     ])
@@ -84,54 +84,67 @@ describe('counterfactual ledger store', () => {
     const state = useCounterfactualStore.getState()
     expect(Object.keys(state.edits).sort()).toEqual(['v1', 'v2'])
     expect(state.edits.v1).toEqual(suggested)
-    expect(state.flipApplied).toEqual({ v1: true, v2: true })
+    expect(state.activeSuggestion).toEqual({ v1: suggested, v2: suggested })
   })
 
-  it('drops the flip marker when the voter is manually edited or undone', () => {
+  it('leaves the active suggestion globally when any ballot is edited', () => {
     const suggested = { ...original, irv: ['bo', 'ada'] }
     const store = useCounterfactualStore.getState()
     store.selectElection('e1')
-    store.applyFlipChanges([
+    store.applySuggestion([
       { voterId: 'v1', payload: suggested },
       { voterId: 'v2', payload: suggested },
     ])
 
-    // A manual edit wins: the payload is replaced and the marker drops.
-    useCounterfactualStore.getState().recordEdit('v1', original, {
+    // Even an unrelated third ballot means this is no longer the exact
+    // suggestion. The suggested working payloads remain as ordinary edits.
+    useCounterfactualStore.getState().recordEdit('v3', original, {
       ...original,
       approval: [],
     })
-    expect(useCounterfactualStore.getState().flipApplied).toEqual({ v2: true })
-    expect(useCounterfactualStore.getState().edits.v1?.approval).toEqual([])
-
-    // Restoring the original clears both the edit and the marker.
-    useCounterfactualStore.getState().recordEdit('v2', original, original)
-    expect(useCounterfactualStore.getState().edits).toEqual({
-      v1: { ...original, approval: [] },
+    expect(useCounterfactualStore.getState().activeSuggestion).toBeNull()
+    expect(useCounterfactualStore.getState().edits).toMatchObject({
+      v1: suggested,
+      v2: suggested,
+      v3: { ...original, approval: [] },
     })
-    expect(useCounterfactualStore.getState().flipApplied).toEqual({})
+
+    // Clicking it again restores the exact suggestion and removes the unrelated
+    // manual edit.
+    useCounterfactualStore.getState().applySuggestion([
+      { voterId: 'v1', payload: suggested },
+      { voterId: 'v2', payload: suggested },
+    ])
+    expect(useCounterfactualStore.getState().edits).toEqual({
+      v1: suggested,
+      v2: suggested,
+    })
+    expect(useCounterfactualStore.getState().activeSuggestion).toEqual({
+      v1: suggested,
+      v2: suggested,
+    })
   })
 
-  it('clears flip markers on undo, reset, and election change', () => {
+  it('clears active suggestion provenance on undo, reset, and election change', () => {
     const suggested = { ...original, irv: ['bo', 'ada'] }
     useCounterfactualStore.getState().selectElection('e1')
     useCounterfactualStore
       .getState()
-      .applyFlipChanges([{ voterId: 'v1', payload: suggested }])
+      .applySuggestion([{ voterId: 'v1', payload: suggested }])
 
     useCounterfactualStore.getState().removeEdit('v1')
-    expect(useCounterfactualStore.getState().flipApplied).toEqual({})
+    expect(useCounterfactualStore.getState().activeSuggestion).toBeNull()
 
     useCounterfactualStore
       .getState()
-      .applyFlipChanges([{ voterId: 'v1', payload: suggested }])
+      .applySuggestion([{ voterId: 'v1', payload: suggested }])
     useCounterfactualStore.getState().reset()
-    expect(useCounterfactualStore.getState().flipApplied).toEqual({})
+    expect(useCounterfactualStore.getState().activeSuggestion).toBeNull()
 
     useCounterfactualStore
       .getState()
-      .applyFlipChanges([{ voterId: 'v1', payload: suggested }])
+      .applySuggestion([{ voterId: 'v1', payload: suggested }])
     useCounterfactualStore.getState().selectElection('e2')
-    expect(useCounterfactualStore.getState().flipApplied).toEqual({})
+    expect(useCounterfactualStore.getState().activeSuggestion).toBeNull()
   })
 })

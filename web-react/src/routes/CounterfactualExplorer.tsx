@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { BallotPicker } from '@/components/counterfactual/BallotPicker'
@@ -11,13 +11,12 @@ import {
   type LedgerEntry,
 } from '@/components/counterfactual/EditLedger'
 import { FlipSearchPanel } from '@/components/counterfactual/FlipSearchPanel'
-import { HypotheticalBallot } from '@/components/counterfactual/HypotheticalBallot'
+import { CounterfactualBallotView } from '@/components/counterfactual/CounterfactualBallotView'
 import { useWorkspaceElection } from '@/lib/electionWorkspace'
 import { CenteredState } from '@/components/ui/centered-state'
 import { Stack } from '@/components/ui/layout'
 import { Spinner } from '@/components/ui/spinner'
 import { H1, Muted } from '@/components/ui/typography'
-import { payloadsEqual } from '@/lib/ballot'
 import {
   FLIP_MAX_BALLOTS,
   FLIP_MAX_CANDIDATES,
@@ -33,18 +32,12 @@ import {
 import { useCounterfactualStore } from '@/lib/counterfactualStore'
 import { canonicalPayload } from '@/lib/ballotState'
 import {
-  baselineMarks,
-  buildBaseline,
-  countBaselineMarks,
-} from '@/lib/ballotBaseline'
-import {
   useCandidates,
   usePublicBallots,
   type Candidate,
   type Election,
   type PublicBallot,
 } from '@/lib/elections'
-import { useBallotState } from '@/lib/useBallotState'
 import type { Payload } from '@shared/derive'
 
 interface EditableBallot extends FilterableBallot {
@@ -58,7 +51,6 @@ interface ExplorerData {
 }
 
 const EMPTY_EDITS: Record<string, Payload> = {}
-const EMPTY_FLIP_APPLIED: Record<string, true> = {}
 
 /** `canonicalPayload` bound to an election — see `@/lib/ballotState`. */
 function canonicalFor(
@@ -114,20 +106,22 @@ function useExplorerData(electionId: string, election: Election) {
 function useLedger(electionId: string, data: ExplorerData | null) {
   const storedElectionId = useCounterfactualStore((state) => state.electionId)
   const storedEdits = useCounterfactualStore((state) => state.edits)
-  const storedFlipApplied = useCounterfactualStore((state) => state.flipApplied)
+  const storedActiveSuggestion = useCounterfactualStore(
+    (state) => state.activeSuggestion,
+  )
   const selectElection = useCounterfactualStore((state) => state.selectElection)
   const recordEdit = useCounterfactualStore((state) => state.recordEdit)
   const removeEdit = useCounterfactualStore((state) => state.removeEdit)
-  const applyFlipChanges = useCounterfactualStore(
-    (state) => state.applyFlipChanges,
+  const applySuggestion = useCounterfactualStore(
+    (state) => state.applySuggestion,
   )
   const reset = useCounterfactualStore((state) => state.reset)
 
   useEffect(() => selectElection(electionId), [electionId, selectElection])
 
   const edits = storedElectionId === electionId ? storedEdits : EMPTY_EDITS
-  const flipApplied =
-    storedElectionId === electionId ? storedFlipApplied : EMPTY_FLIP_APPLIED
+  const activeSuggestion =
+    storedElectionId === electionId ? storedActiveSuggestion : null
   const originals = useMemo(
     () =>
       new Map(
@@ -168,21 +162,24 @@ function useLedger(electionId: string, data: ExplorerData | null) {
         ),
         phrases: summarizeChange(originals.get(voterId) ?? {}, payload, nameOf),
         op: 'replace',
-        source: flipApplied[voterId] === true ? 'flip' : undefined,
+        source:
+          activeSuggestion != null && voterId in activeSuggestion
+            ? 'flip'
+            : undefined,
       })),
-    [data?.ballots, edits, flipApplied, nameOf, originals],
+    [activeSuggestion, data?.ballots, edits, nameOf, originals],
   )
 
   return {
     edits,
-    flipApplied,
+    activeSuggestion,
     originals,
     overrides,
     entries,
     nameOf,
     recordEdit,
     removeEdit,
-    applyFlipChanges,
+    applySuggestion,
     reset,
   }
 }
@@ -266,82 +263,82 @@ export function CounterfactualPicker() {
 
   return (
     <Stack gap={4}>
-        <div>
-          <H1>Explore what-ifs</H1>
-          <Muted className="mt-1">
-            Change a ballot hypothetically and compare how each method reacts.
-          </Muted>
-        </div>
+      <div>
+        <H1>Explore what-ifs</H1>
+        <Muted className="mt-1">
+          Change a ballot hypothetically and compare how each method reacts.
+        </Muted>
+      </div>
 
-        {simulation.isError && (
-          <Muted role="alert">{simulation.error.message}</Muted>
-        )}
+      {simulation.isError && (
+        <Muted role="alert">{simulation.error.message}</Muted>
+      )}
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-          <BallotPicker
-            ballots={explorer.data.ballots}
-            candidates={explorer.data.candidates}
-            edits={edits}
-            onSelect={(voterId) =>
-              navigate(`/election/${electionId}/explore/${voterId}`)
-            }
-            onUndo={ledger.removeEdit}
-          />
-          <ConsequenceRail
-            baseline={simulation.data.baseline}
-            simulated={simulation.data.simulated}
-            changed={simulation.data.changed}
-            hasEdits={hasEdits}
-            pending={simulation.isFetching}
-            variant="compact"
-            id="consequence-rail"
-            className="lg:sticky lg:top-4"
-          />
-        </div>
-
-        {flipEligible && (
-          <FlipSearchPanel
-            result={flip.data}
-            pending={flip.isFetching}
-            error={flip.error}
-            requested={flipRequested}
-            onSearch={() => {
-              setFlipRequested(true)
-              if (flip.isError) void flip.refetch()
-            }}
-            originals={ledger.originals}
-            nameOf={ledger.nameOf}
-            voterNameOf={(voterId) =>
-              voterName(
-                ballots.find((ballot) => ballot.voter_id === voterId) ?? {
-                  display_name: null,
-                },
-              )
-            }
-            edits={ledger.edits}
-            flipApplied={ledger.flipApplied}
-            onApply={ledger.applyFlipChanges}
-            unavailableReason={flipUnavailableReason}
-          />
-        )}
-
-        <EditLedger
-          entries={ledger.entries}
-          onRemove={ledger.removeEdit}
-          onReset={ledger.reset}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <BallotPicker
+          ballots={explorer.data.ballots}
+          candidates={explorer.data.candidates}
+          edits={edits}
           onSelect={(voterId) =>
             navigate(`/election/${electionId}/explore/${voterId}`)
           }
-          variant="summary"
+          onUndo={ledger.removeEdit}
         />
-        <ConsequenceSummaryBar
+        <ConsequenceRail
           baseline={simulation.data.baseline}
           simulated={simulation.data.simulated}
           changed={simulation.data.changed}
           hasEdits={hasEdits}
-          targetId="consequence-rail"
-          className="lg:hidden"
+          pending={simulation.isFetching}
+          variant="compact"
+          id="consequence-rail"
+          className="lg:sticky lg:top-4"
         />
+      </div>
+
+      {flipEligible && (
+        <FlipSearchPanel
+          result={flip.data}
+          pending={flip.isFetching}
+          error={flip.error}
+          requested={flipRequested}
+          onSearch={() => {
+            setFlipRequested(true)
+            if (flip.isError) void flip.refetch()
+          }}
+          originals={ledger.originals}
+          nameOf={ledger.nameOf}
+          voterNameOf={(voterId) =>
+            voterName(
+              ballots.find((ballot) => ballot.voter_id === voterId) ?? {
+                display_name: null,
+              },
+            )
+          }
+          edits={ledger.edits}
+          activeSuggestion={ledger.activeSuggestion}
+          onApply={ledger.applySuggestion}
+          unavailableReason={flipUnavailableReason}
+        />
+      )}
+
+      <EditLedger
+        entries={ledger.entries}
+        onRemove={ledger.removeEdit}
+        onReset={ledger.reset}
+        onSelect={(voterId) =>
+          navigate(`/election/${electionId}/explore/${voterId}`)
+        }
+        variant="summary"
+      />
+      <ConsequenceSummaryBar
+        baseline={simulation.data.baseline}
+        simulated={simulation.data.simulated}
+        changed={simulation.data.changed}
+        hasEdits={hasEdits}
+        targetId="consequence-rail"
+        className="lg:hidden"
+      />
     </Stack>
   )
 }
@@ -397,164 +394,82 @@ export function CounterfactualEditor() {
       explorer.data.election,
       explorer.data.candidates,
     )
-  // Seed from the pending hypothetical, not the stored ballot — except for a
-  // server flip suggestion, which must never enter the editor: the derivation
-  // templates would rederive its `irv` key from scores and silently discard the
-  // change on mount. Seeding from the original leaves the suggestion untouched
-  // in the ledger until the user actually edits something, at which point the
-  // manual edit wins and the suggestion is dropped.
-  const isFlipApplied = ledger.flipApplied[voterId] === true
-  const seedPayload = isFlipApplied
-    ? original
-    : (ledger.edits[voterId] ?? original)
+  // The same working payload drives the ledger, simulation override, and every
+  // editor control. Suggestions never get copied into a separate local state.
+  const workingPayload = ledger.edits[voterId] ?? original
+  const isSuggestionActive =
+    ledger.activeSuggestion != null && voterId in ledger.activeSuggestion
   const hasEdits = ledger.entries.length > 0
 
   return (
     <Stack gap={4}>
-        <div>
-          <H1>Change {voterName(selected)}&apos;s ballot</H1>
-          <Muted className="mt-1">Nothing here is saved to the election.</Muted>
-        </div>
+      <div>
+        <H1>Change {voterName(selected)}&apos;s ballot</H1>
+        <Muted className="mt-1">Nothing here is saved to the election.</Muted>
+      </div>
 
-        {simulation.isError && (
-          <Muted role="alert">{simulation.error.message}</Muted>
-        )}
+      {simulation.isError && (
+        <Muted role="alert">{simulation.error.message}</Muted>
+      )}
 
-        {isFlipApplied && (
-          <Muted className="rounded-lg border border-dashed border-border p-2">
-            A suggested change to this ballot is active. Below is the ballot as
-            actually voted — changing anything replaces the suggestion.
-          </Muted>
-        )}
+      {isSuggestionActive && (
+        <Muted className="rounded-lg border border-dashed border-border p-2">
+          This ballot is part of the active suggestion. Changing any ballot
+          leaves that suggestion and makes it available to reapply.
+        </Muted>
+      )}
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-          <CounterfactualBallotEditor
-            key={voterId}
-            source={selected}
-            seedPayload={seedPayload}
-            originalPayload={original}
-            election={explorer.data.election}
-            candidates={explorer.data.candidates}
-            isEdited={voterId in ledger.edits}
-            onChange={ledger.recordEdit}
-            onRevert={() => {
-              ledger.removeEdit(voterId)
-              navigate(`/election/${electionId}/explore`)
-            }}
-          />
-          <ConsequenceRail
-            baseline={simulation.data.baseline}
-            simulated={simulation.data.simulated}
-            changed={simulation.data.changed}
-            hasEdits={hasEdits}
-            pending={simulation.isFetching}
-            id="consequence-rail"
-            className="lg:sticky lg:top-4"
-          />
-        </div>
-
-        <EditLedger
-          entries={ledger.entries}
-          onRemove={(editedVoterId) => {
-            ledger.removeEdit(editedVoterId)
-            if (editedVoterId === voterId) {
-              navigate(`/election/${electionId}/explore`)
-            }
-          }}
-          onReset={() => {
-            ledger.reset()
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <CounterfactualBallotView
+          key={voterId}
+          voterName={voterName(selected)}
+          payload={workingPayload}
+          original={original}
+          algorithms={explorer.data.election.algorithms}
+          includeFptp={explorer.data.election.include_fptp}
+          candidates={explorer.data.candidates}
+          isEdited={voterId in ledger.edits}
+          onChange={(payload) => ledger.recordEdit(voterId, original, payload)}
+          onRevert={() => {
+            ledger.removeEdit(voterId)
             navigate(`/election/${electionId}/explore`)
           }}
-          onSelect={(editedVoterId) =>
-            navigate(`/election/${electionId}/explore/${editedVoterId}`)
-          }
         />
-        <ConsequenceSummaryBar
+        <ConsequenceRail
           baseline={simulation.data.baseline}
           simulated={simulation.data.simulated}
           changed={simulation.data.changed}
           hasEdits={hasEdits}
-          targetId="consequence-rail"
-          className="lg:hidden"
+          pending={simulation.isFetching}
+          id="consequence-rail"
+          className="lg:sticky lg:top-4"
         />
+      </div>
+
+      <EditLedger
+        entries={ledger.entries}
+        onRemove={(editedVoterId) => {
+          ledger.removeEdit(editedVoterId)
+          if (editedVoterId === voterId) {
+            navigate(`/election/${electionId}/explore`)
+          }
+        }}
+        onReset={() => {
+          ledger.reset()
+          navigate(`/election/${electionId}/explore`)
+        }}
+        onSelect={(editedVoterId) =>
+          navigate(`/election/${electionId}/explore/${editedVoterId}`)
+        }
+      />
+      <ConsequenceSummaryBar
+        baseline={simulation.data.baseline}
+        simulated={simulation.data.simulated}
+        changed={simulation.data.changed}
+        hasEdits={hasEdits}
+        targetId="consequence-rail"
+        className="lg:hidden"
+      />
     </Stack>
-  )
-}
-
-export function CounterfactualBallotEditor({
-  source,
-  seedPayload,
-  originalPayload,
-  election,
-  candidates,
-  isEdited,
-  onChange,
-  onRevert,
-}: {
-  source: EditableBallot
-  seedPayload: Payload
-  originalPayload: Payload
-  election: Election
-  candidates: Candidate[]
-  isEdited: boolean
-  onChange: (voterId: string, original: Payload, payload: Payload) => void
-  onRevert: () => void
-}) {
-  const ballot = useBallotState({
-    candidates,
-    algorithms: election.algorithms,
-    includeFptp: election.include_fptp,
-    existingPayload: seedPayload,
-  })
-  const { getPayload } = ballot
-
-  // Where this ballot's answers used to sit (#137). The comparison is against the
-  // canonicalised original, so putting a value back clears its mark — the same
-  // reason the ledger diffs against it.
-  const candidateIds = candidates.map((candidate) => candidate.id)
-  const baseline = buildBaseline(
-    originalPayload,
-    candidateIds,
-    election.algorithms,
-  )
-  const marks = baselineMarks(
-    baseline,
-    ballot.state,
-    ballot.template,
-    candidateIds,
-    election.include_fptp,
-  )
-  // Report on mount and whenever the *user* changes the ballot — `getPayload`'s
-  // identity tracks the editor state and nothing else. The other inputs are read
-  // through a ref on purpose (#136): reacting to them re-runs the report on
-  // unrelated re-renders, and in particular an undo-from-the-ledger clears the
-  // store, re-renders this still-mounted editor, and would resurrect the edit
-  // from the editor's own state before navigation unmounts it.
-  const report = useRef({ seedPayload, originalPayload, onChange, source })
-  useEffect(() => {
-    report.current = { seedPayload, originalPayload, onChange, source }
-  })
-  useEffect(() => {
-    const { seedPayload, originalPayload, onChange, source } = report.current
-    const payload = getPayload()
-    if (
-      !payloadsEqual(payload, seedPayload) ||
-      !payloadsEqual(payload, originalPayload)
-    ) {
-      onChange(source.voter_id, originalPayload, payload)
-    }
-  }, [getPayload])
-
-  return (
-    <HypotheticalBallot
-      voterName={voterName(source)}
-      ballot={ballot}
-      candidates={candidates}
-      includeFptp={election.include_fptp}
-      marks={marks}
-      changeCount={countBaselineMarks(marks)}
-      isEdited={isEdited}
-      onRevert={onRevert}
-    />
   )
 }
