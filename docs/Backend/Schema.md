@@ -31,7 +31,7 @@ Central entity. One row per election.
 | include_fptp | boolean | Default true |
 | public_ballots | boolean | Default false. When true, all participants can view all submitted ballots. |
 | visibility | text | `'private'` (default) or `'public'`. Public elections are readable by anyone, including the `anon` role. Only the service role can set it — owner write policies require `'private'`. |
-| showcase | boolean | Default false. Marks the curated Case Studies subset of public elections. Service-role-only, like `visibility`. |
+| showcase | boolean | Default false. Marks the curated Case Studies subset of public elections. Service-role-only, like `visibility`. Seeded rows carry deterministic ids derived from a fixture slug — see [[Features/Case Studies]]. |
 | candidates_updated_at | timestamptz | Bumped by trigger on candidate insert |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
@@ -98,10 +98,10 @@ Tracks who has joined an open election. Populated via `join_election()` RPC.
 | Column | Type | Notes |
 |---|---|---|
 | election_id | uuid | FK → elections.id |
-| voter_id | uuid | FK → profiles.id |
+| user_id | uuid | FK → profiles.id. Named `user_id`, not `voter_id` — unlike `ballots`. |
 | joined_at | timestamptz | |
 
-**Constraint:** unique(election_id, voter_id). Join is idempotent.
+**Constraint:** primary key (election_id, user_id). Join is idempotent.
 
 ## Ballot Payload Structure
 

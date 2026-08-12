@@ -61,6 +61,10 @@ npx.cmd wrangler pages deploy dist --project-name ez-vote-react --branch main
 # Algorithm golden tests — run from supabase/functions/
 deno task test
 
+# Seed the public Case Study elections (idempotent; needs the service-role key)
+# See docs/Features/Case Studies.md
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... deno task seed-case-studies
+
 # Deploy edge functions (requires `supabase login` and `supabase link` first)
 # --no-verify-jwt is required because the Supabase gateway rejects ES256 user JWTs;
 # auth is verified inside the function itself via supabase client getUser()

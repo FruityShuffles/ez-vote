@@ -4,10 +4,14 @@
   "tasks": {
     // Run the golden-corpus tests: tabulation + ballot derivation, plus the
     // counterfactual override/validation and flip-search unit tests.
-    "test": "deno test --allow-read _shared/tabulate.test.ts _shared/derive.test.ts _shared/counterfactual.test.ts _shared/flip.test.ts",
+    "test": "deno test --allow-read _shared/tabulate.test.ts _shared/derive.test.ts _shared/counterfactual.test.ts _shared/flip.test.ts scripts/case-studies.test.ts",
     // Regenerate historical fixtures from prod. Requires SUPABASE_URL and
     // SUPABASE_SERVICE_ROLE_KEY in the environment. See fixtures/README.md.
-    "export-fixtures": "deno run --allow-net --allow-env --allow-read --allow-write scripts/export-fixtures.ts"
+    "export-fixtures": "deno run --allow-net --allow-env --allow-read --allow-write scripts/export-fixtures.ts",
+    // Seed the curated public Case Study elections from scripts/case-studies/.
+    // Idempotent, service-role-only; same env as export-fixtures.
+    // See docs/Features/Case Studies.md.
+    "seed-case-studies": "deno run --allow-net --allow-env --allow-read scripts/seed-case-studies.ts"
     // Note: fixtures/derivation/ is a frozen corpus with no generator — it is
     // the contract _shared/derive.ts must meet. See
     // docs/Decisions/Client-Side Derivation.md.

@@ -1,0 +1,36 @@
+{
+  "slug": "irv-non-monotonicity",
+  "title": "When ranking a candidate higher makes them lose",
+  "description": "Seventeen coworkers ranked three lunch spots. Tacos won.\n\nGita and Hugo ranked Tacos dead last — they can't stand tacos. Watch them get a better lunch by voting as though Tacos were their favorite.\n\nIn the what-ifs explorer, move Tacos to the top of Gita's and Hugo's ballots. Nothing else changes, and the only change helps Tacos — so Tacos loses. Two first preferences lighter, Pizza now trails Sushi and is eliminated first; Pizza's voters flow to Sushi, and Sushi wins 9–8. Gita and Hugo traded their worst outcome for their second favorite by lying about their first.\n\nThat is non-monotonicity: under instant-runoff, gaining support can cost a candidate the election, because first preferences decide who gets eliminated. And wherever that is true, an honest ballot is not always your best one.",
+  "algorithms": ["irv"],
+  "include_fptp": false,
+  "candidates": ["Tacos", "Pizza", "Sushi"],
+  "voters": [
+    { "name": "Ada", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } },
+    { "name": "Ben", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } },
+    { "name": "Cleo", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } },
+    { "name": "Dev", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } },
+    { "name": "Elena", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } },
+    { "name": "Felix", "payload": { "irv": ["Tacos", "Sushi", "Pizza"] } },
+    { "name": "Gita", "payload": { "irv": ["Pizza", "Sushi", "Tacos"] } },
+    { "name": "Hugo", "payload": { "irv": ["Pizza", "Sushi", "Tacos"] } },
+    { "name": "Iris", "payload": { "irv": ["Pizza", "Sushi", "Tacos"] } },
+    { "name": "Jonah", "payload": { "irv": ["Pizza", "Sushi", "Tacos"] } },
+    { "name": "Kira", "payload": { "irv": ["Pizza", "Sushi", "Tacos"] } },
+    { "name": "Liam", "payload": { "irv": ["Pizza", "Sushi", "Tacos"] } },
+    { "name": "Mona", "payload": { "irv": ["Sushi", "Tacos", "Pizza"] } },
+    { "name": "Nico", "payload": { "irv": ["Sushi", "Tacos", "Pizza"] } },
+    { "name": "Opal", "payload": { "irv": ["Sushi", "Tacos", "Pizza"] } },
+    { "name": "Pia", "payload": { "irv": ["Sushi", "Tacos", "Pizza"] } },
+    { "name": "Quinn", "payload": { "irv": ["Sushi", "Pizza", "Tacos"] } }
+  ],
+  "lesson": {
+    "summary": "Two Pizza voters move Tacos from last to first. That is the only change, and it only helps Tacos — so Tacos loses to Sushi.",
+    "baseline_winners": ["Tacos"],
+    "changes": [
+      { "voter": "Gita", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } },
+      { "voter": "Hugo", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } }
+    ],
+    "expected_winners": ["Sushi"]
+  }
+}

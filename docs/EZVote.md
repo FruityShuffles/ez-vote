@@ -26,6 +26,7 @@ Multi-algorithm voting application. React (web) + Supabase backend.
 - [[Features/FPTP]] — includeFptp flag, per-template behavior, auto-selection
 - [[Features/Public Ballots]] — publicBallots flag, RLS, RPC, ballot paging UI
 - [[Features/Counterfactual Explorer]] — M21 "what-ifs": the diff design language, the consequence rail, the edit ledger
+- [[Features/Case Studies]] — curated public elections that teach one lesson each: the visibility/showcase flags, the idempotent seed script, the fixture format
 
 ## Decisions
 
