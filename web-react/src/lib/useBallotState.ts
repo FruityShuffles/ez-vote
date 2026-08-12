@@ -84,6 +84,16 @@ export function useBallotState({
       setState((s) => mergeCandidates(s, freshCandidateIds, algorithms)),
     [algorithms],
   )
+  // Throw away the working ballot and re-seed from a payload — the undo behind
+  // the change banner (#137). Deliberately a full re-seed rather than a stack of
+  // inverse transitions: `initialBallotState` is the one place that knows how to
+  // recover a template's approval state, so this cannot drift from how the
+  // ballot was opened in the first place.
+  const handleReset = useCallback(
+    (payload: Payload | null) =>
+      setState(initialBallotState(candidateIds, algorithms, payload)),
+    [candidateIds, algorithms],
+  )
 
   const displayOrder = useMemo(
     () => displayRanking(state, candidateIds),
@@ -119,6 +129,7 @@ export function useBallotState({
     setApprovalCutoff: handleApprovalCutoff,
     setApprovalTopK: handleApprovalTopK,
     merge: handleMerge,
+    reset: handleReset,
   }
 }
 

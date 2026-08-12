@@ -136,6 +136,17 @@
   );
 }
 
+/* Editing a ballot that already exists (#137) shadows each control the voter has
+   moved with a dotted outline sitting on the value they actually cast. Like
+   `hatch-hypothetical` above this is a texture rather than a hue, for the same
+   reasons — but DOTTED, not dashed: dashed already means "hypothetical", and
+   these marks are drawn inside that dashed hatched frame in the what-if editor.
+   Two textures that read apart at a glance keep both meanings legible. */
+@utility mark-baseline {
+  border-style: dotted;
+  border-color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

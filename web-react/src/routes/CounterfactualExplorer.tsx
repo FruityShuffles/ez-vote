@@ -31,11 +31,12 @@ import {
   type FilterableBallot,
 } from '@/lib/counterfactualFilter'
 import { useCounterfactualStore } from '@/lib/counterfactualStore'
+import { canonicalPayload } from '@/lib/ballotState'
 import {
-  buildSubmitPayload,
-  getTemplate,
-  initialBallotState,
-} from '@/lib/ballotState'
+  baselineMarks,
+  buildBaseline,
+  countBaselineMarks,
+} from '@/lib/ballotBaseline'
 import {
   useCandidates,
   usePublicBallots,
@@ -59,16 +60,16 @@ interface ExplorerData {
 const EMPTY_EDITS: Record<string, Payload> = {}
 const EMPTY_FLIP_APPLIED: Record<string, true> = {}
 
-function canonicalPayload(
+/** `canonicalPayload` bound to an election — see `@/lib/ballotState`. */
+function canonicalFor(
   payload: Payload,
   election: Election,
   candidates: Candidate[],
 ): Payload {
-  const candidateIds = candidates.map((candidate) => candidate.id)
-  return buildSubmitPayload(
-    initialBallotState(candidateIds, election.algorithms, payload),
-    getTemplate(election.algorithms),
-    candidateIds,
+  return canonicalPayload(
+    payload,
+    election.algorithms,
+    candidates.map((candidate) => candidate.id),
     election.include_fptp,
   )
 }
@@ -132,7 +133,7 @@ function useLedger(electionId: string, data: ExplorerData | null) {
       new Map(
         (data?.ballots ?? []).map((ballot) => [
           ballot.voter_id,
-          canonicalPayload(ballot.payload, data!.election, data!.candidates),
+          canonicalFor(ballot.payload, data!.election, data!.candidates),
         ]),
       ),
     [data],
@@ -391,7 +392,7 @@ export function CounterfactualEditor() {
 
   const original =
     ledger.originals.get(voterId) ??
-    canonicalPayload(
+    canonicalFor(
       selected.payload,
       explorer.data.election,
       explorer.data.candidates,
@@ -506,6 +507,23 @@ export function CounterfactualBallotEditor({
     existingPayload: seedPayload,
   })
   const { getPayload } = ballot
+
+  // Where this ballot's answers used to sit (#137). The comparison is against the
+  // canonicalised original, so putting a value back clears its mark — the same
+  // reason the ledger diffs against it.
+  const candidateIds = candidates.map((candidate) => candidate.id)
+  const baseline = buildBaseline(
+    originalPayload,
+    candidateIds,
+    election.algorithms,
+  )
+  const marks = baselineMarks(
+    baseline,
+    ballot.state,
+    ballot.template,
+    candidateIds,
+    election.include_fptp,
+  )
   // Report on mount and whenever the *user* changes the ballot — `getPayload`'s
   // identity tracks the editor state and nothing else. The other inputs are read
   // through a ref on purpose (#136): reacting to them re-runs the report on
@@ -533,6 +551,8 @@ export function CounterfactualBallotEditor({
       ballot={ballot}
       candidates={candidates}
       includeFptp={election.include_fptp}
+      marks={marks}
+      changeCount={countBaselineMarks(marks)}
       isEdited={isEdited}
       onRevert={onRevert}
     />

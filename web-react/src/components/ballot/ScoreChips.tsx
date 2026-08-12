@@ -11,11 +11,14 @@ export function ScoreChips({
   onChange,
   disabled,
   label,
+  baselineValue,
 }: {
   value: number
   onChange: (score: number) => void
   disabled?: boolean
   label: string
+  /** The score this candidate was actually given, when it differs (#137). */
+  baselineValue?: number | null
 }) {
   return (
     <div
@@ -25,13 +28,19 @@ export function ScoreChips({
     >
       {SCORES.map((n) => {
         const selected = value === n
+        // The chip that held the cast score keeps a dotted outline while the
+        // voter is somewhere else, so "where it was" is visible without a
+        // caption. It is never both selected and baseline — `baselineValue` is
+        // only supplied when the score has actually moved.
+        const isBaseline = baselineValue === n
         return (
           <button
             key={n}
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={`${n}`}
+            aria-label={isBaseline ? `${n}, your original score` : `${n}`}
+            data-baseline={isBaseline ? 'true' : undefined}
             disabled={disabled}
             onClick={() => onChange(n)}
             className={cn(
@@ -41,6 +50,7 @@ export function ScoreChips({
               selected
                 ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-input bg-background hover:bg-muted',
+              isBaseline && 'mark-baseline border-2 text-foreground',
             )}
           >
             {n}

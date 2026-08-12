@@ -174,7 +174,11 @@ describe('counterfactual route containers', () => {
       .getAllByText(/^(Ada|Bo|Cy)$/)
       .map((node) => node.textContent)
     expect(names).toEqual(['Ada', 'Cy', 'Bo'])
-    expect(screen.getByText('Changed ballot')).toBeInTheDocument()
+    // The banner counts the marked controls, and Bo/Cy swapping marks both (#137).
+    expect(screen.getByText('2 changes to their ballot')).toBeInTheDocument()
+    expect(
+      within(ballotCard as HTMLElement).getAllByText(/^was (2nd|3rd)$/),
+    ).toHaveLength(2)
   })
 
   it('offers the flip search only for IRV elections', () => {

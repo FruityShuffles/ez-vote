@@ -9,12 +9,12 @@ import {
   changedCandidates,
   filterBallots,
   matchesRelation,
-  ordinal,
   summarizeChange,
   topChoiceOf,
   voterName,
   type FilterableBallot,
 } from '@/lib/counterfactualFilter'
+import { ordinal } from '@/lib/utils'
 
 // Unit tests for the what-if explorer's picker and ledger rules (M21). These are
 // the parts that decide what a voter is shown and how an edit is described, so

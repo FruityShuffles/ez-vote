@@ -146,8 +146,54 @@ If the user submits with zero approvals (`hasZeroApprovals`):
 
 This is a UX guardrail, not a hard constraint — zero approvals is technically valid. Distinct from the *blocking* errors in `getBlockingErrors` (all-zero STAR scores; a missing FPTP pick on B/C/E), which surface as an error toast and never submit.
 
+## Baseline Marks (#137)
+
+When the ballot on screen already exists, `BallotView` takes an optional `marks`
+prop and shadows every control the voter has moved with a dotted outline sitting
+on the value they actually cast. Two screens supply it — `routes/Ballot.tsx` (your
+own vote, in an open election) and the what-if editor via `HypotheticalBallot`
+([[Features/Counterfactual Explorer]]) — and because both render this same
+component, the treatment cannot drift between them.
+
+The rules live in `web-react/src/lib/ballotBaseline.ts`, pure and React-free:
+
+- **The mark is a diff, not a decoration.** A freshly-opened ballot carries no
+  marks; a mark appears when a control leaves what was cast and disappears the
+  moment it is put back. This is why the baseline payload must be canonicalised
+  first (`canonicalPayload` in `ballotState.ts`) — loading a ballot re-derives its
+  approvals and ranking, so without the round trip a restored value would stay
+  marked.
+- **Mark only what the voter manipulates directly.** Derived values are marked at
+  their source control, never on every row they touch.
+
+| Control | Templates | Mark |
+|---|---|---|
+| `ScoreChips` | B/E/F/G | Dotted outline on the chip holding the original score |
+| `PositionBadge` | A/D always; F/G only for a tie-break drag | A hollow `GhostBadge` carrying the original position |
+| Approval `Checkbox` | C | Dotted ring on the box, plus a ghost tick when it was originally approved |
+| `FptpPicker` radios | C always; B/E only while no score has moved | Dotted outline on the originally-picked row |
+| `TopKStepper` / `CutoffStepper` | D/G / E | `GhostBadge` with the original number |
+
+The F/G position rule is the subtle one. A score change reshuffles the whole
+list, so badging every displaced row would bury the one thing that moved; the
+marks isolate a drag *within* a tie group by comparing relative order inside each
+original score group, ignoring candidates whose score changed. FPTP follows the
+same shape: in B/E the pick is re-derived by `autoFptpFromScores`, so a pick that
+moved because a score moved is marked at the score chip.
+
+Marks are visual only — there are no captions — so each carries `sr-only` text or
+an extended `aria-label` ("was 3rd", "4, your original score", "Alice, was
+approved"), and `data-baseline="true"` for tests. The `mark-baseline` utility in
+`index.css` is deliberately **dotted**, distinct from the dashed edge that means
+*hypothetical* in the explorer, since the two are drawn on top of each other
+there.
+
+`BallotChangeBanner` sits above the ballot on both screens: a count of the marked
+controls plus an undo that re-seeds the working ballot via `useBallotState`'s
+`reset`.
+
 ## View-Only Mode
 
-`BallotView` takes a `viewOnly` flag, set by `Ballot.tsx` when `election.status === 'closed'`. Because the component is stateless, it renders the identical layout with every input disabled — the existing ballot shown for review (BAL-16). This is reached from the election detail surface as "View Ballot".
+`BallotView` takes a `viewOnly` flag, set by `Ballot.tsx` when `election.status === 'closed'`. Because the component is stateless, it renders the identical layout with every input disabled — the existing ballot shown for review (BAL-16). This is reached from the election detail surface as "View Ballot". No `marks` are passed in view-only mode or on the public-ballot route: nothing has been changed, so nothing is marked.
 
 The related route `/election/:id/ballot/:index` (`routes/PublicBallot.tsx`) renders another voter's ballot the same way when the election has `public_ballots` enabled — see [[Features/Public Ballots]].

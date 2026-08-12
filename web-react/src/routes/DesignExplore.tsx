@@ -15,10 +15,14 @@ import { summarizeChange, voterName } from '@/lib/counterfactualFilter'
 import type { TabulationResult } from '@/lib/counterfactual'
 import type { Candidate } from '@/lib/elections'
 import {
-  buildSubmitPayload,
+  canonicalPayload as canonicalise,
   getTemplate,
-  initialBallotState,
 } from '@/lib/ballotState'
+import {
+  baselineMarks,
+  buildBaseline,
+  countBaselineMarks,
+} from '@/lib/ballotBaseline'
 import { useBallotState } from '@/lib/useBallotState'
 import type { Payload } from '@shared/derive'
 import { diffWinners } from '@shared/counterfactual'
@@ -117,12 +121,7 @@ const TEMPLATE = getTemplate(ALGORITHMS)
  * Diffing against this canonical form means "revert" reliably reads as no change.
  */
 function canonicalPayload(payload: Payload): Payload {
-  return buildSubmitPayload(
-    initialBallotState(CANDIDATE_IDS, ALGORITHMS, payload),
-    TEMPLATE,
-    CANDIDATE_IDS,
-    INCLUDE_FPTP,
-  )
+  return canonicalise(payload, ALGORITHMS, CANDIDATE_IDS, INCLUDE_FPTP)
 }
 
 const ORIGINAL_PAYLOADS = new Map(
@@ -362,12 +361,26 @@ function BallotEditor({
     onChange(source.voter_id, getPayload())
   }, [getPayload, onChange, source.voter_id])
 
+  const marks = baselineMarks(
+    buildBaseline(
+      ORIGINAL_PAYLOADS.get(source.voter_id) ?? {},
+      CANDIDATE_IDS,
+      ALGORITHMS,
+    ),
+    ballot.state,
+    TEMPLATE,
+    CANDIDATE_IDS,
+    INCLUDE_FPTP,
+  )
+
   return (
     <HypotheticalBallot
       voterName={voterName(source)}
       ballot={ballot}
       candidates={CANDIDATES}
       includeFptp={INCLUDE_FPTP}
+      marks={marks}
+      changeCount={countBaselineMarks(marks)}
       isEdited={isEdited}
       onRevert={onRevert}
     />

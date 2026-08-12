@@ -5,6 +5,7 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
 import { H3, Muted } from '@/components/ui/typography'
+import { cn } from '@/lib/utils'
 
 // Inline first-past-the-post picker (templates B/C/E when `include_fptp`). The
 // FPTP choice is constrained to candidates the voter already supports — the
@@ -18,11 +19,14 @@ export function FptpPicker({
   value,
   onChange,
   disabled,
+  baselineValue,
 }: {
   eligible: Candidate[]
   value: string | null
   onChange: (id: string | null) => void
   disabled?: boolean
+  /** The candidate this ballot actually picked, when the pick has moved (#137). */
+  baselineValue?: string | null
 }) {
   const onlyId = eligible.length === 1 ? eligible[0].id : null
 
@@ -54,9 +58,22 @@ export function FptpPicker({
             disabled={disabled}
           >
             {eligible.map((c) => (
-              <Field key={c.id} orientation="horizontal">
+              <Field
+                key={c.id}
+                orientation="horizontal"
+                data-baseline={c.id === baselineValue ? 'true' : undefined}
+                className={cn(
+                  c.id === baselineValue &&
+                    'mark-baseline -mx-2 rounded-lg border px-2 py-1',
+                )}
+              >
                 <RadioGroupItem value={c.id} id={`fptp-${c.id}`} />
-                <FieldLabel htmlFor={`fptp-${c.id}`}>{c.name}</FieldLabel>
+                <FieldLabel htmlFor={`fptp-${c.id}`}>
+                  {c.name}
+                  {c.id === baselineValue && (
+                    <span className="sr-only">(your original pick)</span>
+                  )}
+                </FieldLabel>
               </Field>
             ))}
           </RadioGroup>

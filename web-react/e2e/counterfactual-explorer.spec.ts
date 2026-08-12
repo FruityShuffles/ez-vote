@@ -165,6 +165,17 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
     await adaFive.focus()
     await page.keyboard.press('Space')
 
+    // The baseline marks (#137): the chip Ada was actually given keeps a dotted
+    // outline, and that is the ONLY mark — Ada overtaking Cy in the list is a
+    // consequence of the score, so no position ghost appears with it.
+    await expect(
+      page
+        .getByRole('radiogroup', { name: 'Score for Ada' })
+        .getByRole('radio', { name: '4, your original score' }),
+    ).toHaveAttribute('data-baseline', 'true')
+    await expect(page.locator('[data-baseline="true"]')).toHaveCount(1)
+    await expect(page.getByText('1 change to their ballot')).toBeVisible()
+
     const rail = page.getByRole('region', {
       name: 'Effect on each voting method',
     })

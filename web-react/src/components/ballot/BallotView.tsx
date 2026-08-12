@@ -1,13 +1,15 @@
 import { useMemo } from 'react'
+import { CheckIcon } from 'lucide-react'
 
 import type { Candidate } from '@/lib/elections'
 import type { UseBallotState } from '@/lib/useBallotState'
+import { NO_BASELINE_MARKS, type BaselineMarks } from '@/lib/ballotBaseline'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Badge } from '@/components/ui/badge'
 import { H3, Muted } from '@/components/ui/typography'
-import { cn } from '@/lib/utils'
+import { cn, ordinal } from '@/lib/utils'
 
 import { ScoreChips } from './ScoreChips'
 import { Stepper } from './Stepper'
@@ -19,6 +21,11 @@ import { SortableList, SortableRow } from './SortableList'
 // combination and is otherwise stateless (so it renders identically in view-only
 // mode with inputs disabled — BAL-16). Ported from the Flutter `_buildTemplate*`
 // methods.
+//
+// It is also the single place the baseline marks (#137) are drawn, which is why
+// both screens that edit an existing ballot — the real Edit Ballot screen and the
+// what-if editor — get them from one implementation. See `@/lib/ballotBaseline`
+// for the rules deciding which controls are marked.
 
 interface BallotViewProps {
   ballot: UseBallotState
@@ -27,6 +34,9 @@ interface BallotViewProps {
   viewOnly: boolean
   /** Flash the approval section after a zero-approval submit attempt (BAL-12). */
   zeroApprovalFlash: boolean
+  /** Controls whose value has left the ballot as cast (#137). Omit when there is
+   *  no cast ballot to compare against — a first vote, or a read-only view. */
+  marks?: BaselineMarks
 }
 
 export function BallotView({
@@ -35,6 +45,7 @@ export function BallotView({
   includeFptp,
   viewOnly,
   zeroApprovalFlash,
+  marks = NO_BASELINE_MARKS,
 }: BallotViewProps) {
   const byId = useMemo(() => {
     const map = new Map<string, Candidate>()
@@ -52,7 +63,7 @@ export function BallotView({
           title="Rank the Candidates"
           help="Drag candidates into your preferred order. #1 is your top choice."
         >
-          <RankList ballot={ballot} name={name} viewOnly={viewOnly} />
+          <RankList ballot={ballot} name={name} viewOnly={viewOnly} marks={marks} />
         </RankedCard>
       )
     case 'B':
@@ -61,6 +72,7 @@ export function BallotView({
           ballot={ballot}
           candidates={candidates}
           viewOnly={viewOnly}
+          marks={marks}
           footer={
             includeFptp ? (
               <FptpPicker
@@ -68,6 +80,7 @@ export function BallotView({
                 value={ballot.state.fptpChoice}
                 onChange={ballot.setFptpChoice}
                 disabled={viewOnly}
+                baselineValue={marks.fptp}
               />
             ) : null
           }
@@ -80,6 +93,7 @@ export function BallotView({
           candidates={candidates}
           viewOnly={viewOnly}
           flash={zeroApprovalFlash}
+          marks={marks}
           footer={
             includeFptp ? (
               <FptpPicker
@@ -89,6 +103,7 @@ export function BallotView({
                 value={ballot.state.fptpChoice}
                 onChange={ballot.setFptpChoice}
                 disabled={viewOnly}
+                baselineValue={marks.fptp}
               />
             ) : null
           }
@@ -104,9 +119,15 @@ export function BallotView({
             ballot={ballot}
             name={name}
             viewOnly={viewOnly}
+            marks={marks}
             approvedIds={ballot.state.rankings.slice(0, ballot.state.approvalTopK)}
           />
-          <TopKStepper ballot={ballot} max={candidates.length} viewOnly={viewOnly} />
+          <TopKStepper
+            ballot={ballot}
+            max={candidates.length}
+            viewOnly={viewOnly}
+            marks={marks}
+          />
         </RankedCard>
       )
     case 'E':
@@ -116,15 +137,17 @@ export function BallotView({
           candidates={candidates}
           viewOnly={viewOnly}
           flash={zeroApprovalFlash}
+          marks={marks}
           footer={
             <>
-              <CutoffStepper ballot={ballot} viewOnly={viewOnly} />
+              <CutoffStepper ballot={ballot} viewOnly={viewOnly} marks={marks} />
               {includeFptp && (
                 <FptpPicker
                   eligible={topScored(ballot, candidates)}
                   value={ballot.state.fptpChoice}
                   onChange={ballot.setFptpChoice}
                   disabled={viewOnly}
+                  baselineValue={marks.fptp}
                 />
               )}
             </>
@@ -141,6 +164,7 @@ export function BallotView({
             ballot={ballot}
             name={name}
             viewOnly={viewOnly}
+            marks={marks}
           />
         </RankedCard>
       )
@@ -154,9 +178,15 @@ export function BallotView({
             ballot={ballot}
             name={name}
             viewOnly={viewOnly}
+            marks={marks}
             approvedIds={ballot.displayOrder.slice(0, ballot.state.approvalTopK)}
           />
-          <TopKStepper ballot={ballot} max={candidates.length} viewOnly={viewOnly} />
+          <TopKStepper
+            ballot={ballot}
+            max={candidates.length}
+            viewOnly={viewOnly}
+            marks={marks}
+          />
         </RankedCard>
       )
     default:
@@ -214,6 +244,24 @@ function ApprovedBadge() {
   )
 }
 
+/**
+ * A hollow twin of a badge or value, carrying what the ballot actually held
+ * (#137). Used where the original value has no control of its own to outline —
+ * a position, a stepper reading — so the mark has to be drawn rather than
+ * pointed at. The digits are decorative; the words are what a screen reader gets.
+ */
+function GhostBadge({ value, srLabel }: { value: number; srLabel: string }) {
+  return (
+    <span
+      data-baseline="true"
+      className="mark-baseline flex size-6 shrink-0 items-center justify-center rounded-full border-2 bg-background text-xs font-semibold text-muted-foreground tabular-nums"
+    >
+      <span aria-hidden>{value}</span>
+      <span className="sr-only">{srLabel}</span>
+    </span>
+  )
+}
+
 // ── Ranked list (templates A / D — pure ranking) ──────────────────────────────
 
 function RankList({
@@ -221,11 +269,13 @@ function RankList({
   name,
   viewOnly,
   approvedIds,
+  marks,
 }: {
   ballot: UseBallotState
   name: (id: string) => string
   viewOnly: boolean
   approvedIds?: string[]
+  marks: BaselineMarks
 }) {
   const ids = ballot.state.rankings
   const approved = new Set(approvedIds ?? [])
@@ -241,6 +291,7 @@ function RankList({
         <SortableRow key={id} id={id} disabled={viewOnly}>
           <div className="flex items-center gap-3">
             <PositionBadge index={index} />
+            <BaselinePosition was={marks.positions[id]} />
             <span className="font-medium">{name(id)}</span>
             {approved.has(id) && <ApprovedBadge />}
           </div>
@@ -250,6 +301,11 @@ function RankList({
   )
 }
 
+function BaselinePosition({ was }: { was: number | undefined }) {
+  if (was == null) return null
+  return <GhostBadge value={was} srLabel={`was ${ordinal(was)}`} />
+}
+
 // ── Score-sorted sortable list (templates F / G) ──────────────────────────────
 
 function ScoredSortableList({
@@ -257,11 +313,13 @@ function ScoredSortableList({
   name,
   viewOnly,
   approvedIds,
+  marks,
 }: {
   ballot: UseBallotState
   name: (id: string) => string
   viewOnly: boolean
   approvedIds?: string[]
+  marks: BaselineMarks
 }) {
   const ids = ballot.displayOrder
   const approved = new Set(approvedIds ?? [])
@@ -276,6 +334,7 @@ function ScoredSortableList({
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <PositionBadge index={index} />
+              <BaselinePosition was={marks.positions[id]} />
               <span className="font-medium">{name(id)}</span>
               {approved.has(id) && <ApprovedBadge />}
             </div>
@@ -284,6 +343,7 @@ function ScoredSortableList({
               value={ballot.state.scores[id] ?? 0}
               onChange={(score) => ballot.setScore(id, score)}
               disabled={viewOnly}
+              baselineValue={marks.scores[id]}
             />
           </div>
         </SortableRow>
@@ -300,12 +360,14 @@ function ScoreCard({
   viewOnly,
   flash,
   footer,
+  marks,
 }: {
   ballot: UseBallotState
   candidates: Candidate[]
   viewOnly: boolean
   flash?: boolean
   footer?: React.ReactNode
+  marks: BaselineMarks
 }) {
   return (
     <Card className={cn(flash && 'ring-2 ring-amber-400')}>
@@ -332,6 +394,7 @@ function ScoreCard({
                 value={ballot.state.scores[c.id] ?? 0}
                 onChange={(score) => ballot.setScore(c.id, score)}
                 disabled={viewOnly}
+                baselineValue={marks.scores[c.id]}
               />
             </div>
           ))}
@@ -350,12 +413,14 @@ function ApprovalCard({
   viewOnly,
   flash,
   footer,
+  marks,
 }: {
   ballot: UseBallotState
   candidates: Candidate[]
   viewOnly: boolean
   flash: boolean
   footer?: React.ReactNode
+  marks: BaselineMarks
 }) {
   return (
     <Card className={cn(flash && 'ring-2 ring-amber-400')}>
@@ -370,17 +435,43 @@ function ApprovalCard({
           </p>
         )}
         <div className="flex flex-col gap-1">
-          {candidates.map((c) => (
-            <Field key={c.id} orientation="horizontal" className="py-1">
-              <Checkbox
-                id={`approve-${c.id}`}
-                checked={ballot.state.approvals.includes(c.id)}
-                disabled={viewOnly}
-                onCheckedChange={() => ballot.toggleApproval(c.id)}
-              />
-              <FieldLabel htmlFor={`approve-${c.id}`}>{c.name}</FieldLabel>
-            </Field>
-          ))}
+          {candidates.map((c) => {
+            // A checkbox has one control for both answers, so there is no second
+            // box to outline: the box itself takes the mark, and a ghost tick
+            // stands in for the state it used to be in.
+            const wasApproved = marks.approvals[c.id]
+            return (
+              <Field key={c.id} orientation="horizontal" className="py-1">
+                <span className="relative flex items-center">
+                  <Checkbox
+                    id={`approve-${c.id}`}
+                    checked={ballot.state.approvals.includes(c.id)}
+                    disabled={viewOnly}
+                    onCheckedChange={() => ballot.toggleApproval(c.id)}
+                    data-baseline={wasApproved != null ? 'true' : undefined}
+                    className={cn(wasApproved != null && 'mark-baseline border-2')}
+                  />
+                  {wasApproved === true && (
+                    <CheckIcon
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 m-auto size-3 text-muted-foreground"
+                    />
+                  )}
+                </span>
+                <FieldLabel htmlFor={`approve-${c.id}`}>
+                  {c.name}
+                  {/* Bracketed, and never asserted as an exact string: browsers
+                      insert whitespace between the label's text nodes when they
+                      compute the accessible name and jsdom does not. */}
+                  {wasApproved != null && (
+                    <span className="sr-only">
+                      {wasApproved ? '(was approved)' : '(was not approved)'}
+                    </span>
+                  )}
+                </FieldLabel>
+              </Field>
+            )
+          })}
         </div>
         {footer}
       </CardContent>
@@ -390,14 +481,20 @@ function ApprovalCard({
 
 // ── Steppers ──────────────────────────────────────────────────────────────────
 
+// Approvals on D/E/G fall out of these steppers rather than out of the rows, so
+// the mark belongs here — badging every row the cutoff happens to cover would
+// bury the one control the voter actually moved.
+
 function TopKStepper({
   ballot,
   max,
   viewOnly,
+  marks,
 }: {
   ballot: UseBallotState
   max: number
   viewOnly: boolean
+  marks: BaselineMarks
 }) {
   return (
     <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
@@ -405,14 +502,22 @@ function TopKStepper({
         Approve your top {ballot.state.approvalTopK} candidate
         {ballot.state.approvalTopK === 1 ? '' : 's'}
       </p>
-      <Stepper
-        label="number to approve"
-        value={ballot.state.approvalTopK}
-        min={0}
-        max={max}
-        onChange={ballot.setApprovalTopK}
-        disabled={viewOnly}
-      />
+      <div className="flex items-center gap-3">
+        <Stepper
+          label="number to approve"
+          value={ballot.state.approvalTopK}
+          min={0}
+          max={max}
+          onChange={ballot.setApprovalTopK}
+          disabled={viewOnly}
+        />
+        {marks.approvalTopK != null && (
+          <GhostBadge
+            value={marks.approvalTopK}
+            srLabel={`was ${marks.approvalTopK}`}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -420,23 +525,33 @@ function TopKStepper({
 function CutoffStepper({
   ballot,
   viewOnly,
+  marks,
 }: {
   ballot: UseBallotState
   viewOnly: boolean
+  marks: BaselineMarks
 }) {
   return (
     <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
       <p className="mb-2 text-sm font-medium">
         Approve candidates scoring {ballot.state.approvalCutoff} or higher
       </p>
-      <Stepper
-        label="approval score cutoff"
-        value={ballot.state.approvalCutoff}
-        min={0}
-        max={5}
-        onChange={ballot.setApprovalCutoff}
-        disabled={viewOnly}
-      />
+      <div className="flex items-center gap-3">
+        <Stepper
+          label="approval score cutoff"
+          value={ballot.state.approvalCutoff}
+          min={0}
+          max={5}
+          onChange={ballot.setApprovalCutoff}
+          disabled={viewOnly}
+        />
+        {marks.approvalCutoff != null && (
+          <GhostBadge
+            value={marks.approvalCutoff}
+            srLabel={`was ${marks.approvalCutoff}`}
+          />
+        )}
+      </div>
     </div>
   )
 }

@@ -44,6 +44,34 @@ test('zero approval warns once, then permits the confirmation submit', async ({ 
   ).toBeVisible()
 })
 
+test('editing a submitted ballot marks the original selections, and undo clears them', async ({
+  page,
+}) => {
+  const title = `E2E baseline marks ${Date.now()}`
+  await createOpenApprovalElection(page, {
+    title,
+    candidates: ['Alice', 'Bob'],
+  })
+
+  await castApprovalVote(page, 'Alice')
+  await page.getByRole('button', { name: 'Edit Ballot' }).click()
+  await expect(page).toHaveURL(/\/vote$/)
+
+  // Reopening the ballot untouched must look exactly like it always has (#137).
+  await expect(page.locator('[data-baseline="true"]')).toHaveCount(0)
+  await expect(page.getByText('Your submitted ballot')).toBeVisible()
+
+  await page.getByRole('checkbox', { name: /^Alice/ }).click()
+  await expect(
+    page.getByRole('checkbox', { name: /Alice\s*\(was approved\)/ }),
+  ).toHaveAttribute('data-baseline', 'true')
+  await expect(page.getByText('1 change since you voted')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Undo changes' }).click()
+  await expect(page.locator('[data-baseline="true"]')).toHaveCount(0)
+  await expect(page.getByText('Your submitted ballot')).toBeVisible()
+})
+
 test('an unchanged realtime ballot does not issue a second compute request', async ({
   page,
 }) => {

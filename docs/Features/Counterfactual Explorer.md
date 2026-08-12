@@ -29,13 +29,15 @@ design lives in the diff language. Three rules, each load-bearing:
 | **Hypothetical** | dashed edge + `hatch-hypothetical` | A texture, never a hue: colourblind-safe, needs no dark-mode variant, and doesn't compete with the existing amber/indigo semantics. |
 | **This moved** | indigo outline / ring in `--primary` | Used at two scales — around a changed method strip in the rail, and around a changed chip in a row. |
 | **Didn't move** | desaturate to `--muted-foreground` | Reaction is signalled by *contrast*, so no fifth colour is needed. |
+| **Where it was** | dotted outline + `mark-baseline` | The baseline marks (#137). A texture again, for the same reasons — but *dotted*, because these are drawn inside the dashed hypothetical frame and the two meanings have to read apart. |
 
 Deltas are deliberately **not** red/green — a vote shift is neither good nor bad.
 Amber stays reserved for winner/tie, as in `ResultsView`. Every tally, score and
 delta is `tabular-nums`: these update live and proportional digits make the rail
 jitter.
 
-`hatch-hypothetical` is a Tailwind `@utility` in `web-react/src/index.css`.
+`hatch-hypothetical` and `mark-baseline` are Tailwind `@utility` rules in
+`web-react/src/index.css`.
 
 ## The consequence rail
 
@@ -137,6 +139,16 @@ already fully driven by `useBallotState`, so the seven templates, tie-break drag
 order and auto-score-zero behaviour come for free and cannot drift from the real
 voting screen.
 
+The same is true of the baseline marks (#137): the editor passes
+`originalPayload` — which it was already holding to decide ledger entries — through
+`baselineMarks`, and `BallotView` draws them. So "where this answer used to be" is
+rendered by exactly the code the real Edit Ballot screen uses, and the rules for
+which controls are marked live in one place. See [[Architecture/Ballot Templates]].
+`BallotChangeBanner` (also shared with the real screen) replaced this component's
+bespoke "Changed ballot" header. Its `undoAvailable` prop exists for one case: an
+untouched server flip suggestion, where the editor shows the *original* ballot and
+so has no marks to count, but the ledger entry still needs a way out.
+
 Routes key on **`voterId`, not list index** — the same reasoning that made the
 endpoint key overrides on `voter_id`: an index shifts if the list changes
 underneath you.
@@ -219,8 +231,9 @@ Both were found by running the prototype, and stage 2 will meet them again.
    approval list and ranking from scores, so a round-tripped payload can differ
    from the stored one. Compare against
    `buildSubmitPayload(initialBallotState(...))` of the stored payload, or
-   "revert" will never read as "no change". See `canonicalPayload` in
-   `routes/DesignExplore.tsx`.
+   "revert" will never read as "no change". That round trip is `canonicalPayload`
+   in `lib/ballotState.ts`, shared with the real Edit Ballot screen, which meets
+   the same trap through the baseline marks.
 
 Also: `useBallotState` builds its state once, so the editor **must** be remounted
 per voter with `key={voterId}`.

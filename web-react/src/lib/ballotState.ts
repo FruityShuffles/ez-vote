@@ -338,6 +338,30 @@ export function getBlockingErrors(
   return errors
 }
 
+/**
+ * Round-trip a stored payload through the derivation templates, so it can be
+ * compared like-with-like against a payload the editor produced.
+ *
+ * Loading a ballot re-derives its approval list and ranking from scores, so a
+ * stored payload and its own round trip are not necessarily identical. Anything
+ * that diffs "what was saved" against "what is on screen" — the what-if
+ * explorer's ledger, the baseline marks in [[ballotBaseline]] — must canonicalise
+ * first, or "put it back" will never read as "no change".
+ */
+export function canonicalPayload(
+  payload: Payload,
+  algos: string[],
+  candidateIds: string[],
+  includeFptp: boolean,
+): Payload {
+  return buildSubmitPayload(
+    initialBallotState(candidateIds, algos, payload),
+    getTemplate(algos),
+    candidateIds,
+    includeFptp,
+  )
+}
+
 /** Assemble the submit payload via the shared derivation (BAL-02). */
 export function buildSubmitPayload(
   state: BallotState,
