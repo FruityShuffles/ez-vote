@@ -49,3 +49,5 @@ Short version: FPTP is educational scaffolding, not a first-class voting method.
 ## pg_cron Cleanup
 
 Elections older than 60 days are deleted automatically at 3 AM daily. This is primarily a storage and cost concern, not a product feature. The threshold is generous enough that no active election is at risk, and it avoids needing a manual admin cleanup process.
+
+Exception (migration 022): elections with `visibility = 'public'` are excluded from the purge — Case Studies are permanent curated content, not user data.

@@ -14,11 +14,17 @@
 //
 // Every read therefore runs as the caller: the election row and candidates
 // through row-level security, and all ballots through the `get_public_ballots`
-// RPC (migrations 020/021), which already enforces `public_ballots = true` for
-// every caller including the owner, plus owner-or-joined-voter membership.
-// Reusing that RPC means the privacy rules live in one place instead of a
-// second copy here that could drift. Consequence: simulation is available only
-// on elections that opted into public ballots.
+// RPC (migrations 020/021/022), which already enforces `public_ballots = true`
+// for every caller including the owner, plus owner-or-joined-voter membership
+// on private elections. Reusing that RPC means the privacy rules live in one
+// place instead of a second copy here that could drift. Consequence:
+// simulation is available only on elections that opted into public ballots.
+//
+// Callers with no user are allowed (migration 022 / issue #140): they proceed
+// on a plain anon-role client, so RLS and the RPC decide what they can reach —
+// in practice only elections with `visibility = 'public'`. No identity check
+// is needed here because identity was never the authority; the caller's role
+// is.
 //
 // The opt-in flip search (`find_flip`) is pure compute over the data already
 // fetched above — it adds no reads and no privileged key, so the property
@@ -67,17 +73,22 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // The only client in this function: anon key + the caller's own JWT, so
-    // every query is capped by what that user could already read in the app.
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    // Anon key + the caller's own JWT, so every query is capped by what that
+    // user could already read in the app.
+    const authedClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
     const {
       data: { user },
-      error: userError,
-    } = await userClient.auth.getUser();
-    if (userError || !user) throw new Error("Unauthorized");
+    } = await authedClient.auth.getUser();
+
+    // No user (guest visitor, or a stale/invalid JWT): fall back to a plain
+    // anon-role client instead of passing the dead token through to PostgREST.
+    // RLS then only exposes publicly viewable elections.
+    const userClient = user
+      ? authedClient
+      : createClient(supabaseUrl, supabaseAnonKey);
 
     const { election_id, overrides = [], find_flip = false } = await req.json();
     if (!election_id) throw new Error("election_id required");

@@ -16,7 +16,7 @@ All elections currently use `invite_mode = 'open'`, so "participant" means `elec
 
 ## Helper Functions
 
-Two security-definer functions avoid RLS infinite recursion when checking ownership/membership inside policies:
+These security-definer functions avoid RLS infinite recursion when checking ownership/membership inside policies:
 
 ### `current_user_owns_election(election_id uuid) → boolean`
 Returns true if `auth.uid()` is the owner of the given election. Security-definer means it runs as the function owner (bypassing RLS on `elections`), avoiding the recursive loop that would occur if an `elections` policy called a function that itself queries `elections`.
@@ -27,7 +27,16 @@ Returns the `allow_voter_candidates` flag for the election. Also security-define
 ### `election_has_public_ballots(election_id uuid) → boolean`
 Returns the `public_ballots` flag for the election. Used by the new ballots SELECT policy to gate cross-voter visibility. Security-definer to avoid RLS recursion when a `ballots` policy reads `elections`.
 
-These were added in migration 006 after discovering that inline subqueries in policies caused RLS recursion on `elections`. The public-ballots helper was added in migration 020 following the same pattern.
+### `election_is_public(election_id uuid) → boolean`
+Returns whether `elections.visibility = 'public'`. Used by the anyone-can-read SELECT policies on `candidates` and `results` (the equivalent `elections` policy checks the column directly — same table, no recursion).
+
+These were added in migration 006 after discovering that inline subqueries in policies caused RLS recursion on `elections`. The public-ballots helper was added in migration 020 and the visibility helper in 022, following the same pattern.
+
+## Publicly Viewable Elections
+
+Migration 022 adds a second answer to the core access question: an election with `visibility = 'public'` is readable by **anyone**, including the sessionless `anon` role — its row, candidates, results, and (since public elections opt into `public_ballots`) its ballots via `get_public_ballots()`. The public SELECT policies have no `to` clause, so they cover `anon` and `authenticated` alike; the legacy table grants already give both roles SELECT at the grant layer.
+
+Users cannot create public elections: the owner INSERT and UPDATE policies on `elections` carry `WITH CHECK (... and visibility = 'private' and showcase = false)`, so the only writer that can set either flag is the service role (which bypasses RLS). A deliberate consequence is that owners cannot modify a public election through the API at all.
 
 ## Per-Table Policies
 
@@ -38,15 +47,15 @@ These were added in migration 006 after discovering that inline subqueries in po
 No public profile reads — voters see display names via RPC functions that aggregate them, not direct table access.
 
 ### `elections`
-- **SELECT:** Owner reads own elections; participants read elections they've joined
-- **INSERT:** Authenticated users only (owner_id auto-set)
-- **UPDATE:** Owner only
+- **SELECT:** Owner reads own elections; participants read elections they've joined; anyone (incl. `anon`) reads rows with `visibility = 'public'`
+- **INSERT:** Owner only, and only with `visibility = 'private'` and `showcase = false`
+- **UPDATE:** Owner only; `WITH CHECK` requires `visibility = 'private'` and `showcase = false`, so owners can never set the flags (and cannot modify a public election)
 - **DELETE:** Owner only
 
 ### `candidates`
-- **SELECT:** Owner reads; participants in the election read
+- **SELECT:** Owner reads; participants in the election read; anyone reads if `election_is_public()` returns true
 - **INSERT:** Owner inserts; voters can insert if `election_allows_voter_candidates()` returns true
-- **UPDATE:** Owner only
+- **UPDATE:** No policy — the app never updates candidates (it deletes and reinserts)
 - **DELETE:** Owner only
 
 The voter-insert case powers ad-hoc candidate addition (the `allowVoterCandidates` feature).
@@ -64,7 +73,7 @@ The voter-insert case powers ad-hoc candidate addition (the `allowVoterCandidate
 Voter privacy: with `public_ballots = false`, no participant — including the owner — can SELECT another voter's ballot. The only paths to read another voter's ballot are (a) the `compute-results` edge function, which uses the service-role key to bypass RLS, and (b) the public-ballots opt-in. The legacy "Owners can read ballots" policy was dropped in migration 020 because it widened the privacy ceiling without being load-bearing for compute (compute already uses service-role).
 
 ### `results`
-- **SELECT:** Owner reads; participants in the election read
+- **SELECT:** Owner reads; participants in the election read; anyone reads if `election_is_public()` returns true
 - **INSERT/UPDATE:** Via edge function only (service role key, bypasses RLS)
 
 ### `election_voters`

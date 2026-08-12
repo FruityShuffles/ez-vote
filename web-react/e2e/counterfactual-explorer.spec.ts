@@ -33,18 +33,27 @@ async function castScoreRankBallot(
   ).toBeVisible()
 }
 
-function databaseClient() {
+// Signed in as the election owner: get_public_ballots rejects anonymous
+// callers on private elections (migration 022), and the owner can also read
+// `results` through RLS, so both halves of the no-write assertion see data.
+async function databaseClient() {
   const env = loadEnv('', process.cwd(), 'VITE_')
   if (!env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_ANON_KEY) {
     throw new Error('Missing VITE Supabase variables for the no-write oracle')
   }
-  return createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
+  const db = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
+  const { error } = await db.auth.signInWithPassword({
+    email: TEST_USER_1.email,
+    password: TEST_USER_1.password,
+  })
+  if (error) throw error
+  return db
 }
 
 async function storedState(
-  db: ReturnType<typeof databaseClient>,
+  db: Awaited<ReturnType<typeof databaseClient>>,
   electionId: string,
 ) {
   const [results, ballots] = await Promise.all([
@@ -99,7 +108,7 @@ test('a hypothetical ranking edit flips only IRV, undo restores baseline, and no
     storageState: TEST_USER_2.storageStateFile,
   })
   const user2 = await context2.newPage()
-  const db = databaseClient()
+  const db = await databaseClient()
   try {
     await user2.goto(`/election/${electionId}/join`)
     await expect(user2).toHaveURL(new RegExp(`/election/${electionId}$`))

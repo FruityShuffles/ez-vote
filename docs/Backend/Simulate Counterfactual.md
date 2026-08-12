@@ -19,16 +19,16 @@ That absence is load-bearing and looks like an oversight to anyone skimming, so 
 
 ## Read path
 
-Every read runs as the caller — anon key plus the caller's own JWT — so the function can only reach what that user could already reach in the app.
+Every read runs as the caller — anon key plus the caller's own JWT — so the function can only reach what that user could already reach in the app. Since migration 022, a caller with **no user** (guest visitor, or a stale/invalid JWT) is not rejected: the function falls back to a plain anon-role client, and RLS plus the RPC decide what that role can reach — in practice, only elections with `visibility = 'public'`. Identity was never the authority here; the caller's role is.
 
 | Read | Path | Enforced by |
 |---|---|---|
-| Identity | `auth.getUser()` | Same as `compute-results` |
-| Election row | `from('elections')` | RLS: owner or joined voter |
-| Candidates | `from('candidates')` | RLS: owner or joined voter |
+| Identity | `auth.getUser()` | Optional — no user means anon-role reads |
+| Election row | `from('elections')` | RLS: owner, joined voter, or public election |
+| Candidates | `from('candidates')` | RLS: owner, joined voter, or public election |
 | **All ballots** | `rpc('get_public_ballots')` | The RPC's own checks (below) |
 
-`get_public_ballots()` (migrations 020/021, see [[Features/Public Ballots]]) already enforces: election exists, `public_ballots = true` **for every caller including the owner**, and caller is owner or a member of `election_voters`. Its errors are surfaced verbatim.
+`get_public_ballots()` (migrations 020/021/022, see [[Features/Public Ballots]]) already enforces: election exists, `public_ballots = true` **for every caller including the owner**, and — on private elections — caller is owner or a member of `election_voters` (skipped when `visibility = 'public'`). Its errors are surfaced verbatim.
 
 ### What each refusal actually looks like
 
@@ -36,11 +36,12 @@ Verified against the deployed function. Note the ordering effect: the election r
 
 | Caller | Response |
 |---|---|
-| No `Authorization` header | `Missing Authorization header` |
-| Invalid or expired token | `Unauthorized` |
+| No `Authorization` header | `Missing Authorization header` (supabase-js always sends one — the anon key when signed out) |
+| Invalid/expired token, or no user | Proceeds as `anon` — public elections work, everything else is `Election not found` |
 | Owner or joined voter, `public_ballots = false` | `Public ballots not enabled` |
-| Not a participant (any election they can't see) | **`Election not found`** — RLS hides the row first |
+| Not a participant (any private election they can't see) | **`Election not found`** — RLS hides the row first |
 | Owner or joined voter, `public_ballots = true` | 200 |
+| Anyone (incl. no session) on a `visibility = 'public'` election | 200 |
 
 So the RPC's `Not a participant` message is effectively unreachable through this endpoint. That's the desirable behavior — it doesn't confirm an election exists to someone with no access — but M21 should not expect to distinguish "not a participant" from "no such election" here.
 

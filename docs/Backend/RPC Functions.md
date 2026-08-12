@@ -31,14 +31,14 @@ Validates:
 ### `get_ballot_count(p_election_id uuid) → integer`
 **Called by:** `BallotRepository.getBallotCount()` → `ballotCountProvider`
 
-Returns count of ballots for the election. Security-definer so both owners and participants can call it without needing ballot SELECT access beyond their own row.
+Returns count of ballots for the election. Security-definer so both owners and participants can call it without needing ballot SELECT access beyond their own row. Has no access check at all — any caller who knows an election id (including `anon`) gets the count. Audited for #140 and left as is: a bare integer discloses nothing sensitive, and public election pages will need it.
 
 ---
 
 ### `get_election_voters(p_election_id uuid) → table(display_name text)`
 **Called by:** `BallotRepository.getVoterNames()` → `electionVotersProvider`
 
-Returns display names of all users in `election_voters` for the election. Aggregates names from `profiles` without exposing raw voter IDs.
+Returns display names of all users in `election_voters` for the election. Aggregates names from `profiles` without exposing raw voter IDs. Gated: raises `Not a participant` unless the caller is the owner or a joined voter (NULL-safe, so `anon` is rejected). Public elections do **not** get a carve-out here — voter names stay participant-only; the UI slice of #139 must hide the voter list on public elections.
 
 ---
 
@@ -49,19 +49,21 @@ Returns users who have voted in other elections alongside the current user, excl
 
 ---
 
-### `get_pending_invitees(p_election_id uuid) → table(display_name text, email text)`
+### `get_pending_invitees(p_election_id uuid) → table(display_name text)`
 **Called by:** `BallotRepository.getPendingInvitees()` → `pendingInviteesProvider`
 
-Returns users who have been invited to this election but haven't joined yet. Displayed in `ElectionDetailScreen` as the "pending" count.
+Returns display names of joined voters who haven't submitted a ballot yet. Displayed in `ElectionDetailScreen` as the "pending" count.
+
+The migration 018 version had no access check (any caller, even `anon`, could list names for any election id) — found during the #140 audit and fixed in migration 022 with the same owner-or-joined-voter gate as `get_election_voters`. Like the voter list, this stays participant-only on public elections.
 
 ---
 
 ### `get_public_ballots(p_election_id uuid) → table(voter_id uuid, display_name text, payload jsonb, updated_at timestamptz)`
 **Called by:** `BallotRepository.getPublicBallots()` → `publicBallotsProvider`
 
-Returns every submitted ballot for the election alongside the voter's display name. Requires `elections.public_ballots = true` (enforced for all callers, owner included) and that the caller is either the owner or a joined voter. Errors with `Election not found`, `Public ballots not enabled`, or `Not a participant` otherwise. Security-definer so it can join `profiles` without exposing the table to direct reads.
+Returns every submitted ballot for the election alongside the voter's display name. Requires `elections.public_ballots = true` (enforced for all callers, owner included). On private elections the caller must additionally be the owner or a joined voter; on `visibility = 'public'` elections that check is skipped, so anyone — including `anon` — can read the ballots. Errors with `Election not found`, `Public ballots not enabled`, or `Not a participant` otherwise. Security-definer so it can join `profiles` without exposing the table to direct reads.
 
-Added in migration 020 alongside the public-ballots feature; migration 021 tightened the flag check so owners do not bypass it.
+Added in migration 020 alongside the public-ballots feature; migration 021 tightened the flag check so owners do not bypass it; migration 022 added the public-election path and made the participant gate NULL-safe (the 021 version's `auth.uid() <> owner` comparison evaluated to NULL for anonymous callers, silently skipping the gate).
 
 ---
 

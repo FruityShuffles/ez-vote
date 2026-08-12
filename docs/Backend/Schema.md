@@ -28,8 +28,10 @@ Central entity. One row per election.
 | invite_mode | text | `'open'` (default); future: `'invite_only'` |
 | allow_voter_candidates | boolean | Default false |
 | realtime_results | boolean | Default false |
-| include_fptp | boolean | Default false |
+| include_fptp | boolean | Default true |
 | public_ballots | boolean | Default false. When true, all participants can view all submitted ballots. |
+| visibility | text | `'private'` (default) or `'public'`. Public elections are readable by anyone, including the `anon` role. Only the service role can set it — owner write policies require `'private'`. |
+| showcase | boolean | Default false. Marks the curated Case Studies subset of public elections. Service-role-only, like `visibility`. |
 | candidates_updated_at | timestamptz | Bumped by trigger on candidate insert |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
@@ -129,14 +131,16 @@ Derived fields (IRV from STAR scores, approval from cutoff/top-K) are computed c
 | 007       | `on_auth_user_confirmed` trigger — fires on UPDATE when `email_confirmed_at` goes null→non-null (email/OTP flow) → calls `handle_new_user()` to upsert profile |
 | 008–012   | Incremental feature additions                                                                   |
 | 009       | Adds `on_auth_user_created` trigger — fires on INSERT when `email_confirmed_at IS NOT NULL` (Google OAuth, pre-confirmed). Both 007 and 009 call `handle_new_user()`. The `ON CONFLICT (id) DO NOTHING` in that function is load-bearing — do not remove it. |
+| 011       | pg_cron job: delete elections older than 60 days at 3 AM daily                                  |
 | 013       | `allow_voter_candidates`, `realtime_results`, `candidates_updated_at`; candidate insert trigger |
 | 014       | `updated_at` on results table (for realtime polling freshness)                                  |
-| 015–016   | Additional RPC functions (prior covoters, pending invitees)                                     |
+| 015–016   | Additional RPC functions (election voters, prior covoters, invitations)                        |
 | 017       | `include_fptp` flag on elections                                                                |
-| 018       | pg_cron job: delete elections older than 60 days at 3 AM daily                                  |
+| 018       | `get_pending_invitees()` RPC                                                                    |
 | 019       | `bump_ballots_updated_at` trigger so realtime polling reacts to ballot edits                    |
 | 020       | `public_ballots` flag, drops legacy "Owners can read ballots" policy, adds public-ballots RLS + `get_public_ballots()` RPC |
 | 021       | Tightens `get_public_ballots()` to require `public_ballots = true` for *all* callers (including the owner)             |
+| 022       | Publicly viewable elections: `visibility` + `showcase` columns, `election_is_public()` helper, anyone-can-read policies on elections/candidates/results, owner write policies locked to private, anon-capable `get_public_ballots()`, gated `get_pending_invitees()`, cron purge excludes public elections |
 
 ## Data API Access & Grants
 
