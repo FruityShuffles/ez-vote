@@ -16,9 +16,15 @@ export interface AuthContextValue {
   user: User | null
   /** True until the initial `getSession()` resolves — gates guards from flashing. */
   loading: boolean
+  /** Sessionless, read-only access selected by the visitor. */
+  isGuest: boolean
+  /** Persist sessionless guest mode across reloads. */
+  continueAsGuest: () => void
 }
 
-export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+export const AuthContext = createContext<AuthContextValue | undefined>(
+  undefined,
+)
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)

@@ -300,9 +300,13 @@ export function useSaveElection(electionId?: string) {
 }
 
 /** The current user's ballot for this election, or null if they haven't voted. */
-export function useExistingBallot(electionId: string) {
+export function useExistingBallot(
+  electionId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: electionKeys.existingBallot(electionId),
+    enabled: electionId !== '' && (options.enabled ?? true),
     queryFn: async (): Promise<Ballot | null> => {
       const userId = await requireUserId()
       const { data, error } = await supabase
@@ -325,8 +329,7 @@ export function useElectionParticipation(
 ) {
   return useQuery({
     queryKey: electionKeys.participation(electionId, userId ?? ''),
-    enabled:
-      electionId !== '' && userId != null && (options.enabled ?? true),
+    enabled: electionId !== '' && userId != null && (options.enabled ?? true),
     queryFn: async (): Promise<boolean> => {
       const { data, error } = await supabase
         .from('election_voters')

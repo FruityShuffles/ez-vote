@@ -23,12 +23,17 @@ const LOGGED_OUT: AuthContextValue = {
   session: null,
   user: null,
   loading: false,
+  isGuest: false,
+  continueAsGuest: () => undefined,
 }
-const LOADING: AuthContextValue = { session: null, user: null, loading: true }
+const GUEST: AuthContextValue = { ...LOGGED_OUT, isGuest: true }
+const LOADING: AuthContextValue = { ...LOGGED_OUT, loading: true }
 const LOGGED_IN: AuthContextValue = {
   session: { user: { id: 'u1' } } as Session,
   user: { id: 'u1' } as Session['user'],
   loading: false,
+  isGuest: false,
+  continueAsGuest: () => undefined,
 }
 
 function renderRoutes(
@@ -102,6 +107,39 @@ describe('nested application routes', () => {
     ).toHaveAttribute('href', '/signup?redirect=%2Felection%2Finvite-1%2Fjoin')
     expect(screen.getAllByRole('main')).toHaveLength(1)
   })
+
+  it('renders guest chrome without account-only actions', async () => {
+    renderRoute('/settings', GUEST)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Settings' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Create account' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Sign out' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Account')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['/create', '/signup?redirect=%2Fcreate'],
+    ['/election/e1/edit', '/signup?redirect=%2Felection%2Fe1%2Fedit'],
+    ['/election/e1/vote', '/signup?redirect=%2Felection%2Fe1%2Fvote'],
+    ['/election/e1/join', '/signup?redirect=%2Felection%2Fe1%2Fjoin'],
+  ])(
+    'redirects a guest account-only route %s to signup',
+    async (path, expected) => {
+      const router = renderRoute(path, GUEST)
+      await waitFor(() =>
+        expect(
+          router.state.location.pathname + router.state.location.search,
+        ).toBe(expected),
+      )
+    },
+  )
 
   it('moves focus on pathname changes but not query-only changes', async () => {
     const user = userEvent.setup()

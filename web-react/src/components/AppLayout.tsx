@@ -8,6 +8,7 @@ import { RouteError } from '@/components/RouteError'
 import { AppShell } from '@/components/ui/app-shell'
 import { Button } from '@/components/ui/button'
 import { signOut } from '@/lib/auth'
+import { useAuth } from '@/auth/context'
 
 export type RouteHandle = {
   width?: React.ComponentProps<typeof AppShell>['width']
@@ -40,6 +41,7 @@ function AuthenticatedApp({ children }: { children: React.ReactNode }) {
 
 function AppFrame({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
+  const { isGuest } = useAuth()
   const matches = useMatches()
   const [signingOut, setSigningOut] = useState(false)
   const width = matches.reduce<React.ComponentProps<typeof AppShell>['width']>(
@@ -70,13 +72,17 @@ function AppFrame({ children }: { children: React.ReactNode }) {
           >
             <Settings />
           </Button>
-          <Button
-            variant="outline"
-            disabled={signingOut}
-            onClick={() => void handleSignOut()}
-          >
-            {signingOut ? 'Signing out…' : 'Sign out'}
-          </Button>
+          {isGuest ? (
+            <Button onClick={() => navigate('/signup')}>Create account</Button>
+          ) : (
+            <Button
+              variant="outline"
+              disabled={signingOut}
+              onClick={() => void handleSignOut()}
+            >
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </Button>
+          )}
         </>
       }
     >

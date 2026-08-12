@@ -1,10 +1,11 @@
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Lock, Plus } from 'lucide-react'
 
 import { useAuth } from '@/auth/context'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
-import { H1, Muted } from '@/components/ui/typography'
+import { H1, H2, Muted } from '@/components/ui/typography'
 import { Stack } from '@/components/ui/layout'
 import { cn } from '@/lib/utils'
 import { ElectionCard } from '@/components/elections/ElectionCard'
@@ -31,8 +32,9 @@ type Tab = 'elections' | 'learn' | 'case-studies'
 
 export function Dashboard() {
   const navigate = useNavigate()
+  const { isGuest } = useAuth()
   const [params, setParams] = useSearchParams()
-  const tab = resolveTab(params.get('tab'))
+  const tab = resolveTab(params.get('tab'), isGuest)
 
   function selectTab(nextTab: Tab) {
     const next = new URLSearchParams(params)
@@ -44,22 +46,26 @@ export function Dashboard() {
     <Stack gap={6}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <H1>Dashboard</H1>
-        <Button onClick={() => navigate('/create')}>
-          <Plus /> New Election
-        </Button>
+        {!isGuest && (
+          <Button onClick={() => navigate('/create')}>
+            <Plus /> New Election
+          </Button>
+        )}
       </div>
 
-      <div role="tablist" aria-label="Dashboard sections" className="flex gap-1 border-b">
+      <div
+        role="tablist"
+        aria-label="Dashboard sections"
+        className="flex gap-1 border-b"
+      >
         <TabButton
           active={tab === 'elections'}
           onClick={() => selectTab('elections')}
         >
+          {isGuest && <Lock className="size-3.5" aria-hidden />}
           My Elections
         </TabButton>
-        <TabButton
-          active={tab === 'learn'}
-          onClick={() => selectTab('learn')}
-        >
+        <TabButton active={tab === 'learn'} onClick={() => selectTab('learn')}>
           Learn
         </TabButton>
         <TabButton
@@ -70,7 +76,8 @@ export function Dashboard() {
         </TabButton>
       </div>
 
-      {tab === 'elections' && <MyElections />}
+      {tab === 'elections' &&
+        (isGuest ? <LockedMyElections /> : <MyElections />)}
       {tab === 'learn' && <LearnContent />}
       {tab === 'case-studies' && <CaseStudies />}
     </Stack>
@@ -78,13 +85,36 @@ export function Dashboard() {
 }
 
 /**
- * `owned` and `votes` are the pre-#134 tab values. They still resolve — old
- * bookmarks and links shared before the merge land on the combined list rather
- * than an error — as does any unknown value.
+ * `owned` and `votes` are the pre-#134 tab values. Account users still land on
+ * the combined list from those or any unknown value; guests land on Case
+ * Studies unless they explicitly select My Elections.
  */
-function resolveTab(value: string | null): Tab {
+function resolveTab(value: string | null, isGuest: boolean): Tab {
   if (value === 'learn' || value === 'case-studies') return value
-  return 'elections'
+  if (value === 'elections') return value
+  return isGuest ? 'case-studies' : 'elections'
+}
+
+function LockedMyElections() {
+  return (
+    <Card role="region" aria-label="My Elections requires an account">
+      <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+        <div className="rounded-full bg-muted p-3 text-muted-foreground">
+          <Lock className="size-5" aria-hidden />
+        </div>
+        <div>
+          <H2 className="text-lg">Create an account for your elections</H2>
+          <Muted className="mt-1">
+            Create elections, cast ballots, and keep track of every election you
+            join.
+          </Muted>
+        </div>
+        <Link to="/signup" className={buttonVariants()}>
+          Create account
+        </Link>
+      </CardContent>
+    </Card>
+  )
 }
 
 function CaseStudies() {
@@ -160,7 +190,9 @@ function MyElections() {
   }
   if (owned.isError && voted.isError && invited.isError) {
     return (
-      <Muted role="alert">Could not load your elections. Please try again.</Muted>
+      <Muted role="alert">
+        Could not load your elections. Please try again.
+      </Muted>
     )
   }
 
@@ -171,7 +203,11 @@ function MyElections() {
   const votedIds = new Set(votedList.map((e) => e.id))
 
   const byId = new Map<string, Election>()
-  for (const e of [...(owned.data ?? []), ...votedList, ...(invited.data ?? [])]) {
+  for (const e of [
+    ...(owned.data ?? []),
+    ...votedList,
+    ...(invited.data ?? []),
+  ]) {
     byId.set(e.id, e)
   }
   const elections = [...byId.values()].sort((a, b) =>
@@ -201,7 +237,10 @@ function MyElections() {
  * election is still open — a draft has no ballot to cast, and a closed election
  * you skipped is history, not a call to action.
  */
-function voteStatus(election: Election, votedIds: Set<string>): VoteStatus | null {
+function voteStatus(
+  election: Election,
+  votedIds: Set<string>,
+): VoteStatus | null {
   if (votedIds.has(election.id)) return 'voted'
   return election.status === 'open' ? 'not-voted' : null
 }

@@ -1,8 +1,35 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { AuthContext, type AuthContextValue } from '@/auth/context'
+
+export const GUEST_STORAGE_KEY = 'ezvote:guest'
+
+function readStoredGuest(): boolean {
+  try {
+    return window.localStorage.getItem(GUEST_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function storeGuest(value: boolean) {
+  try {
+    if (value) window.localStorage.setItem(GUEST_STORAGE_KEY, 'true')
+    else window.localStorage.removeItem(GUEST_STORAGE_KEY)
+  } catch {
+    // Storage can be unavailable in privacy-restricted browsers. Guest mode
+    // still works for the current page; only reload persistence is lost.
+  }
+}
 
 // Tracks the Supabase session and publishes it through AuthContext. Seeds from
 // getSession() (covers a persisted session restored on page load — session
@@ -10,6 +37,7 @@ import { AuthContext, type AuthContextValue } from '@/auth/context'
 // token refresh propagate live to every consumer.
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
+  const [isGuest, setIsGuest] = useState(readStoredGuest)
   const [loading, setLoading] = useState(true)
   const queryClient = useQueryClient()
   // Last user id we published, to detect a genuine account change. `undefined`
@@ -35,6 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         queryClient.clear()
       }
       lastUserIdRef.current = nextUserId
+      // A real account always replaces sessionless guest mode. This also
+      // clears a persisted guest flag after login, signup, or OAuth return.
+      if (nextUserId != null) {
+        setIsGuest(false)
+        storeGuest(false)
+      }
       setSession(next)
       setLoading(false)
     }
@@ -58,9 +92,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient])
 
+  const continueAsGuest = useCallback(() => {
+    setIsGuest(true)
+    storeGuest(true)
+  }, [])
+
   const value = useMemo<AuthContextValue>(
-    () => ({ session, user: session?.user ?? null, loading }),
-    [session, loading],
+    () => ({
+      session,
+      user: session?.user ?? null,
+      loading,
+      isGuest,
+      continueAsGuest,
+    }),
+    [session, loading, isGuest, continueAsGuest],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

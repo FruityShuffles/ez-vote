@@ -15,20 +15,39 @@ import { safeRedirect, withRedirect } from '@/auth/redirect'
 function AuthLoading() {
   // Brief placeholder while the initial getSession() resolves, so guards don't
   // flash a redirect before auth state is known.
-  return <div className="grid min-h-svh place-items-center text-muted-foreground">Loading…</div>
+  return (
+    <div className="grid min-h-svh place-items-center text-muted-foreground">
+      Loading…
+    </div>
+  )
 }
 
 /** Wrap protected routes. Unauthenticated users go to /login?redirect=<here>. */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { session, loading } = useAuth()
+  const { session, loading, isGuest } = useAuth()
   const location = useLocation()
 
   if (loading) return <AuthLoading />
-  if (!session) {
+  if (!session && !isGuest) {
     const here = location.pathname + location.search + location.hash
     return <Navigate to={withRedirect('/login', here)} replace />
   }
   return <>{children}</>
+}
+
+/** Wrap routes that mutate account-owned data. Guests are sent to signup and
+ *  return to the requested route after creating an account. */
+export function RequireAccount({ children }: { children: ReactNode }) {
+  const { session, loading, isGuest } = useAuth()
+  const location = useLocation()
+
+  if (loading) return <AuthLoading />
+  if (session) return <>{children}</>
+
+  const here = location.pathname + location.search + location.hash
+  return (
+    <Navigate to={withRedirect(isGuest ? '/signup' : '/login', here)} replace />
+  )
 }
 
 /** Wrap auth routes (/login, /signup, /forgot-password). Authenticated users are
@@ -38,6 +57,7 @@ export function RedirectIfAuthed({ children }: { children: ReactNode }) {
   const [params] = useSearchParams()
 
   if (loading) return <AuthLoading />
-  if (session) return <Navigate to={safeRedirect(params.get('redirect'))} replace />
+  if (session)
+    return <Navigate to={safeRedirect(params.get('redirect'))} replace />
   return <>{children}</>
 }

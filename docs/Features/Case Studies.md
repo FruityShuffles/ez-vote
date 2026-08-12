@@ -11,32 +11,40 @@ dragging a candidate up a ballot.
 "Case Studies" is the user-facing name (#139 asked for something better than the working
 title "Mock Elections").
 
-**Status:** the backend (#140), seeding pipeline plus first case study (#141), and
-signed-in dashboard/viewing UI (#142) have shipped. Guest access is #143.
+**Status:** shipped. The backend (#140), seeding pipeline plus first case study
+(#141), signed-in dashboard/viewing UI (#142), and sessionless guest access
+(#143) are complete.
 
 ## Dashboard and public viewing
 
 `/dashboard?tab=case-studies` lists showcase elections newest first through
-`useCaseStudies()`. The hook has no user lookup: signed-in viewers use it now and the
-sessionless guest slice can reuse the same query. Cards deliberately carry no owner,
+`useCaseStudies()`. The hook has no user lookup, so signed-in and sessionless guest
+viewers use the same query. Cards deliberately carry no owner,
 vote-status, or delete affordance, and showcase-election breadcrumbs return to the Case
 Studies tab.
 
 Election details distinguish joined membership from ballot status with a direct read of
-the viewer's own `election_voters` row. A signed-in non-participant can read the closed
-results and open **Explore what-ifs**, but cannot vote, add candidates, or open the
-participant-only voter/pending-invitee surfaces. The submitted-ballot total remains
-visible as non-interactive context. Joined voters and owners retain the existing detail
-screen behavior.
+the viewer's own `election_voters` row. A signed-in non-participant or guest can read the
+closed results and open **Explore what-ifs**, but cannot vote, add candidates, or open
+the participant-only voter/pending-invitee surfaces. Guests do not issue the
+session-owned existing-ballot query. The submitted-ballot total remains visible as
+non-interactive context. Joined voters and owners retain the existing detail behavior.
+
+Guests enter from **Continue as guest** on the landing page. The local flag survives
+reloads but creates no Supabase identity, so every Case Study read and what-if request
+runs as `anon`. Case Studies is their default dashboard tab; My Elections remains
+visible with a lock and account-creation explanation. Create, edit, vote, and join routes
+thread the requested destination through signup, while a real session automatically
+clears guest mode.
 
 ## What makes an election a case study
 
 Two independent flags on `elections`, both service-role-only (migration 022):
 
-| Flag | Meaning |
-|---|---|
+| Flag                    | Meaning                                                                                                                                                                                                         |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `visibility = 'public'` | Anyone — including sessionless visitors on the `anon` role — can read the election, its candidates, its results and (via `get_public_ballots`) its ballots. Also exempts the row from the 60-day pg_cron purge. |
-| `showcase = true` | It belongs in the curated Case Studies list. Kept separate so a future user-shared public election does not automatically become teaching material. |
+| `showcase = true`       | It belongs in the curated Case Studies list. Kept separate so a future user-shared public election does not automatically become teaching material.                                                             |
 
 Seeded case studies also set `public_ballots = true` — without it `get_public_ballots()`
 refuses every caller, and the explorer has nothing to simulate.
@@ -90,9 +98,9 @@ ballots, so every ballot must belong to a real account: `ballots.voter_id` → `
 → `auth.users.id`. The script therefore creates one account per fixture voter, plus a
 single shared owner.
 
-| | |
-|---|---|
-| Owner | `owner@case-studies.invalid`, display name "EZVote Case Studies" |
+|        |                                                                                     |
+| ------ | ----------------------------------------------------------------------------------- |
+| Owner  | `owner@case-studies.invalid`, display name "EZVote Case Studies"                    |
 | Voters | `<slug>.<voter-name>@case-studies.invalid`, display name = the fixture's voter name |
 
 Those accounts cannot be used, three ways over: `.invalid` is reserved by RFC 2606 and can
@@ -116,16 +124,16 @@ against that tabulator and aborts the fixture if they no longer hold.
 One JSON file per case study in `supabase/functions/scripts/case-studies/`. Candidates and
 voters are named, never id'd; the script resolves names to the derived ids above.
 
-| Field | Notes |
-|---|---|
-| `slug` | Lowercase kebab-case. The identity of the case study — changing it seeds a new election. |
-| `title` | Named for what it teaches, not for its topic (#139). |
-| `description` | Shown on the election. Lead with the human stake; the mechanism is the explanation. |
-| `algorithms` | e.g. `["irv"]`. |
-| `include_fptp` | Usually `false` — a single-method case study keeps the lesson sharp. |
-| `candidates` | Names, in ballot display order. |
-| `voters` | `{ name, payload }`. Payload keys are `irv` / `approval` / `star` / `fptp`, holding candidate **names**, and must match what the app would really store for the chosen `algorithms` (see [[Architecture/Ballot Templates]]). |
-| `lesson` | See below. |
+| Field          | Notes                                                                                                                                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `slug`         | Lowercase kebab-case. The identity of the case study — changing it seeds a new election.                                                                                                                                     |
+| `title`        | Named for what it teaches, not for its topic (#139).                                                                                                                                                                         |
+| `description`  | Shown on the election. Lead with the human stake; the mechanism is the explanation.                                                                                                                                          |
+| `algorithms`   | e.g. `["irv"]`.                                                                                                                                                                                                              |
+| `include_fptp` | Usually `false` — a single-method case study keeps the lesson sharp.                                                                                                                                                         |
+| `candidates`   | Names, in ballot display order.                                                                                                                                                                                              |
+| `voters`       | `{ name, payload }`. Payload keys are `irv` / `approval` / `star` / `fptp`, holding candidate **names**, and must match what the app would really store for the chosen `algorithms` (see [[Architecture/Ballot Templates]]). |
+| `lesson`       | See below.                                                                                                                                                                                                                   |
 
 The `lesson` block is what the case study claims to teach, written so it can be executed:
 
@@ -162,7 +170,7 @@ Seventeen coworkers rank three lunch spots (Tacos, Pizza, Sushi), IRV only.
 
 - **Baseline:** round 1 is Tacos 6, Pizza 6, Sushi 5. Sushi is eliminated and Tacos wins
   10–7.
-- **The exercise:** Gita and Hugo rank Pizza first and Tacos *last*. Move Tacos to the top
+- **The exercise:** Gita and Hugo rank Pizza first and Tacos _last_. Move Tacos to the top
   of their two ballots — the only change, and it only helps Tacos. Round 1 becomes Tacos
   8, Pizza 4, Sushi 5, so **Pizza** is eliminated instead; its voters flow to Sushi, and
   Sushi wins 9–8.

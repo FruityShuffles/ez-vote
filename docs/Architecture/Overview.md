@@ -2,14 +2,14 @@
 
 EZVote is a client-rendered React SPA in `web-react/`, backed by Supabase (Postgres + Auth + Edge Functions). It deploys as static assets to the `ez-vote-react` Cloudflare Pages project and serves `https://ez-vote.org`; `https://next.ez-vote.org` and `https://ez-vote-react.pages.dev` are aliases of the same deployment, not separate environments.
 
-| Concern | Implementation |
-|---|---|
+| Concern           | Implementation                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
 | Build / rendering | Vite + React Router SPA (`_redirects` fallback for deep links, `_headers` for security headers) |
-| Server state | TanStack Query — one query-key factory per domain area |
-| Client state | Zustand (minimal — chiefly the counterfactual edit ledger) |
-| Styling | Tailwind CSS |
-| Components / a11y | shadcn + Base UI primitives, owned source in `src/components/ui/` |
-| Env / credentials | Vite build-time `import.meta.env.VITE_SUPABASE_*` |
+| Server state      | TanStack Query — one query-key factory per domain area                                          |
+| Client state      | Zustand (minimal — chiefly the counterfactual edit ledger)                                      |
+| Styling           | Tailwind CSS                                                                                    |
+| Components / a11y | shadcn + Base UI primitives, owned source in `src/components/ui/`                               |
+| Env / credentials | Vite build-time `import.meta.env.VITE_SUPABASE_*`                                               |
 
 Rationale for each choice is in [[Migration/Tech Stack]]; design tokens and the component inventory are in [[Migration/Design System]].
 
@@ -46,28 +46,28 @@ After a mutation, its `onSuccess` calls `qc.invalidateQueries({ queryKey: … })
 
 All election keys come from the `electionKeys` factory in `src/lib/elections.ts`; results have their own `resultsQueryKey` in `src/lib/results.ts`.
 
-| Hook | Query key | What it fetches |
-|---|---|---|
-| `useOwnedElections()` | `['elections','owned']` | Elections owned by the current user |
-| `useVotedElections()` | `['elections','voted']` | Elections where the user cast a ballot |
-| `usePendingInvitations()` | `['elections','pending-invitations']` | Open elections with unaccepted invites |
-| `useCaseStudies()` | `['elections','case-studies']` | Curated public showcase elections, newest first |
-| `useElection(id)` | `['election', id]` | Single election by id |
-| `useCandidates(id)` | `['candidates', id]` | Candidates for an election |
-| `useExistingBallot(id)` | `['existing-ballot', id]` | User's existing ballot (null if none) |
-| `useElectionParticipation(id, userId)` | `['election-participation', id, userId]` | Whether the viewer has joined the election |
-| `useBallotCount(id)` | `['ballot-count', id]` | Number of ballots cast |
-| `useElectionVoters(id)` | `['voters', id]` | Voter display names |
-| `usePendingInvitees(id)` | `['pending-invitees', id]` | Users with pending invites |
-| `usePriorCovoters(id)` | `['prior-covoters', id]` | Users who voted with the current user elsewhere |
-| `usePublicBallots(id)` | `['public-ballots', id]` | Ballots when `public_ballots` is enabled |
-| `useElectionResults(id)` | `['results', id]` | Computed results per algorithm |
+| Hook                                   | Query key                                | What it fetches                                 |
+| -------------------------------------- | ---------------------------------------- | ----------------------------------------------- |
+| `useOwnedElections()`                  | `['elections','owned']`                  | Elections owned by the current user             |
+| `useVotedElections()`                  | `['elections','voted']`                  | Elections where the user cast a ballot          |
+| `usePendingInvitations()`              | `['elections','pending-invitations']`    | Open elections with unaccepted invites          |
+| `useCaseStudies()`                     | `['elections','case-studies']`           | Curated public showcase elections, newest first |
+| `useElection(id)`                      | `['election', id]`                       | Single election by id                           |
+| `useCandidates(id)`                    | `['candidates', id]`                     | Candidates for an election                      |
+| `useExistingBallot(id)`                | `['existing-ballot', id]`                | User's existing ballot (null if none)           |
+| `useElectionParticipation(id, userId)` | `['election-participation', id, userId]` | Whether the viewer has joined the election      |
+| `useBallotCount(id)`                   | `['ballot-count', id]`                   | Number of ballots cast                          |
+| `useElectionVoters(id)`                | `['voters', id]`                         | Voter display names                             |
+| `usePendingInvitees(id)`               | `['pending-invitees', id]`               | Users with pending invites                      |
+| `usePriorCovoters(id)`                 | `['prior-covoters', id]`                 | Users who voted with the current user elsewhere |
+| `usePublicBallots(id)`                 | `['public-ballots', id]`                 | Ballots when `public_ballots` is enabled        |
+| `useElectionResults(id)`               | `['results', id]`                        | Computed results per algorithm                  |
 
 Mutation hooks live beside them and invalidate the keys they affect — `useSaveElection`, `useOpenElection`, `useCloseElection`, `useAddCandidate`, `useAddVoterToElection`, `useJoinElection`, `useDeleteElection`, `useUpsertBallot`.
 
 `useElection(id)` and `useCandidates(id)` each use a 30-second `staleTime`, so moving among an election's overview, ballot, edit form, and explorer reuses the shared cache instead of refetching on every observer remount. This is only a navigation freshness window: mutation and realtime invalidation still marks either query stale and refetches active observers immediately, while TanStack Query's default focus/remount behavior refreshes data once the window expires. Candidate polling and the ballot's pre-submit fetch remain the stronger live-safety gates for ad-hoc candidates.
 
-The owned and voted lists are user-scoped through `requireUserId()`; Case Studies is deliberately session-independent so guest mode can reuse it. Because the `QueryClient` is process-global, `AuthProvider` clears the whole cache on an actual account change — see [[Auth Flow]] → "Auth State in the App".
+The owned, voted, pending-invitation, and existing-ballot reads are user-scoped; guest UI never enables them. Case Studies is deliberately session-independent so guests can reuse it. Because the `QueryClient` is process-global, `AuthProvider` clears the whole cache on an actual account change — see [[Auth Flow]] → "Auth State in the App".
 
 ## Client State
 
@@ -84,41 +84,41 @@ The in-progress ballot is component state via `useBallotState`, not a global sto
 
 `createBrowserRouter` in `src/router.tsx` (history API — no `#` fragments). The Cloudflare Pages `_redirects` rule (`/* /index.html 200`) rewrites unknown paths to `index.html` so deep links resolve client-side. Route screens never instantiate `AppShell` themselves: protected screens inherit `AppLayout`, the unlinked galleries inherit `DesignLayout`, and standalone public/auth screens use their purpose-built layouts.
 
-The route table is nested without changing any URL. `RootLayout` wraps every route and owns one `ScrollRestoration`, pathname-only focus management, and the root error boundary. A pathless `AppLayout` wraps the protected branch, applies `RequireAuth` once around the app shell and `<Outlet>`, and provides a second error boundary. Auth routes remain outside that branch so their full-page cards cannot enter an auth redirect loop.
+The route table is nested without changing any URL. `RootLayout` wraps every route and owns one `ScrollRestoration`, pathname-only focus management, and the root error boundary. A pathless `AppLayout` wraps the application branch, applies `RequireAuth` once around the app shell and `<Outlet>`, and provides a second error boundary. `RequireAuth` admits real sessions and the persisted no-session guest flag; auth routes remain outside that branch so their full-page cards cannot enter an auth redirect loop.
 
-The authenticated app bar is global but deliberately limited to **Settings** and **Sign out**. **New Election** remains dashboard-only so it never appears during a ballot or edit flow. Route `handle.width` values set the content container width (`sm` ballot, `md` standard, `lg` explorer) while the app-bar container remains `lg`; global navigation therefore does not narrow with route content.
+The app bar is global. Account users see **Settings** and **Sign out**; guests see **Settings** and **Create account**. **New Election** remains dashboard-only and is hidden for guests, so it never appears during a ballot or edit flow. Route `handle.width` values set the content container width (`sm` ballot, `md` standard, `lg` explorer) while the app-bar container remains `lg`; global navigation therefore does not narrow with route content.
 
-Returnable UI state is addressable. Dashboard selection uses `?tab=elections|learn|case-studies` (anything else — including the pre-#134 `owned` and `votes` values still sitting in old bookmarks — resolves to `elections`), and the submitted-voters dialog on an election overview uses `?voters=open`. Both preserve unrelated parameters. Public-ballot links and paging carry an explicit `location.state.from = 'voters'` marker so Back returns to the open dialog without adding a ballot/overview loop; cold ballot deep links replace to the concrete `?voters=open` overview.
+Returnable UI state is addressable. Dashboard selection uses `?tab=elections|learn|case-studies`; absent/unknown values resolve to My Elections for account users and Case Studies for guests. The submitted-voters dialog on an election overview uses `?voters=open`. Both preserve unrelated parameters. Public-ballot links and paging carry an explicit `location.state.from = 'voters'` marker so Back returns to the open dialog without adding a ballot/overview loop; cold ballot deep links replace to the concrete `?voters=open` overview.
 
-`election/:id` is a gate-free namespace. Its `join` child sits directly beneath the namespace so the join RPC can run before RLS grants election-read access. A sibling pathless `ElectionWorkspace` gates every display child (`index`, `vote`, `edit`, public ballot, and explorer) on `useElection(id)`, then provides the resolved election through outlet context; candidates remain child-owned and `useElectionRealtime` remains detail-only.
+`election/:id` is a gate-free namespace. Its account-gated `join` child sits directly beneath the namespace so the join RPC can run before RLS grants election-read access. One pathless `ElectionWorkspace` serves guest-capable display children (overview, public ballot, and explorer); a `RequireAccount`-wrapped workspace serves edit and vote. Both resolve `useElection(id)` and provide it through outlet context, but the account guard runs before the latter can issue a guest read. Candidates remain child-owned and `useElectionRealtime` remains detail-only.
 
 Breadcrumbs are derived from matched route handles in `AppLayout`. The workspace match owns the subscribed election crumb (and therefore never appears on `/join`); deeper handles add the current page and content width. The top crumb is **Case Studies** for showcase elections and **My Elections** otherwise, while the final crumb carries `aria-current="page"`. Public-ballot breadcrumb navigation honors the same marked-history/cold-link fallback as the voters flow.
 
-| Path | Route component | Access |
-|---|---|---|
-| `/` | `Home` | Public |
-| `/learn`, `/privacy`, `/tos` | `Learn`, `Privacy`, `Terms` | Public |
-| `/login` | `Login` | `RedirectIfAuthed` |
-| `/signup` | `Signup` | `RedirectIfAuthed` |
-| `/forgot-password` | `ForgotPassword` | `RedirectIfAuthed` |
-| `/dashboard` | `Dashboard` | `RequireAuth` |
-| `/create` | `ElectionForm` | `RequireAuth` |
-| `/election/:id` | `ElectionDetail` | `RequireAuth` |
-| `/election/:id/edit` | `ElectionForm` (edit mode) | `RequireAuth` |
-| `/election/:id/vote` | `Ballot` | `RequireAuth` |
-| `/election/:id/ballot/:index` | `PublicBallot` | `RequireAuth` |
-| `/election/:id/explore` | `CounterfactualPicker` | `RequireAuth` |
-| `/election/:id/explore/:voterId` | `CounterfactualEditor` | `RequireAuth` |
-| `/election/:id/join` | `JoinElection` | `RequireAuth` |
-| `/settings` | `Settings` | `RequireAuth` |
-| `/design`, `/design/explore` | `Design`, `DesignExplore` | Unlinked, unguarded, lazy-loaded design surfaces |
-| `*` | `NotFound` | — |
+| Path                             | Route component             | Access                                                  |
+| -------------------------------- | --------------------------- | ------------------------------------------------------- |
+| `/`                              | `Home`                      | Public                                                  |
+| `/learn`, `/privacy`, `/tos`     | `Learn`, `Privacy`, `Terms` | Public                                                  |
+| `/login`                         | `Login`                     | `RedirectIfAuthed`                                      |
+| `/signup`                        | `Signup`                    | `RedirectIfAuthed`                                      |
+| `/forgot-password`               | `ForgotPassword`            | `RedirectIfAuthed`                                      |
+| `/dashboard`                     | `Dashboard`                 | Account or guest                                        |
+| `/create`                        | `ElectionForm`              | Account (`RequireAccount`)                              |
+| `/election/:id`                  | `ElectionDetail`            | Account or guest; RLS limits guests to public elections |
+| `/election/:id/edit`             | `ElectionForm` (edit mode)  | Account (`RequireAccount`)                              |
+| `/election/:id/vote`             | `Ballot`                    | Account (`RequireAccount`)                              |
+| `/election/:id/ballot/:index`    | `PublicBallot`              | Account or guest; RPC applies public-ballot policy      |
+| `/election/:id/explore`          | `CounterfactualPicker`      | Account or guest; public election required by backend   |
+| `/election/:id/explore/:voterId` | `CounterfactualEditor`      | Account or guest; public election required by backend   |
+| `/election/:id/join`             | `JoinElection`              | Account (`RequireAccount`)                              |
+| `/settings`                      | `Settings`                  | Account or guest; Account section hidden for guests     |
+| `/design`, `/design/explore`     | `Design`, `DesignExplore`   | Unlinked, unguarded, lazy-loaded design surfaces        |
+| `*`                              | `NotFound`                  | —                                                       |
 
 The public paths and the `/election/:id/...` shapes are a stability contract: they were preserved verbatim across the React cutover so links shared in past elections keep resolving.
 
 Production screen modules are route-lazy; only the root/app layouts, auth guard, election workspace, breadcrumbs, and error boundaries stay in the initial bundle. The initial third-party graph is separated into framework, data/auth, and remaining-vendor chunks without pulling dependencies used only by lazy screens into the cold load. `RootLayout` renders a `useNavigation()` progress bar during chunk transitions, and the root route's `hydrateFallbackElement` supplies a full-shell fallback for the first lazy chunk on a cold deep link. Server-data loading remains owned by TanStack Query inside each screen. Lazy import failures reach the existing root or authenticated-app `errorElement` rather than React Router's default error screen.
 
-**Auth redirect:** unauthenticated users go to `/login?redirect=<encoded-path>`; on sign-in the param is resolved by `safeRedirect` and honored. It threads through the entire login → signup → OTP chain. The single guard on the protected layout, not a central redirect callback, drives this — see [[Auth Flow]].
+**Auth redirect:** ordinary unauthenticated users go to `/login?redirect=<encoded-path>`; guests are admitted to read-only app routes but account-only routes send them to `/signup?redirect=<encoded-path>`. On sign-in the param is resolved by `safeRedirect` and honored through the login → signup → OTP chain. Guards, not a central redirect callback, drive this — see [[Auth Flow]].
 
 ## Environment / Credentials
 
@@ -128,22 +128,22 @@ Production screen modules are route-lazy; only the root/app layouts, auth guard,
 
 ## Screen Inventory
 
-| Route file | Purpose |
-|---|---|
-| `Home.tsx` | Unauthenticated landing page with CTA |
-| `Login.tsx` | Email/password sign-in + Google OAuth |
-| `Signup.tsx` | Email/password/display name + OTP verification |
-| `ForgotPassword.tsx` | Two-stage OTP password recovery |
-| `Dashboard.tsx` | 3-tab dashboard: My Elections (everything you own or were invited to, with owner/voted status icons), Learn, Case Studies |
-| `ElectionForm.tsx` | Create or edit an election (algorithms, candidates, feature flags) |
-| `Ballot.tsx` | Vote interface — 7 templates |
-| `PublicBallot.tsx` | Read-only view of another voter's ballot |
-| `CounterfactualExplorer.tsx` | What-if picker + editor |
-| `JoinElection.tsx` | Quick-join redirect screen |
-| `Settings.tsx` | Account settings, delete account |
-| `Learn.tsx` | Voting-method educational content |
-| `Privacy.tsx`, `Terms.tsx` | Static info pages |
-| `Design.tsx`, `DesignExplore.tsx` | Internal design-system galleries |
+| Route file                        | Purpose                                                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `Home.tsx`                        | Unauthenticated landing page with CTA                                                                                     |
+| `Login.tsx`                       | Email/password sign-in + Google OAuth                                                                                     |
+| `Signup.tsx`                      | Email/password/display name + OTP verification                                                                            |
+| `ForgotPassword.tsx`              | Two-stage OTP password recovery                                                                                           |
+| `Dashboard.tsx`                   | 3-tab dashboard: My Elections (everything you own or were invited to, with owner/voted status icons), Learn, Case Studies |
+| `ElectionForm.tsx`                | Create or edit an election (algorithms, candidates, feature flags)                                                        |
+| `Ballot.tsx`                      | Vote interface — 7 templates                                                                                              |
+| `PublicBallot.tsx`                | Read-only view of another voter's ballot                                                                                  |
+| `CounterfactualExplorer.tsx`      | What-if picker + editor                                                                                                   |
+| `JoinElection.tsx`                | Quick-join redirect screen                                                                                                |
+| `Settings.tsx`                    | Account settings, delete account                                                                                          |
+| `Learn.tsx`                       | Voting-method educational content                                                                                         |
+| `Privacy.tsx`, `Terms.tsx`        | Static info pages                                                                                                         |
+| `Design.tsx`, `DesignExplore.tsx` | Internal design-system galleries                                                                                          |
 
 `ElectionDetail` (owner controls, participant view, candidate list, results) lives in `src/components/elections/ElectionDetail.tsx` and is routed directly. `ResultsView` (`src/components/results/ResultsView.tsx`) renders the algorithm-by-algorithm result cards plus the analysis card.
 

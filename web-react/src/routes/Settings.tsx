@@ -20,39 +20,42 @@ import { Stack } from '@/components/ui/layout'
 import { cn } from '@/lib/utils'
 import { deleteAccount, signOut } from '@/lib/auth'
 import { friendlyError } from '@/lib/errors'
+import { useAuth } from '@/auth/context'
 
 // Settings surface (M14). Two cards: Legal (Privacy / Terms links) and Account
 // (the delete-account flow). Display-name editing is intentionally absent — it
 // has never been offered; adding it is a feature decision, not an oversight.
 
 export function Settings() {
+  const { isGuest } = useAuth()
+
   return (
     <Stack gap={6}>
-        <H1>Settings</H1>
+      <H1>Settings</H1>
 
-        <section>
-          <SectionLabel>Legal</SectionLabel>
-          <Card className="py-0">
-            <LinkRow to="/privacy" label="Privacy Policy" />
-            <Separator />
-            <LinkRow to="/tos" label="Terms of Service" />
-          </Card>
-        </section>
+      <section>
+        <SectionLabel>Legal</SectionLabel>
+        <Card className="py-0">
+          <LinkRow to="/privacy" label="Privacy Policy" />
+          <Separator />
+          <LinkRow to="/tos" label="Terms of Service" />
+        </Card>
+      </section>
 
+      {!isGuest && (
         <section>
           <SectionLabel>Account</SectionLabel>
           <Card className="py-0">
             <DeleteAccountRow />
           </Card>
         </section>
+      )}
     </Stack>
   )
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-2 text-sm font-medium text-primary">{children}</p>
-  )
+  return <p className="mb-2 text-sm font-medium text-primary">{children}</p>
 }
 
 function LinkRow({ to, label }: { to: string; label: string }) {
@@ -108,13 +111,15 @@ function DeleteAccountRow() {
         <DialogHeader>
           <DialogTitle>Delete account?</DialogTitle>
           <DialogDescription>
-            This will permanently delete your account, all elections you own, and
-            all of your votes in elections that are still open. This action cannot
-            be undone.
+            This will permanently delete your account, all elections you own,
+            and all of your votes in elections that are still open. This action
+            cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>
+            Cancel
+          </DialogClose>
           <Button
             variant="destructive"
             disabled={deleting}

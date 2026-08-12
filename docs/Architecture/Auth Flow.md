@@ -22,6 +22,7 @@ Two-phase flow: registration then OTP verification.
 ```
 
 The `redirect` query param is threaded through the entire flow:
+
 - `/login?redirect=/election/abc/vote`
 - → `/signup?redirect=/election/abc/vote`
 - → OTP verification (same route, same param)
@@ -64,7 +65,7 @@ The `redirect` query param is threaded through `/login → /forgot-password → 
 
 The Supabase **"Reset Password" email template must include `{{ .Token }}`** to render the 8-digit OTP. Without it, recovery emails arrive with only a magic link and the in-app OTP field has no code to enter.
 
-OAuth-only accounts (Google) can also use this flow: `updateUser(password)` on a recovery session will *attach* a password to a previously password-less account, after which the user can sign in with either Google or email/password. This is generally desirable — a user who forgot they signed up via Google can self-rescue — but worth noting since it changes the account's auth methods.
+OAuth-only accounts (Google) can also use this flow: `updateUser(password)` on a recovery session will _attach_ a password to a previously password-less account, after which the user can sign in with either Google or email/password. This is generally desirable — a user who forgot they signed up via Google can self-rescue — but worth noting since it changes the account's auth methods.
 
 ## Logout
 
@@ -90,22 +91,31 @@ The ballot nullification preserves election result integrity — ballots remain 
 
 ## Auth State in the App
 
-`AuthProvider` (`src/auth/AuthProvider.tsx`) owns the session and publishes it through `AuthContext` (`src/auth/context.ts`); components read it with `useAuth()`.
+`AuthProvider` (`src/auth/AuthProvider.tsx`) owns the session plus sessionless guest state and publishes both through `AuthContext` (`src/auth/context.ts`); components read them with `useAuth()`.
 
 It seeds from `supabase.auth.getSession()` — which covers a persisted session restored on page load — then subscribes to `onAuthStateChange` so sign-in, sign-out, and token refresh propagate live. Resolving `getSession()` explicitly is what flips the `loading` flag off; on error it treats the user as signed out so guards never hang.
 
 **Cache invalidation on account change.** The `QueryClient` is process-global and several keys are user-scoped (owned/voted elections, existing ballot). `AuthProvider` tracks the last published user id and calls `queryClient.clear()` whenever it actually changes — sign-out, sign-in, or switching accounts without a page reload. Without this, an incoming user would briefly read the previous user's data from cache while refetching. Token refreshes keep the same id and are deliberately left untouched.
 
+## Guest Mode
+
+Guest mode is deliberately **not** Supabase anonymous authentication. Clicking **Continue as guest** stores `ezvote:guest = true` in browser local storage and admits the visitor to the app shell with no session, JWT, `auth.users` row, or profile. Reads therefore run as the Supabase `anon` role; public-election RLS remains the source of truth for what a guest can see.
+
+The flag survives reloads. Any real session received by `AuthProvider` clears it, so login, signup, and OAuth cleanly replace guest state. Guests default to the Case Studies dashboard tab, can use Learn and the read-only public-election/what-if surfaces, and see My Elections as a locked account upsell. User-scoped list and existing-ballot queries are not run for them.
+
+The app bar replaces **Sign out** with **Create account**, while Settings keeps only its Legal section. Account-owned write routes use `RequireAccount`: guests who request create, edit, vote, or join are sent to `/signup?redirect=<requested-path>`. They return to that path once account creation establishes a real session. RLS still denies every anonymous write as the backend safety net.
+
 ## Route Guards
 
-There is no central redirect callback. The auth screens retain their own `RedirectIfAuthed` guards, while one `RequireAuth` wraps the pathless protected layout in `src/router.tsx`:
+There is no central redirect callback. The auth screens retain their own `RedirectIfAuthed` guards, one `RequireAuth` wraps the app layout, and write routes add `RequireAccount` in `src/router.tsx`:
 
-| Guard | Wraps | Behavior |
-|---|---|---|
-| `RequireAuth` | the protected `AppLayout` branch | No session → `<Navigate to={withRedirect('/login', here)} replace />`, where `here` is the current path + search + hash; its `<Outlet>` and app bar render only after auth resolves |
-| `RedirectIfAuthed` | `/login`, `/signup`, `/forgot-password` | Has session → `<Navigate to={safeRedirect(params.get('redirect'))} replace />` |
+| Guard              | Wraps                                   | Behavior                                                                                                         |
+| ------------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `RequireAuth`      | the `AppLayout` branch                  | Real session or guest flag → render; neither → `<Navigate to={withRedirect('/login', here)} replace />`          |
+| `RequireAccount`   | `/create`, election edit/vote, and join | Real session → render; guest → `/signup?redirect=<here>`; ordinary signed-out visitor → `/login?redirect=<here>` |
+| `RedirectIfAuthed` | `/login`, `/signup`, `/forgot-password` | Has session → `<Navigate to={safeRedirect(params.get('redirect'))} replace />`                                   |
 
-Both render a brief loading placeholder while `loading` is true, so a guard never flashes a redirect before auth state is known.
+All three render a brief loading placeholder while `loading` is true, so a guard never flashes a redirect before auth state is known.
 
 **Post-auth navigation is guard-driven, not manual.** The auth screens do not `navigate()` after `await signIn()` — the session updates asynchronously via `onAuthStateChange`, so an immediate navigation would race a guard that hasn't seen the new session yet. Instead the screens stay put and `RedirectIfAuthed` reacts to the session change. One source of truth for redirect resolution (AUTH-01).
 

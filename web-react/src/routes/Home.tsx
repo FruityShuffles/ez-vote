@@ -1,8 +1,8 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { CheckSquare, ListOrdered, Star } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { H1, Lead } from '@/components/ui/typography'
 import { useAuth } from '@/auth/context'
 import { cn } from '@/lib/utils'
@@ -28,7 +28,13 @@ const FEATURES: { icon: LucideIcon; text: string }[] = [
 ]
 
 export function Home() {
-  const { user } = useAuth()
+  const { user, isGuest, continueAsGuest } = useAuth()
+  const navigate = useNavigate()
+
+  function enterGuestMode() {
+    continueAsGuest()
+    navigate('/dashboard')
+  }
 
   return (
     <main data-route-focus tabIndex={-1} className="min-h-svh outline-none">
@@ -57,7 +63,7 @@ export function Home() {
         </ul>
 
         <div className="mt-12 flex w-full flex-col gap-3">
-          {user ? (
+          {user || isGuest ? (
             <Link
               to="/dashboard"
               className={cn(buttonVariants({ size: 'lg' }), 'w-full')}
@@ -72,6 +78,14 @@ export function Home() {
               >
                 Get Started
               </Link>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-full"
+                onClick={enterGuestMode}
+              >
+                Continue as guest
+              </Button>
               <Link
                 to="/login"
                 className={cn(

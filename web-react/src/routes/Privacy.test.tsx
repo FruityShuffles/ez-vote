@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import type { Session } from '@supabase/supabase-js'
 import {
   createMemoryRouter,
   MemoryRouter,
@@ -8,6 +9,15 @@ import {
 } from 'react-router-dom'
 import { Privacy } from '@/routes/Privacy'
 import { Settings } from '@/routes/Settings'
+import { AuthContext, type AuthContextValue } from '@/auth/context'
+
+const AUTHENTICATED: AuthContextValue = {
+  session: { user: { id: 'u1' } } as Session,
+  user: { id: 'u1' } as Session['user'],
+  loading: false,
+  isGuest: false,
+  continueAsGuest: () => undefined,
+}
 
 describe('Privacy', () => {
   it('renders the title, a known section, and the contact email', () => {
@@ -22,7 +32,9 @@ describe('Privacy', () => {
     expect(
       screen.getByRole('heading', { name: 'Data Retention' }),
     ).toBeInTheDocument()
-    expect(screen.getAllByText(/contact@ez-vote\.org/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/contact@ez-vote\.org/).length).toBeGreaterThan(
+      0,
+    )
   })
 
   it('returns to Settings when opened from its legal links', async () => {
@@ -35,7 +47,11 @@ describe('Privacy', () => {
       ],
       { initialEntries: ['/settings'] },
     )
-    render(<RouterProvider router={router} />)
+    render(
+      <AuthContext.Provider value={AUTHENTICATED}>
+        <RouterProvider router={router} />
+      </AuthContext.Provider>,
+    )
 
     await user.click(screen.getByRole('link', { name: 'Privacy Policy' }))
     expect(

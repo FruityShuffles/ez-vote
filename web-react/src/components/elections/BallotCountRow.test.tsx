@@ -24,7 +24,11 @@ const ballots = ['Ada', 'Bo', 'Cy'].map((display_name, index) => ({
 
 vi.mock('@/lib/elections', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/elections')>()),
-  useBallotCount: () => ({ data: ballots.length, isPending: false, isError: false }),
+  useBallotCount: () => ({
+    data: ballots.length,
+    isPending: false,
+    isError: false,
+  }),
   useElectionVoters: () => ({ data: [], isPending: false, isError: false }),
   usePublicBallots: () => ({ data: ballots, isPending: false, isError: false }),
   useElection: () => ({
@@ -64,6 +68,8 @@ const auth = {
   session: {} as AuthContextValue['session'],
   user: { id: 'owner' } as AuthContextValue['user'],
   loading: false,
+  isGuest: false,
+  continueAsGuest: () => undefined,
 }
 
 function renderFlow(initialEntry = '/election/e1') {
@@ -126,7 +132,9 @@ describe('addressable voters dialog history', () => {
     const user = userEvent.setup()
     const router = renderFlow()
 
-    await user.click(screen.getByRole('button', { name: '3 ballots submitted' }))
+    await user.click(
+      screen.getByRole('button', { name: '3 ballots submitted' }),
+    )
     expect(router.state.location.search).toBe('?voters=open')
     await user.click(screen.getAllByRole('button', { name: 'View ballot' })[1])
     expect(router.state.location.pathname).toBe('/election/e1/ballot/1')
@@ -139,7 +147,9 @@ describe('addressable voters dialog history', () => {
     )
 
     await router.navigate(-1)
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    )
     expect(router.state.location.pathname).toBe('/election/e1')
     expect(router.state.location.search).toBe('')
   })
@@ -148,7 +158,9 @@ describe('addressable voters dialog history', () => {
     const user = userEvent.setup()
     const router = renderFlow()
 
-    await user.click(screen.getByRole('button', { name: '3 ballots submitted' }))
+    await user.click(
+      screen.getByRole('button', { name: '3 ballots submitted' }),
+    )
     await user.click(screen.getAllByRole('button', { name: 'View ballot' })[0])
     await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Next' }))

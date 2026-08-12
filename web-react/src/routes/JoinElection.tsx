@@ -9,8 +9,9 @@ import { useJoinElection } from '@/lib/elections'
 // link). Ported from Flutter `JoinElectionScreen`: join on mount, then fall
 // through to the election detail regardless of outcome — `join_election` is
 // idempotent, so a re-join (or any failure) is ignored. The route is behind
-// RequireAuth, which threads `redirect=` through login → signup so the visitor
-// lands back here after authenticating (INV-04).
+// RequireAccount: signed-out visitors thread `redirect=` through login → signup,
+// while guests go directly to signup, then land back here after authenticating
+// (INV-04).
 
 export function JoinElection() {
   const { id } = useParams<{ id: string }>()

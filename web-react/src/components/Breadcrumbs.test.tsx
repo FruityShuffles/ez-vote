@@ -1,10 +1,6 @@
 import { act, render, screen } from '@testing-library/react'
 import type { Session } from '@supabase/supabase-js'
-import {
-  createMemoryRouter,
-  Outlet,
-  RouterProvider,
-} from 'react-router-dom'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import { AuthContext, type AuthContextValue } from '@/auth/context'
@@ -57,6 +53,8 @@ function renderBreadcrumbs(userId = 'owner') {
     session: { user: { id: userId } } as Session,
     user: { id: userId } as Session['user'],
     loading: false,
+    isGuest: false,
+    continueAsGuest: () => undefined,
   }
   const ui = (
     <AuthContext.Provider value={auth}>
@@ -82,7 +80,9 @@ describe('election breadcrumbs', () => {
       'href',
       '/dashboard?tab=elections',
     )
-    expect(screen.getByRole('link', { name: 'Budget Vote' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Budget Vote' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('Explore')).toHaveAttribute('aria-current', 'page')
   })
 

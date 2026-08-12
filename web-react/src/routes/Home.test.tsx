@@ -1,17 +1,27 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '@/auth/context'
 import { Home } from '@/routes/Home'
 
-const LOGGED_OUT: AuthContextValue = { session: null, user: null, loading: false }
+const LOGGED_OUT: AuthContextValue = {
+  session: null,
+  user: null,
+  loading: false,
+  isGuest: false,
+  continueAsGuest: () => undefined,
+}
 const LOGGED_IN: AuthContextValue = {
   session: { user: { id: 'u1' } } as Session,
   user: { id: 'u1' } as Session['user'],
   loading: false,
+  isGuest: false,
+  continueAsGuest: () => undefined,
 }
+const GUEST: AuthContextValue = { ...LOGGED_OUT, isGuest: true }
 
 function renderHome(auth: AuthContextValue, ui: ReactNode = <Home />) {
   return render(
@@ -48,6 +58,9 @@ describe('Home (landing)', () => {
       '/login',
     )
     expect(
+      screen.getByRole('button', { name: 'Continue as guest' }),
+    ).toBeInTheDocument()
+    expect(
       screen.queryByRole('link', { name: 'Go to Dashboard' }),
     ).not.toBeInTheDocument()
   })
@@ -60,5 +73,29 @@ describe('Home (landing)', () => {
     expect(
       screen.queryByRole('link', { name: 'Get Started' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('shows Go to Dashboard when guest mode is already active', () => {
+    renderHome(GUEST)
+    expect(
+      screen.getByRole('link', { name: 'Go to Dashboard' }),
+    ).toHaveAttribute('href', '/dashboard')
+    expect(
+      screen.queryByRole('button', { name: 'Continue as guest' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('activates guest mode from the landing page', async () => {
+    const user = userEvent.setup()
+    let continued = false
+    renderHome({
+      ...LOGGED_OUT,
+      continueAsGuest: () => {
+        continued = true
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Continue as guest' }))
+    expect(continued).toBe(true)
   })
 })

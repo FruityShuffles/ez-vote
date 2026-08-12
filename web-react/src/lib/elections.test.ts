@@ -14,6 +14,7 @@ import {
   useCandidates,
   useElection,
   useElectionParticipation,
+  useExistingBallot,
   usePriorCovoters,
 } from '@/lib/elections'
 
@@ -50,8 +51,12 @@ describe('election route freshness', () => {
       owner_id: 'owner',
       title: 'Fresh election',
     }
-    const candidates = [{ id: 'c1', election_id: 'e1', name: 'Ada', position: 0 }]
-    const electionSingle = vi.fn().mockResolvedValue({ data: election, error: null })
+    const candidates = [
+      { id: 'c1', election_id: 'e1', name: 'Ada', position: 0 },
+    ]
+    const electionSingle = vi
+      .fn()
+      .mockResolvedValue({ data: election, error: null })
     const candidateOrder = vi
       .fn()
       .mockResolvedValue({ data: candidates, error: null })
@@ -138,6 +143,19 @@ describe('public election reads', () => {
     expect(eqElection).toHaveBeenCalledWith('election_id', 'e1')
     expect(eqUser).toHaveBeenCalledWith('user_id', 'viewer-1')
     expect(result.current.data).toBe(true)
+  })
+
+  it('does not request a session-owned ballot for a guest viewer', () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(
+      () => useExistingBallot('study-1', { enabled: false }),
+      { wrapper: wrapper(qc) },
+    )
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mocks.from).not.toHaveBeenCalled()
   })
 })
 

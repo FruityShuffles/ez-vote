@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Session } from '@supabase/supabase-js'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 
 import { AuthContext, type AuthContextValue } from '@/auth/context'
@@ -15,12 +15,24 @@ const mocks = vi.hoisted(() => ({
   voted: [] as unknown[],
   invited: [] as unknown[],
   caseStudies: [] as unknown[],
+  ownedHook: vi.fn(),
+  votedHook: vi.fn(),
+  invitedHook: vi.fn(),
 }))
 
 vi.mock('@/lib/elections', () => ({
-  useOwnedElections: () => ({ ...emptyList, data: mocks.owned }),
-  useVotedElections: () => ({ ...emptyList, data: mocks.voted }),
-  usePendingInvitations: () => ({ ...emptyList, data: mocks.invited }),
+  useOwnedElections: () => {
+    mocks.ownedHook()
+    return { ...emptyList, data: mocks.owned }
+  },
+  useVotedElections: () => {
+    mocks.votedHook()
+    return { ...emptyList, data: mocks.voted }
+  },
+  usePendingInvitations: () => {
+    mocks.invitedHook()
+    return { ...emptyList, data: mocks.invited }
+  },
   useCaseStudies: () => ({ ...emptyList, data: mocks.caseStudies }),
   useBallotCount: () => ({ data: undefined }),
   useDeleteElection: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -56,7 +68,7 @@ function election(overrides: Partial<Election> & { id: string }): Election {
   }
 }
 
-function renderDashboard(path = '/dashboard') {
+function renderDashboard(path = '/dashboard', isGuest = false) {
   const router = createMemoryRouter(
     [
       { path: '/dashboard', element: <Dashboard /> },
@@ -65,9 +77,11 @@ function renderDashboard(path = '/dashboard') {
     { initialEntries: [path] },
   )
   const auth: AuthContextValue = {
-    session: { user: { id: 'me' } } as Session,
-    user: { id: 'me' } as Session['user'],
+    session: isGuest ? null : ({ user: { id: 'me' } } as Session),
+    user: isGuest ? null : ({ id: 'me' } as Session['user']),
     loading: false,
+    isGuest,
+    continueAsGuest: () => undefined,
   }
   render(
     <AuthContext.Provider value={auth}>
@@ -83,6 +97,12 @@ function setLists(lists: Partial<typeof mocks>) {
   mocks.invited = lists.invited ?? []
   mocks.caseStudies = lists.caseStudies ?? []
 }
+
+beforeEach(() => {
+  mocks.ownedHook.mockClear()
+  mocks.votedHook.mockClear()
+  mocks.invitedHook.mockClear()
+})
 
 describe('Dashboard', () => {
   it('shows the merged elections tab alongside Learn', () => {
@@ -180,13 +200,56 @@ describe('Dashboard', () => {
     ).toBeInTheDocument()
   })
 
+  it('defaults guests to Case Studies and locks account-owned features', async () => {
+    setLists({
+      caseStudies: [
+        election({
+          id: 'study-1',
+          title: 'When More Support Hurts',
+          status: 'closed',
+          visibility: 'public',
+          showcase: true,
+        }),
+      ],
+    })
+    const user = userEvent.setup()
+    renderDashboard('/dashboard', true)
+
+    expect(screen.getByRole('tab', { name: 'Case Studies' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByText('When More Support Hurts')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'New Election' }),
+    ).not.toBeInTheDocument()
+    expect(mocks.ownedHook).not.toHaveBeenCalled()
+    expect(mocks.votedHook).not.toHaveBeenCalled()
+    expect(mocks.invitedHook).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('tab', { name: 'My Elections' }))
+    expect(
+      screen.getByRole('heading', {
+        name: 'Create an account for your elections',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Create account' }),
+    ).toHaveAttribute('href', '/signup')
+    expect(mocks.ownedHook).not.toHaveBeenCalled()
+    expect(mocks.votedHook).not.toHaveBeenCalled()
+    expect(mocks.invitedHook).not.toHaveBeenCalled()
+  })
+
   it('lists an election you own and voted in exactly once', () => {
     const mine = election({ id: 'e1', owner_id: 'me', title: 'Budget Vote' })
     setLists({ owned: [mine], voted: [mine] })
     renderDashboard()
 
     expect(screen.getAllByText('Budget Vote')).toHaveLength(1)
-    expect(screen.getByLabelText('You created this election')).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('You created this election'),
+    ).toBeInTheDocument()
     expect(screen.getByLabelText("You've voted")).toBeInTheDocument()
     expect(
       screen.queryByLabelText("You haven't voted yet"),
@@ -214,7 +277,9 @@ describe('Dashboard', () => {
     })
     renderDashboard()
 
-    expect(screen.getByLabelText('You created this election')).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('You created this election'),
+    ).toBeInTheDocument()
     expect(screen.queryByLabelText("You've voted")).not.toBeInTheDocument()
     expect(
       screen.queryByLabelText("You haven't voted yet"),
@@ -227,10 +292,18 @@ describe('Dashboard', () => {
   it('orders the merged list newest first', () => {
     setLists({
       owned: [
-        election({ id: 'old', title: 'Older', created_at: '2026-01-01T00:00:00Z' }),
+        election({
+          id: 'old',
+          title: 'Older',
+          created_at: '2026-01-01T00:00:00Z',
+        }),
       ],
       voted: [
-        election({ id: 'new', title: 'Newer', created_at: '2026-06-01T00:00:00Z' }),
+        election({
+          id: 'new',
+          title: 'Newer',
+          created_at: '2026-06-01T00:00:00Z',
+        }),
       ],
     })
     renderDashboard()

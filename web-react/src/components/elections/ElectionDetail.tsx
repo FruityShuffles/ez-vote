@@ -53,8 +53,8 @@ export function ElectionDetail() {
 
   const election = useWorkspaceElection()
   const candidatesQuery = useCandidates(electionId)
-  const ballotQuery = useExistingBallot(electionId)
   const { user } = useAuth()
+  const ballotQuery = useExistingBallot(electionId, { enabled: user != null })
   const isOwner = election.owner_id === user?.id
   const participationQuery = useElectionParticipation(
     electionId,

@@ -2,8 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Session } from '@supabase/supabase-js'
 
 import { Settings } from '@/routes/Settings'
+import { AuthContext, type AuthContextValue } from '@/auth/context'
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -27,11 +29,20 @@ vi.mock('sonner', () => ({
 
 import { toast } from 'sonner'
 
-function renderSettings() {
+function renderSettings(isGuest = false) {
+  const auth: AuthContextValue = {
+    session: isGuest ? null : ({ user: { id: 'u1' } } as Session),
+    user: isGuest ? null : ({ id: 'u1' } as Session['user']),
+    loading: false,
+    isGuest,
+    continueAsGuest: () => undefined,
+  }
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
-      <Settings />
-    </MemoryRouter>,
+    <AuthContext.Provider value={auth}>
+      <MemoryRouter initialEntries={['/settings']}>
+        <Settings />
+      </MemoryRouter>
+    </AuthContext.Provider>,
   )
 }
 
@@ -45,13 +56,21 @@ beforeEach(() => {
 describe('Settings', () => {
   it('links to the privacy and terms pages', () => {
     renderSettings()
-    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute(
-      'href',
-      '/privacy',
-    )
+    expect(
+      screen.getByRole('link', { name: 'Privacy Policy' }),
+    ).toHaveAttribute('href', '/privacy')
     expect(
       screen.getByRole('link', { name: 'Terms of Service' }),
     ).toHaveAttribute('href', '/tos')
+  })
+
+  it('hides the account section for a guest', () => {
+    renderSettings(true)
+    expect(screen.queryByText('Account')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Delete Account' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toBeVisible()
   })
 
   it('deletes the account, signs out, and redirects to login on confirm', async () => {

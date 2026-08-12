@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '@/auth/context'
-import { RedirectIfAuthed, RequireAuth } from '@/auth/guards'
+import { RedirectIfAuthed, RequireAccount, RequireAuth } from '@/auth/guards'
 
 // Renders the active path+search so we can assert where a guard navigated.
 function LocationProbe() {
@@ -18,6 +18,7 @@ function renderAt(path: string, auth: AuthContextValue, ui: ReactNode) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/login" element={<LocationProbe />} />
+          <Route path="/signup" element={<LocationProbe />} />
           <Route path="/dashboard" element={<LocationProbe />} />
           <Route path="/election/:id/vote" element={ui} />
         </Routes>
@@ -26,11 +27,20 @@ function renderAt(path: string, auth: AuthContextValue, ui: ReactNode) {
   )
 }
 
-const LOGGED_OUT: AuthContextValue = { session: null, user: null, loading: false }
+const LOGGED_OUT: AuthContextValue = {
+  session: null,
+  user: null,
+  loading: false,
+  isGuest: false,
+  continueAsGuest: () => undefined,
+}
+const GUEST: AuthContextValue = { ...LOGGED_OUT, isGuest: true }
 const LOGGED_IN: AuthContextValue = {
   session: { user: { id: 'u1' } } as Session,
   user: { id: 'u1' } as Session['user'],
   loading: false,
+  isGuest: false,
+  continueAsGuest: () => undefined,
 }
 
 describe('RequireAuth', () => {
@@ -57,13 +67,52 @@ describe('RequireAuth', () => {
     )
     expect(screen.getByText('ballot')).toBeInTheDocument()
   })
+
+  it('renders read-only app content for a guest', () => {
+    renderAt(
+      '/election/abc/vote',
+      GUEST,
+      <RequireAuth>
+        <div>guest content</div>
+      </RequireAuth>,
+    )
+    expect(screen.getByText('guest content')).toBeInTheDocument()
+  })
+})
+
+describe('RequireAccount', () => {
+  it('redirects a guest to signup carrying the requested destination', () => {
+    renderAt(
+      '/election/abc/vote',
+      GUEST,
+      <RequireAccount>
+        <div>ballot</div>
+      </RequireAccount>,
+    )
+    expect(screen.getByTestId('loc')).toHaveTextContent(
+      '/signup?redirect=%2Felection%2Fabc%2Fvote',
+    )
+  })
+
+  it('renders account-only content for an authenticated user', () => {
+    renderAt(
+      '/election/abc/vote',
+      LOGGED_IN,
+      <RequireAccount>
+        <div>ballot</div>
+      </RequireAccount>,
+    )
+    expect(screen.getByText('ballot')).toBeInTheDocument()
+  })
 })
 
 describe('RedirectIfAuthed', () => {
   it('sends an authenticated user from /login to the decoded redirect destination (AUTH-01)', () => {
     render(
       <AuthContext.Provider value={LOGGED_IN}>
-        <MemoryRouter initialEntries={['/login?redirect=%2Felection%2Fabc%2Fvote']}>
+        <MemoryRouter
+          initialEntries={['/login?redirect=%2Felection%2Fabc%2Fvote']}
+        >
           <Routes>
             <Route
               path="/login"
