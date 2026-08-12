@@ -12,21 +12,22 @@ import type { VoteStatus } from '@/components/elections/ElectionCard'
 import { LearnContent } from '@/routes/Learn'
 import type { Election } from '@/lib/elections'
 import {
+  useCaseStudies,
   useOwnedElections,
   usePendingInvitations,
   useVotedElections,
 } from '@/lib/elections'
 
-// The election-list dashboard (M9), ported from Flutter `HomeScreen`. Two tabs:
-// My Elections and Learn (the same static explainer as /learn). No polling: tab
-// switches refetch on demand, realtime is M15.
+// The election-list dashboard (M9), ported from Flutter `HomeScreen`. Three
+// tabs: My Elections, Learn (the same static explainer as /learn), and Case
+// Studies. No polling: tab switches refetch on demand, realtime is M15.
 //
 // Flutter (and React until #134) split the list into My Elections (owned) and
 // My Votes (invited + voted), which double-listed anything you both created and
 // voted in. One list now carries every election you're involved in, and the
 // owner/voted distinction moved onto the row itself as status icons.
 
-type Tab = 'elections' | 'learn'
+type Tab = 'elections' | 'learn' | 'case-studies'
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -61,10 +62,17 @@ export function Dashboard() {
         >
           Learn
         </TabButton>
+        <TabButton
+          active={tab === 'case-studies'}
+          onClick={() => selectTab('case-studies')}
+        >
+          Case Studies
+        </TabButton>
       </div>
 
       {tab === 'elections' && <MyElections />}
       {tab === 'learn' && <LearnContent />}
+      {tab === 'case-studies' && <CaseStudies />}
     </Stack>
   )
 }
@@ -75,7 +83,35 @@ export function Dashboard() {
  * than an error — as does any unknown value.
  */
 function resolveTab(value: string | null): Tab {
-  return value === 'learn' ? 'learn' : 'elections'
+  if (value === 'learn' || value === 'case-studies') return value
+  return 'elections'
+}
+
+function CaseStudies() {
+  const studies = useCaseStudies()
+
+  if (studies.isPending) return <ListSpinner />
+  if (studies.isError) {
+    return (
+      <Muted role="alert">Could not load case studies. Please try again.</Muted>
+    )
+  }
+  if (studies.data.length === 0) {
+    return <Muted>No case studies are available yet.</Muted>
+  }
+
+  return (
+    <Stack gap={3}>
+      {studies.data.map((election) => (
+        <ElectionCard
+          key={election.id}
+          election={election}
+          owned={false}
+          voteStatus={null}
+        />
+      ))}
+    </Stack>
+  )
 }
 
 function TabButton({

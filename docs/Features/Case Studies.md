@@ -11,8 +11,23 @@ dragging a candidate up a ballot.
 "Case Studies" is the user-facing name (#139 asked for something better than the working
 title "Mock Elections").
 
-**Status:** the backend (#140) and the seeding pipeline plus the first case study (#141)
-have shipped. The dashboard tab is #142; guest access is #143.
+**Status:** the backend (#140), seeding pipeline plus first case study (#141), and
+signed-in dashboard/viewing UI (#142) have shipped. Guest access is #143.
+
+## Dashboard and public viewing
+
+`/dashboard?tab=case-studies` lists showcase elections newest first through
+`useCaseStudies()`. The hook has no user lookup: signed-in viewers use it now and the
+sessionless guest slice can reuse the same query. Cards deliberately carry no owner,
+vote-status, or delete affordance, and showcase-election breadcrumbs return to the Case
+Studies tab.
+
+Election details distinguish joined membership from ballot status with a direct read of
+the viewer's own `election_voters` row. A signed-in non-participant can read the closed
+results and open **Explore what-ifs**, but cannot vote, add candidates, or open the
+participant-only voter/pending-invitee surfaces. The submitted-ballot total remains
+visible as non-interactive context. Joined voters and owners retain the existing detail
+screen behavior.
 
 ## What makes an election a case study
 

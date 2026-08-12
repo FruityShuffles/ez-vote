@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   createMemoryRouter,
+  MemoryRouter,
   Outlet,
   RouterProvider,
   useParams,
@@ -102,6 +103,23 @@ function renderFlow(initialEntry = '/election/e1') {
 }
 
 beforeEach(() => vi.clearAllMocks())
+
+it('renders a non-interactive count when voter details are restricted', () => {
+  render(
+    <MemoryRouter>
+      <BallotCountRow
+        electionId="e1"
+        publicBallots
+        canViewVoterDetails={false}
+      />
+    </MemoryRouter>,
+  )
+
+  expect(screen.getByText('3 ballots submitted')).toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: '3 ballots submitted' }),
+  ).not.toBeInTheDocument()
+})
 
 describe('addressable voters dialog history', () => {
   it('returns from a ballot to the dialog without creating a back loop', async () => {

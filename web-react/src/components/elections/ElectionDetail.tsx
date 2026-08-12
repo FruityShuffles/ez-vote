@@ -29,6 +29,7 @@ import { useAuth } from '@/auth/context'
 import {
   useCandidates,
   useCloseElection,
+  useElectionParticipation,
   useExistingBallot,
   useOpenElection,
 } from '@/lib/elections'
@@ -54,6 +55,12 @@ export function ElectionDetail() {
   const candidatesQuery = useCandidates(electionId)
   const ballotQuery = useExistingBallot(electionId)
   const { user } = useAuth()
+  const isOwner = election.owner_id === user?.id
+  const participationQuery = useElectionParticipation(
+    electionId,
+    user?.id ?? null,
+    { enabled: !isOwner },
+  )
 
   // Live auto-refresh while the election is open (results, voters, invitees,
   // ad-hoc candidates). No-ops for closed/draft elections and those without a
@@ -68,6 +75,9 @@ export function ElectionDetail() {
       candidatesError={candidatesQuery.isError}
       ballot={ballotQuery.data ?? null}
       currentUserId={user?.id ?? null}
+      isParticipant={
+        isOwner || ballotQuery.data != null || participationQuery.data === true
+      }
     />
   )
 }
@@ -80,6 +90,8 @@ interface ElectionDetailViewProps {
   ballot: Ballot | null
   /** Read live from `useAuth()` so ownership recomputes on auth change (DET-02). */
   currentUserId: string | null
+  /** Joined membership is separate from ballot status for non-voters. */
+  isParticipant: boolean
 }
 
 export function ElectionDetailView({
@@ -89,11 +101,13 @@ export function ElectionDetailView({
   candidatesError,
   ballot,
   currentUserId,
+  isParticipant,
 }: ElectionDetailViewProps) {
   const navigate = useNavigate()
   const isOwner = election.owner_id === currentUserId
   const isClosed = election.status === 'closed'
   const hasSubmittedBallot = ballot != null
+  const canAccessParticipantSurfaces = isOwner || isParticipant
 
   // Results show when the election is closed, or live for a voter who has
   // submitted in a realtime-results election (auto-refreshed by the container's
@@ -121,8 +135,11 @@ export function ElectionDetailView({
         <BallotCountRow
           electionId={election.id}
           publicBallots={election.public_ballots}
+          canViewVoterDetails={canAccessParticipantSurfaces}
         />
-        <PendingInviteesRow electionId={election.id} />
+        {canAccessParticipantSurfaces && (
+          <PendingInviteesRow electionId={election.id} />
+        )}
       </Stack>
 
       <AlgorithmChips algorithms={election.algorithms} />
@@ -162,14 +179,16 @@ export function ElectionDetailView({
           candidates={candidates}
           loading={candidatesLoading}
           error={candidatesError}
+          canParticipate={canAccessParticipantSurfaces}
         />
       )}
 
       {isOwner && <OwnerControls election={election} />}
 
-      {(election.status === 'open' || isClosed) && (
-        <VoterControls election={election} ballot={ballot} />
-      )}
+      {canAccessParticipantSurfaces &&
+        (election.status === 'open' || isClosed) && (
+          <VoterControls election={election} ballot={ballot} />
+        )}
     </Stack>
   )
 }
@@ -206,11 +225,13 @@ function CandidateSection({
   candidates,
   loading,
   error,
+  canParticipate,
 }: {
   election: Election
   candidates: Candidate[]
   loading: boolean
   error: boolean
+  canParticipate: boolean
 }) {
   if (loading) {
     return <Spinner className="size-5 text-muted-foreground" />
@@ -220,7 +241,10 @@ function CandidateSection({
       <Muted role="alert">Could not load candidates. Please try again.</Muted>
     )
   }
-  const canAdd = election.allow_voter_candidates && election.status === 'open'
+  const canAdd =
+    canParticipate &&
+    election.allow_voter_candidates &&
+    election.status === 'open'
 
   return (
     <div>

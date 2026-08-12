@@ -25,6 +25,8 @@ export interface Election {
   realtime_results: boolean
   include_fptp: boolean
   public_ballots: boolean
+  visibility: 'private' | 'public'
+  showcase: boolean
   candidates_updated_at: string
   created_at: string
   updated_at: string
@@ -89,10 +91,13 @@ export const electionKeys = {
   owned: ['elections', 'owned'] as const,
   voted: ['elections', 'voted'] as const,
   pendingInvitations: ['elections', 'pending-invitations'] as const,
+  caseStudies: ['elections', 'case-studies'] as const,
   detail: (id: string) => ['election', id] as const,
   candidates: (id: string) => ['candidates', id] as const,
   ballotCount: (id: string) => ['ballot-count', id] as const,
   existingBallot: (id: string) => ['existing-ballot', id] as const,
+  participation: (id: string, userId: string) =>
+    ['election-participation', id, userId] as const,
   voters: (id: string) => ['voters', id] as const,
   publicBallots: (id: string) => ['public-ballots', id] as const,
   pendingInvitees: (id: string) => ['pending-invitees', id] as const,
@@ -159,6 +164,22 @@ export function usePendingInvitations() {
     queryKey: electionKeys.pendingInvitations,
     queryFn: async (): Promise<Election[]> => {
       const { data, error } = await supabase.rpc('get_pending_invitations')
+      if (error) throw error
+      return (data ?? []) as Election[]
+    },
+  })
+}
+
+/** Curated public elections, newest first. Deliberately session-independent. */
+export function useCaseStudies() {
+  return useQuery({
+    queryKey: electionKeys.caseStudies,
+    queryFn: async (): Promise<Election[]> => {
+      const { data, error } = await supabase
+        .from('elections')
+        .select()
+        .eq('showcase', true)
+        .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as Election[]
     },
@@ -296,6 +317,29 @@ export function useExistingBallot(electionId: string) {
   })
 }
 
+/** Whether this user has joined the election, independent of ballot status. */
+export function useElectionParticipation(
+  electionId: string,
+  userId: string | null,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: electionKeys.participation(electionId, userId ?? ''),
+    enabled:
+      electionId !== '' && userId != null && (options.enabled ?? true),
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase
+        .from('election_voters')
+        .select('user_id')
+        .eq('election_id', electionId)
+        .eq('user_id', userId!)
+        .maybeSingle()
+      if (error) throw error
+      return data != null
+    },
+  })
+}
+
 export function useBallotCount(electionId: string) {
   return useQuery({
     queryKey: electionKeys.ballotCount(electionId),
@@ -326,9 +370,9 @@ export function useElectionVoters(electionId: string) {
 }
 
 /**
- * Public, participant-visible ballots. The database RPC is deliberately the
- * only read path for another voter’s payload: it applies the public_ballots
- * gate and the participant/owner check before returning anything (PUB-01).
+ * Public-ballot rows. The RPC always applies the public_ballots gate; private
+ * elections additionally require owner/joined membership, while public
+ * elections deliberately allow any caller for case-study exploration.
  */
 export function usePublicBallots(
   electionId: string,

@@ -13,7 +13,7 @@ import { Breadcrumbs, ElectionCrumb } from '@/components/Breadcrumbs'
 const mocks = vi.hoisted(() => ({
   query: { isPending: true } as {
     isPending: boolean
-    data?: { owner_id: string; title: string }
+    data?: { owner_id: string; title: string; showcase?: boolean }
   },
 }))
 
@@ -96,6 +96,23 @@ describe('election breadcrumbs', () => {
     expect(screen.getByRole('link', { name: 'My Elections' })).toHaveAttribute(
       'href',
       '/dashboard?tab=elections',
+    )
+  })
+
+  it('sends a case-study viewer back to the Case Studies tab', () => {
+    mocks.query = {
+      isPending: false,
+      data: {
+        owner_id: 'case-study-owner',
+        title: 'When More Support Hurts',
+        showcase: true,
+      },
+    }
+    renderBreadcrumbs('viewer')
+
+    expect(screen.getByRole('link', { name: 'Case Studies' })).toHaveAttribute(
+      'href',
+      '/dashboard?tab=case-studies',
     )
   })
 })

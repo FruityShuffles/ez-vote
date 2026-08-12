@@ -13,6 +13,27 @@ vi.mock('@/components/results/ResultsView', () => ({
   ),
 }))
 
+vi.mock('@/components/elections/BallotCountRow', () => ({
+  BallotCountRow: ({
+    canViewVoterDetails,
+  }: {
+    canViewVoterDetails?: boolean
+  }) =>
+    canViewVoterDetails ? (
+      <button type="button">1 ballot submitted</button>
+    ) : (
+      <span>1 ballot submitted</span>
+    ),
+}))
+
+vi.mock('@/components/elections/PendingInviteesRow', () => ({
+  PendingInviteesRow: () => <span>Pending invitees row</span>,
+}))
+
+vi.mock('@/components/elections/AddCandidateField', () => ({
+  AddCandidateField: () => <span>Add candidate field</span>,
+}))
+
 // Parity tests for the election detail surface (M9), parity checklist §3. They
 // exercise the presentational `ElectionDetailView` with resolved props so the
 // role / status-transition / stale-ballot logic is tested without Supabase. The
@@ -33,6 +54,8 @@ const baseElection: Election = {
   realtime_results: false,
   include_fptp: true,
   public_ballots: false,
+  visibility: 'private',
+  showcase: false,
   candidates_updated_at: '2026-01-01T00:00:00Z',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
@@ -69,6 +92,7 @@ function renderView(over: Partial<ViewProps> = {}) {
     candidatesError: false,
     ballot: null,
     currentUserId: null,
+    isParticipant: true,
     ...over,
   }
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -313,5 +337,54 @@ describe('M21 — what-if explorer gate', () => {
     expect(
       screen.queryByRole('button', { name: 'Explore what-ifs' }),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('case-study viewer gating', () => {
+  const publicStudy: Election = {
+    ...baseElection,
+    status: 'closed',
+    public_ballots: true,
+    visibility: 'public',
+    showcase: true,
+  }
+
+  it('shows results and what-ifs but no participant controls to a non-participant', () => {
+    renderView({
+      election: publicStudy,
+      currentUserId: 'viewer-1',
+      isParticipant: false,
+    })
+
+    expect(screen.getByTestId('results-view')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Explore what-ifs' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', {
+        name: /Cast Your Vote|Edit Ballot|View Ballot/,
+      }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /ballots submitted/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/pending invitee/)).not.toBeInTheDocument()
+  })
+
+  it('does not offer voting or candidate writes on an open public election', () => {
+    renderView({
+      election: {
+        ...publicStudy,
+        status: 'open',
+        allow_voter_candidates: true,
+      },
+      currentUserId: 'viewer-1',
+      isParticipant: false,
+    })
+
+    expect(
+      screen.queryByRole('button', { name: 'Cast Your Vote' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Add candidate field')).not.toBeInTheDocument()
   })
 })

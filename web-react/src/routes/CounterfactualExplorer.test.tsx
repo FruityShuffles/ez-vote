@@ -45,6 +45,8 @@ const election: Election = {
   realtime_results: false,
   include_fptp: false,
   public_ballots: true,
+  visibility: 'private',
+  showcase: false,
   candidates_updated_at: '',
   created_at: '',
   updated_at: '',

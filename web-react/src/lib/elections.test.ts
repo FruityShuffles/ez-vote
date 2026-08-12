@@ -10,8 +10,10 @@ import {
   ELECTION_STALE_TIME_MS,
   electionKeys,
   useAddVoterToElection,
+  useCaseStudies,
   useCandidates,
   useElection,
+  useElectionParticipation,
   usePriorCovoters,
 } from '@/lib/elections'
 
@@ -87,6 +89,55 @@ describe('election route freshness', () => {
     expect(mocks.from).toHaveBeenCalledTimes(2)
     expect(ELECTION_STALE_TIME_MS).toBe(30_000)
     expect(CANDIDATES_STALE_TIME_MS).toBe(30_000)
+  })
+})
+
+describe('public election reads', () => {
+  it('lists showcase elections newest first without an auth lookup', async () => {
+    const studies = [{ id: 'study-1', showcase: true }]
+    const order = vi.fn().mockResolvedValue({ data: studies, error: null })
+    const eqShowcase = vi.fn().mockReturnValue({ order })
+    const select = vi.fn().mockReturnValue({ eq: eqShowcase })
+    mocks.from.mockReturnValue({ select })
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(() => useCaseStudies(), {
+      wrapper: wrapper(qc),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mocks.from).toHaveBeenCalledWith('elections')
+    expect(eqShowcase).toHaveBeenCalledWith('showcase', true)
+    expect(order).toHaveBeenCalledWith('created_at', { ascending: false })
+    expect(result.current.data).toEqual(studies)
+  })
+
+  it('detects joined membership separately from ballot status', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { user_id: 'viewer-1' },
+      error: null,
+    })
+    const eqUser = vi.fn().mockReturnValue({ maybeSingle })
+    const eqElection = vi.fn().mockReturnValue({ eq: eqUser })
+    mocks.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({ eq: eqElection }),
+    })
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(
+      () => useElectionParticipation('e1', 'viewer-1'),
+      { wrapper: wrapper(qc) },
+    )
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mocks.from).toHaveBeenCalledWith('election_voters')
+    expect(eqElection).toHaveBeenCalledWith('election_id', 'e1')
+    expect(eqUser).toHaveBeenCalledWith('user_id', 'viewer-1')
+    expect(result.current.data).toBe(true)
   })
 })
 

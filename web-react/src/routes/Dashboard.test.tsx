@@ -14,12 +14,14 @@ const mocks = vi.hoisted(() => ({
   owned: [] as unknown[],
   voted: [] as unknown[],
   invited: [] as unknown[],
+  caseStudies: [] as unknown[],
 }))
 
 vi.mock('@/lib/elections', () => ({
   useOwnedElections: () => ({ ...emptyList, data: mocks.owned }),
   useVotedElections: () => ({ ...emptyList, data: mocks.voted }),
   usePendingInvitations: () => ({ ...emptyList, data: mocks.invited }),
+  useCaseStudies: () => ({ ...emptyList, data: mocks.caseStudies }),
   useBallotCount: () => ({ data: undefined }),
   useDeleteElection: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
@@ -45,6 +47,8 @@ function election(overrides: Partial<Election> & { id: string }): Election {
     realtime_results: false,
     include_fptp: false,
     public_ballots: false,
+    visibility: 'private',
+    showcase: false,
     candidates_updated_at: '2026-01-01T00:00:00Z',
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
@@ -77,6 +81,7 @@ function setLists(lists: Partial<typeof mocks>) {
   mocks.owned = lists.owned ?? []
   mocks.voted = lists.voted ?? []
   mocks.invited = lists.invited ?? []
+  mocks.caseStudies = lists.caseStudies ?? []
 }
 
 describe('Dashboard', () => {
@@ -85,7 +90,11 @@ describe('Dashboard', () => {
     renderDashboard()
     const tablist = screen.getByRole('tablist', { name: 'Dashboard sections' })
     const tabs = within(tablist).getAllByRole('tab')
-    expect(tabs.map((t) => t.textContent)).toEqual(['My Elections', 'Learn'])
+    expect(tabs.map((t) => t.textContent)).toEqual([
+      'My Elections',
+      'Learn',
+      'Case Studies',
+    ])
   })
 
   it('renders the voting-algorithm explainer on the Learn tab', async () => {
@@ -134,6 +143,42 @@ describe('Dashboard', () => {
       ).toBeInTheDocument()
     },
   )
+
+  it('resolves the Case Studies deep link and lists showcase elections without relationship actions', () => {
+    setLists({
+      caseStudies: [
+        election({
+          id: 'study-1',
+          title: 'When More Support Hurts',
+          status: 'closed',
+          visibility: 'public',
+          showcase: true,
+        }),
+      ],
+    })
+    renderDashboard('/dashboard?tab=case-studies')
+
+    expect(screen.getByRole('tab', { name: 'Case Studies' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByText('When More Support Hurts')).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('You created this election'),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("You've voted")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Delete When More Support Hurts/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows the Case Studies empty state', () => {
+    setLists({})
+    renderDashboard('/dashboard?tab=case-studies')
+    expect(
+      screen.getByText('No case studies are available yet.'),
+    ).toBeInTheDocument()
+  })
 
   it('lists an election you own and voted in exactly once', () => {
     const mine = election({ id: 'e1', owner_id: 'me', title: 'Budget Vote' })

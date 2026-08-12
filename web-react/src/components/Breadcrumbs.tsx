@@ -63,9 +63,8 @@ export function ElectionCrumb({ current }: { current: boolean }) {
     )
   }
 
-  // One dashboard tab since #134, so the top crumb no longer branches on
-  // ownership — owner and participant return to the same list.
   const title = election.data?.title ?? 'Election'
+  const isCaseStudy = election.data?.showcase === true
   const publicBallot = location.pathname.includes('/ballot/')
   const electionTarget = publicBallot
     ? `/election/${id}?voters=open`
@@ -75,10 +74,14 @@ export function ElectionCrumb({ current }: { current: boolean }) {
     <>
       <li>
         <Link
-          to="/dashboard?tab=elections"
+          to={
+            isCaseStudy
+              ? '/dashboard?tab=case-studies'
+              : '/dashboard?tab=elections'
+          }
           className="hover:text-foreground hover:underline"
         >
-          My Elections
+          {isCaseStudy ? 'Case Studies' : 'My Elections'}
         </Link>
       </li>
       <li className="flex items-center gap-2">

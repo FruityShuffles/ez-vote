@@ -32,9 +32,11 @@ import {
 export function BallotCountRow({
   electionId,
   publicBallots,
+  canViewVoterDetails = true,
 }: {
   electionId: string
   publicBallots: boolean
+  canViewVoterDetails?: boolean
 }) {
   const { data, isPending, isError } = useBallotCount(electionId)
   const location = useLocation()
@@ -74,6 +76,15 @@ export function BallotCountRow({
   }
 
   const n = data
+  if (!canViewVoterDetails) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Vote className="size-4" aria-hidden />
+        {n} ballot{n === 1 ? '' : 's'} submitted
+      </span>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
