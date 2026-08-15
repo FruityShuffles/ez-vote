@@ -46,9 +46,28 @@ Three properties are deliberate:
 
 - **Eligibility is `validateFlipInputs()` plus `public_ballots`** — the same gate `simulate-counterfactual` applies, so eligibility can never drift between the two paths, and the work is bounded before it starts rather than at the CPU ceiling. Most elections are ineligible and skip it entirely.
 - **It runs strictly last**, after the results upserts *and* the status flip, inside a `try/catch` that swallows everything. A failure costs a cache hit and nothing else.
-- **It uses `PRECOMPUTE_FLIP_MS` (500 ms), not `MAX_FLIP_MS` (750 ms).** A CPU-ceiling kill here is *uncatchable* — the isolate is terminated, no `catch` runs and no response is sent, so the owner would see their close fail on an election that is in fact already closed with correct results. If that is ever reported, this is where to look.
+- **It uses `PRECOMPUTE_FLIP_MS` (1000 ms), not `MAX_FLIP_MS` (750 ms)** — a backstop, not a limiter. See the CPU budget below.
 
 The realtime path (`close=false`) never precomputes: it can fire on every ballot submission, and the election is still open.
+
+### The close-path CPU budget
+
+Measured at worst-case eligible size (500 ballots × 20 candidates), which is the largest input `validateFlipInputs` admits:
+
+| Phase | CPU |
+|---|---|
+| `tabulate()` over every algorithm + the FPTP row | ~5 ms |
+| Flip search, spending its full 400-tabulation count budget | ~720 ms |
+| **Total** | **~725 ms** against a ~2 s ceiling |
+
+DB round trips are I/O, not CPU, and don't count against the ceiling.
+
+Two consequences worth holding onto before adding work here:
+
+- **The count budget is the intended limiter; the deadline is insurance.** `PRECOMPUTE_FLIP_MS` sits at 1000 ms so it does not bind on normal hardware — a deadline set below ~720 ms silently truncates the search to a fraction of its tabulations, and does so on the largest elections, where the answer matters most. Tightening it is not a safe way to buy headroom; it just degrades stored answers.
+- **A tighter flip deadline does not bound anything else.** If future work adds real CPU to this path, the total grows regardless of what the search is allowed. The number to check against is the ~1.3 s of remaining headroom in the table above, re-measured — not the flip deadline. When it stops fitting, the fix is to move the precompute off the close request path (a separate invocation, or `EdgeRuntime.waitUntil`, which was considered and deferred because background CPU still counts against the same budget and it races the client's navigation to the explorer), not to keep shaving the search.
+
+If an owner ever reports a close that failed on an election that turns out to be closed with correct results, a CPU-ceiling kill here is the first thing to check — it is uncatchable, so the `try/catch` cannot report it.
 
 One divergence worth knowing: these ballots come straight from the table, whereas a live search reads them through `get_public_ballots()`, which orders by display name. The greedy search breaks ties by array order, so the two paths can name different — equally cheap, equally valid — ballots for the same election. "Re-run and compare" is therefore a misleading way to debug a stored answer.
 

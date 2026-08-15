@@ -32,13 +32,27 @@ import type { BallotPayload, SimulationBallot } from "./counterfactual.ts";
 
 export const MAX_FLIP_TABULATIONS = 400;
 export const MAX_FLIP_MS = 750;
-/// Deadline for the precompute inside `compute-results` (#146). Tighter than
-/// MAX_FLIP_MS for one reason: a CPU-ceiling kill there is UNCATCHABLE — the
-/// isolate is terminated, no `catch` runs and no response is sent, so the owner
-/// would see their close fail even though the election is already closed and
-/// its results persisted. That function has also already spent CPU tabulating
-/// every algorithm before the search starts.
-export const PRECOMPUTE_FLIP_MS = 500;
+/// Deadline for the precompute inside `compute-results` (#146).
+///
+/// Sized to be a BACKSTOP, never the limiter. Measured at worst-case eligible
+/// size (500 ballots x 20 candidates): the full 400-tabulation count budget
+/// takes ~720 ms, and the tabulate() call compute-results makes before the
+/// search costs ~5 ms — about 1% of the search, not the meaningful head start
+/// it looks like. So the count budget is what should stop the search. This
+/// deadline exists only to catch an isolate slow enough that 400 tabulations
+/// would run into the ~2 s CPU ceiling, which is a hard kill: uncatchable, no
+/// `catch` runs and no response is sent, so the owner's close would appear to
+/// fail on an election that is in fact already closed with correct results.
+///
+/// 1000 ms leaves ~40% headroom over that measured worst case, so it does not
+/// bind on normal hardware, while still stopping well short of the ceiling.
+///
+/// Deliberately LOOSER than MAX_FLIP_MS. The live search pays for two full
+/// tabulate() passes plus an RPC before it starts and runs once per visitor;
+/// this runs once per election, for an answer cached forever. Sizing it below
+/// the count budget would make the stored answer worse than the live one on
+/// exactly the elections the search works hardest on.
+export const PRECOMPUTE_FLIP_MS = 1000;
 // Equal to MAX_OVERRIDES so any reported change set is always replayable
 // through the existing overrides path of simulate-counterfactual.
 export const MAX_FLIP_BALLOTS = 500;
