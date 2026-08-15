@@ -174,12 +174,22 @@ any new override payload is constructed.
 someone else the IRV winner?" via the server's `find_flip` search
 ([[Backend/Simulate Counterfactual]]). Design decisions:
 
-- **User-initiated, never automatic.** The search costs up to ~500 ms of server
-  compute and most sessions never need it, so it runs from a "Run the search"
-  button. `useFlipSearch` in `lib/counterfactual.ts` is a separate query from
-  `useSimulate` (`staleTime: Infinity` — the election is closed, so the answer
-  never goes stale; and folding `find_flip` into the debounced simulate query
-  would rerun the search on every ballot edit).
+- **Precomputed at close (#146), not run on demand.** The search costs up to
+  ~500 ms of server compute for an answer that cannot change — it runs on the
+  baseline ballots of a closed election, and both ballot write policies require
+  `status = 'open'`. So `compute-results` computes it once when the election
+  closes and stores it in `flip_searches` ([[Backend/Edge Function]]).
+  `useStoredFlip` reads that row unconditionally (one primary-key read) and the
+  panel renders the answer on first paint: no button, no wait.
+- **The button is the fallback path only.** `useFlipSearch` still invokes
+  `find_flip` live, but it is enabled only once the stored read has provably
+  come back empty — elections closed before #146, and elections whose owner
+  enabled `public_ballots` after closing. `useStoredFlip` resolves to `null`
+  rather than throwing on *any* failure (missing row, denied read, missing
+  migration) precisely so all of those degrade to that fallback. The two hooks
+  keep distinct query keys so a fallback answer can never masquerade as a
+  precomputed one. Both stay separate from `useSimulate`, whose debounce would
+  otherwise rerun the search on every ballot edit.
 - **Honesty copy mirrors the server contract** (`flipTargetHeadline`):
   "smallest possible change" only when `proven` (k = 1); otherwise "best found …
   a smaller set may exist"; `no_flip_found` says a flip may still exist, never
@@ -276,7 +286,10 @@ of the production entry bundle.
 
 `e2e/counterfactual-explorer.spec.ts` covers the authenticated two-screen flow,
 an edit that changes only IRV's winners, undo, keyboard activation, reduced
-motion, and the flip search (run → honest per-target answers → apply → the rail
-shows the flip). It snapshots stored `results` rows and public ballot payloads
-before the hypothetical edit and asserts both are structurally identical
-afterward.
+motion, and the flip search. Because the spec closes its own election through
+`compute-results`, it is also the only end-to-end proof of the #146 precompute:
+it asserts the answers appear with no "Run the search" button, then applies one
+and checks the rail shows the flip. It snapshots stored `results` rows, public
+ballot payloads **and the `flip_searches` row** before the hypothetical edit and
+asserts all three are structurally identical afterward — the standing evidence
+that this endpoint writes nothing.

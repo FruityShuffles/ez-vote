@@ -23,6 +23,7 @@ import {
   type BallotOverride,
   useFlipSearch,
   useSimulate,
+  useStoredFlip,
 } from '@/lib/counterfactual'
 import {
   summarizeChange,
@@ -218,8 +219,18 @@ export function CounterfactualPicker() {
     ledger.overrides,
     explorer.data != null,
   )
+  // The precomputed answer (#146) is one row read, so it runs unconditionally;
+  // `explorer.data != null` already implies closed + public_ballots, so it never
+  // fires on an ineligible election. The live search is the fallback, enabled
+  // only once the stored read has provably come back empty — otherwise a
+  // precomputed election could still pay for a second ~500 ms search.
+  const stored = useStoredFlip(electionId, explorer.data != null)
+  const storedFlip = stored.data ?? undefined
   const [flipRequested, setFlipRequested] = useState(false)
-  const flip = useFlipSearch(electionId, flipRequested)
+  const flip = useFlipSearch(
+    electionId,
+    flipRequested && !stored.isPending && storedFlip == null,
+  )
 
   if (explorer.data == null) {
     return (
@@ -298,10 +309,10 @@ export function CounterfactualPicker() {
 
       {flipEligible && (
         <FlipSearchPanel
-          result={flip.data}
-          pending={flip.isFetching}
+          result={storedFlip ?? flip.data}
+          pending={stored.isPending || flip.isFetching}
           error={flip.error}
-          requested={flipRequested}
+          requested={flipRequested || storedFlip != null}
           onSearch={() => {
             setFlipRequested(true)
             if (flip.isError) void flip.refetch()

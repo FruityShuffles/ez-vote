@@ -114,17 +114,56 @@ export function useSimulate(
 }
 
 /**
- * The user-initiated "what would it take to flip the outcome?" search.
+ * The flip search precomputed at election close (#146) and stored in
+ * `flip_searches`.
+ *
+ * Cheap enough to run unconditionally on the explorer: one primary-key row
+ * read. When it returns an answer the panel renders it immediately and never
+ * offers the button — which is the whole point of the feature. RLS gates the
+ * row on `public_ballots` plus the same owner / joined-voter / public-election
+ * set as the ballots themselves (migration 023), so this can only return data
+ * the caller could already read.
+ *
+ * Resolves to `null` rather than throwing on *any* failure. A missing row, a
+ * denied read and an environment without migration 023 all mean the same thing
+ * to the caller: fall back to the live `find_flip` search.
+ */
+export function useStoredFlip(electionId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['flip-search', 'stored', electionId],
+    enabled: enabled && electionId !== '',
+    staleTime: Infinity,
+    retry: false,
+    queryFn: async (): Promise<FlipSearchResult | null> => {
+      const { data, error } = await supabase
+        .from('flip_searches')
+        .select('result')
+        .eq('election_id', electionId)
+        .maybeSingle()
+      if (error) return null
+      return (data?.result as FlipSearchResult | undefined) ?? null
+    },
+  })
+}
+
+/**
+ * The live "what would it take to flip the outcome?" search — the **fallback**
+ * for elections with no precomputed row: those closed before #146, and those
+ * whose owner enabled `public_ballots` after closing. Elections closed since
+ * then are answered by `useStoredFlip` without touching this.
  *
  * Deliberately separate from `useSimulate`: the answer depends only on the
  * election's baseline ballots (the server ignores overrides when searching), so
  * folding `find_flip` into the debounced simulate query would rerun a ~500 ms
  * server-side search on every ballot edit and split the cache. The election is
  * closed, so once computed the answer never goes stale.
+ *
+ * Its query key stays distinct from the stored one so a fallback result can
+ * never masquerade as a precomputed one in the cache.
  */
 export function useFlipSearch(electionId: string, enabled: boolean) {
   return useQuery({
-    queryKey: ['flip-search', electionId],
+    queryKey: ['flip-search', 'live', electionId],
     enabled: enabled && electionId !== '',
     staleTime: Infinity,
     retry: false,

@@ -101,6 +101,21 @@ describe('FlipSearchPanel', () => {
     expect(props.onSearch).toHaveBeenCalledOnce()
   })
 
+  it('drops the button and the idle hint once a result is present (#146)', () => {
+    // A precomputed answer arrives with `requested: false` — the user never
+    // pressed anything — so neither the button nor the "Searches for the
+    // smallest ballot changes…" hint may render beside it.
+    renderPanel({ result: RESULT, requested: false })
+
+    expect(
+      screen.queryByRole('button', { name: 'Run the search' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/Searches for the smallest ballot changes/),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText(/^As voted, /)).toBeInTheDocument()
+  })
+
   it('explains unavailability instead of offering the search', () => {
     renderPanel({
       unavailableReason:

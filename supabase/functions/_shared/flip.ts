@@ -32,6 +32,13 @@ import type { BallotPayload, SimulationBallot } from "./counterfactual.ts";
 
 export const MAX_FLIP_TABULATIONS = 400;
 export const MAX_FLIP_MS = 750;
+/// Deadline for the precompute inside `compute-results` (#146). Tighter than
+/// MAX_FLIP_MS for one reason: a CPU-ceiling kill there is UNCATCHABLE — the
+/// isolate is terminated, no `catch` runs and no response is sent, so the owner
+/// would see their close fail even though the election is already closed and
+/// its results persisted. That function has also already spent CPU tabulating
+/// every algorithm before the search starts.
+export const PRECOMPUTE_FLIP_MS = 500;
 // Equal to MAX_OVERRIDES so any reported change set is always replayable
 // through the existing overrides path of simulate-counterfactual.
 export const MAX_FLIP_BALLOTS = 500;

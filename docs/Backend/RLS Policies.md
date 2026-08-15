@@ -25,7 +25,7 @@ Returns true if `auth.uid()` is the owner of the given election. Security-define
 Returns the `allow_voter_candidates` flag for the election. Also security-definer for the same reason.
 
 ### `election_has_public_ballots(election_id uuid) → boolean`
-Returns the `public_ballots` flag for the election. Used by the new ballots SELECT policy to gate cross-voter visibility. Security-definer to avoid RLS recursion when a `ballots` policy reads `elections`.
+Returns the `public_ballots` flag for the election. Used by the ballots SELECT policy to gate cross-voter visibility, and by `flip_searches` for the same reason. Security-definer to avoid RLS recursion when a `ballots` policy reads `elections`.
 
 ### `election_is_public(election_id uuid) → boolean`
 Returns whether `elections.visibility = 'public'`. Used by the anyone-can-read SELECT policies on `candidates` and `results` (the equivalent `elections` policy checks the column directly — same table, no recursion).
@@ -75,6 +75,14 @@ Voter privacy: with `public_ballots = false`, no participant — including the o
 ### `results`
 - **SELECT:** Owner reads; participants in the election read; anyone reads if `election_is_public()` returns true
 - **INSERT/UPDATE:** Via edge function only (service role key, bypasses RLS)
+
+### `flip_searches`
+- **SELECT:** `election_has_public_ballots()` **and** (election is public, or caller owns it, or caller has joined it)
+- **INSERT/UPDATE/DELETE:** no policies at all. `compute-results` and the case-study seed script write with the service-role key, which bypasses RLS.
+
+**Why this gate and not the `results` one.** `result` embeds whole ballot payloads — each reported change is a named voter's own ranking with the target candidate promoted. So the correct precedent is the *ballots* read set, not the looser `results` set (which also admits invite-accepted users and does not require `public_ballots`). The policy is `get_public_ballots()`'s gate restated as RLS, which means the table exposes nothing a caller could not already read through that RPC.
+
+The absence of write policies is deliberate and load-bearing, unlike the legacy `"Owners can insert/update results"` pair: `simulate-counterfactual` holds no service-role key and must never gain one, so there is no path by which a read-only endpoint could write here.
 
 ### `election_voters`
 - **SELECT:** Owner reads all voters for their elections; voter reads own membership row

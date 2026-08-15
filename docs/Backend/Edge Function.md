@@ -32,10 +32,25 @@ Two call paths:
 8. Upsert each entry into the results table
 9. If close=true:
      UPDATE elections SET status='closed' WHERE id=election_id
+     Best-effort: precompute the IRV flip search and upsert flip_searches
 10. Return { success: true, results: [...] }
 ```
 
 Step 6 uses the service-role key (set via Supabase secrets, not in client bundle) to read all ballots regardless of voter ownership — required because voters can't read each other's ballots via RLS.
+
+## Flip-search precompute (#146)
+
+On `close=true` only, the function also computes the IRV flip search over the ballots it already fetched and upserts it into `flip_searches`, so the what-ifs explorer can render the answer without paying ~500 ms of server search on every visit ([[Features/Counterfactual Explorer]]). `simulate-counterfactual` still answers `find_flip: true` live for elections with no row.
+
+Three properties are deliberate:
+
+- **Eligibility is `validateFlipInputs()` plus `public_ballots`** — the same gate `simulate-counterfactual` applies, so eligibility can never drift between the two paths, and the work is bounded before it starts rather than at the CPU ceiling. Most elections are ineligible and skip it entirely.
+- **It runs strictly last**, after the results upserts *and* the status flip, inside a `try/catch` that swallows everything. A failure costs a cache hit and nothing else.
+- **It uses `PRECOMPUTE_FLIP_MS` (500 ms), not `MAX_FLIP_MS` (750 ms).** A CPU-ceiling kill here is *uncatchable* — the isolate is terminated, no `catch` runs and no response is sent, so the owner would see their close fail on an election that is in fact already closed with correct results. If that is ever reported, this is where to look.
+
+The realtime path (`close=false`) never precomputes: it can fire on every ballot submission, and the election is still open.
+
+One divergence worth knowing: these ballots come straight from the table, whereas a live search reads them through `get_public_ballots()`, which orders by display name. The greedy search breaks ties by array order, so the two paths can name different — equally cheap, equally valid — ballots for the same election. "Re-run and compare" is therefore a misleading way to debug a stored answer.
 
 ## Algorithm Implementations
 

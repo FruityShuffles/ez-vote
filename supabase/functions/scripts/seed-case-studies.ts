@@ -36,6 +36,7 @@ import {
   applyOverrides,
   type BallotOverride,
 } from "../_shared/counterfactual.ts";
+import { findMinimalFlips, validateFlipInputs } from "../_shared/flip.ts";
 import {
   ballotRows,
   candidateIdsFor,
@@ -610,6 +611,91 @@ async function seedFixture(
       .delete()
       .in("id", staleResults.map((r) => r.id));
     if (error) throw new Error(`results prune: ${error.message}`);
+  }
+
+  // --- Flip search --------------------------------------------------------
+  // Case studies never pass through compute-results — they are inserted already
+  // `closed` — so this script is the writer for their precomputed flip search
+  // (#146), exactly as it is for their `results`.
+  //
+  // Two details are load-bearing:
+  //
+  //   * REAL profile uuids, not the display names `names` carries for the
+  //     lesson gate. `FlipChange.voter_id` is what the explorer keys ballots,
+  //     chips and applied-suggestion matching on, so names here would render
+  //     every suggestion as "Unnamed voter" and no "Try these changes" would
+  //     ever apply. tabulate() ignores voter_id, which is why the results step
+  //     above can get away with the name map and this one cannot.
+  //
+  //   * `timeLimitMs: Infinity`. findMinimalFlips is bounded by a wall-clock
+  //     deadline as well as a tabulation count, so with the default the stored
+  //     answer would depend on how busy the machine was and a re-run could
+  //     churn the row — breaking the no-op invariant this whole script is built
+  //     around. With only the count budget it is a pure function of the
+  //     fixture. Case studies are tiny; the budget is never approached.
+  const seededVoterIds = new Map(
+    [...voterIds.entries()].filter(
+      (entry): entry is [string, string] => entry[1] !== null,
+    ),
+  );
+  const flipBallots = ballotRows(fixture, candidateIds, seededVoterIds);
+  const flipEligible =
+    validateFlipInputs(fixture.algorithms, candidates, flipBallots).length ===
+      0;
+  // In a dry run the placeholder accounts may not exist yet, so there are no
+  // uuids to key the search on. Report the intent and write nothing.
+  const votersReady = seededVoterIds.size === fixture.voters.length;
+  const desiredFlip = flipEligible && votersReady
+    ? findMinimalFlips(candidates, flipBallots, {
+      timeLimitMs: Number.POSITIVE_INFINITY,
+    })
+    : null;
+
+  const { data: existingFlip, error: flipReadError } = await sb
+    .from("flip_searches")
+    .select("election_id, result")
+    .eq("election_id", electionId)
+    .maybeSingle();
+  if (flipReadError) throw new Error(flipReadError.message);
+
+  if (!flipEligible) {
+    if (existingFlip) {
+      report.remove("flip search (fixture is not tabulated with IRV)");
+      if (!dryRun) {
+        const { error } = await sb
+          .from("flip_searches")
+          .delete()
+          .eq("election_id", electionId);
+        if (error) throw new Error(`flip search prune: ${error.message}`);
+      }
+    }
+  } else if (!votersReady) {
+    report.create("flip search");
+  } else if (!existingFlip) {
+    report.create("flip search");
+    if (!dryRun) {
+      const { error } = await sb
+        .from("flip_searches")
+        .insert({ election_id: electionId, result: desiredFlip });
+      if (error) throw new Error(`flip search: ${error.message}`);
+    }
+  } else if (
+    stableStringify(existingFlip.result) !== stableStringify(desiredFlip)
+  ) {
+    report.update("flip search");
+    if (!dryRun) {
+      const { error } = await sb
+        .from("flip_searches")
+        .update({
+          result: desiredFlip,
+          computed_at: new Date().toISOString(),
+        })
+        .eq("election_id", electionId);
+      if (error) throw new Error(`flip search: ${error.message}`);
+    }
+  } else {
+    // Deliberately does NOT touch computed_at — that would churn on every run.
+    report.same("flip search");
   }
 
   report.note(`election id ${electionId}`);

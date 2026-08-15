@@ -116,9 +116,13 @@ Rejected with a 400 listing every problem found (not just the first). Rejecting 
 
 Errors return 400 with `{ "error": "..." }`, matching `compute-results`.
 
-## Flip search (`find_flip`)
+## Flip search (`find_flip`) — now the fallback path
 
 The rest of the original M20 requirement (#106, shipped as #120): *what is the smallest set of ballot changes that would make some other candidate win?* Setting `find_flip: true` runs a budgeted greedy search (`supabase/functions/_shared/flip.ts`) and adds a `flip` field to the response.
+
+**Since #146 this is no longer the primary source.** The search is precomputed when an election closes and stored in `flip_searches` ([[Backend/Edge Function]], [[Backend/Schema]]); the explorer reads that row. `find_flip` remains for elections with no row — those closed before #146, and those whose owner enabled `public_ballots` after closing. The **mutation guarantee is unchanged**: this function still holds no service-role key and still writes nothing. The writer is `compute-results`.
+
+Two divergences between the stored and live answers, both harmless but worth knowing: the precompute uses a tighter deadline (`PRECOMPUTE_FLIP_MS`, 500 ms) and reads ballots in table order rather than `get_public_ballots()`'s display-name order, and the greedy breaks ties by array order. Both answers are valid under the honesty contract below, but they need not be identical.
 
 **IRV only.** Approval and FPTP flips are analytically uninteresting — the minimum is readable off the tallies — and STAR is deferred until the approach is proven for IRV. The election must therefore include `irv` in its algorithms. The `flip.algorithms` array shape exists so STAR can be added later without a breaking change.
 

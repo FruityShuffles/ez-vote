@@ -132,6 +132,40 @@ for (const fixture of fixtures) {
         );
       }
     });
+
+    Deno.test(`${fixture.slug}: the stored flip search is deterministic`, () => {
+      // The seed script writes this answer into `flip_searches` (#146) through
+      // its read-diff-write chain, so a second run must produce byte-identical
+      // JSON or it would churn the row and break the script's no-op invariant.
+      // `timeLimitMs: Infinity` is what buys that: findMinimalFlips is also
+      // bounded by a wall-clock deadline, so with the default the answer would
+      // depend on how busy the machine was.
+      const limits = { timeLimitMs: Number.POSITIVE_INFINITY };
+      assertEquals(
+        JSON.stringify(findMinimalFlips(candidates, ballots, limits)),
+        JSON.stringify(findMinimalFlips(candidates, ballots, limits)),
+      );
+    });
+
+    Deno.test(`${fixture.slug}: every flip change names a real ballot`, () => {
+      // The explorer keys `originals`, the voter-name lookup and
+      // applied-suggestion matching on FlipChange.voter_id. A stored answer
+      // carrying anything other than a real ballot's voter_id renders as
+      // "Unnamed voter" and can never be applied — which is exactly what
+      // seeding from the display-name map would produce.
+      const attributable = new Set(ballots.map((b) => b.voter_id));
+      const search = findMinimalFlips(candidates, ballots, {
+        timeLimitMs: Number.POSITIVE_INFINITY,
+      });
+      for (const target of search.algorithms[0].targets) {
+        for (const change of target.changes ?? []) {
+          assert(
+            attributable.has(change.voter_id),
+            `${target.candidate_name}: unknown voter_id ${change.voter_id}`,
+          );
+        }
+      }
+    });
   }
 
   Deno.test(`${fixture.slug}: derived identities are stable`, async () => {

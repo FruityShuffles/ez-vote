@@ -79,6 +79,19 @@ Computed voting results. One row per (election, algorithm) pair.
 
 **Constraint:** unique(election_id, algorithm). Edge function upserts.
 
+### `flip_searches`
+The IRV flip search precomputed when an election closes ([[Features/Counterfactual Explorer]]). One row per election, so the FK is the primary key — there is no surrogate `id`, unlike every other table here.
+
+| Column | Type | Notes |
+|---|---|---|
+| election_id | uuid | FK → elections.id, PK, `on delete cascade` |
+| result | jsonb | A `FlipSearchResult` verbatim — the same JSON `simulate-counterfactual` returns under `find_flip` |
+| computed_at | timestamptz | Default now(). Operator visibility only; nothing reads it for freshness |
+
+**No freshness check, by construction.** Both ballot write policies require `elections.status = 'open'`, so a closed election's ballots are immutable and a stored search can never disagree with a fresh one.
+
+**Writers:** `compute-results` (on close) and the case-study seed script, both on the service role. There are deliberately no INSERT/UPDATE/DELETE policies — see [[Backend/RLS Policies]] for why the read gate mirrors `ballots` rather than `results`.
+
 ### `invites`
 Email invite records. Currently used for the future invite-only flow.
 
@@ -141,6 +154,7 @@ Derived fields (IRV from STAR scores, approval from cutoff/top-K) are computed c
 | 020       | `public_ballots` flag, drops legacy "Owners can read ballots" policy, adds public-ballots RLS + `get_public_ballots()` RPC |
 | 021       | Tightens `get_public_ballots()` to require `public_ballots = true` for *all* callers (including the owner)             |
 | 022       | Publicly viewable elections: `visibility` + `showcase` columns, `election_is_public()` helper, anyone-can-read policies on elections/candidates/results, owner write policies locked to private, anon-capable `get_public_ballots()`, gated `get_pending_invitees()`, cron purge excludes public elections |
+| 023       | `flip_searches` table for the flip search precomputed at close (#146); the first table carrying explicit Data API grants |
 
 ## Data API Access & Grants
 
@@ -152,6 +166,8 @@ Supabase is changing how `public`-schema tables are exposed to the Data API (Pos
 After enforcement, a table without explicit role grants is unreachable through the REST API and PostgREST returns error `42501` with the exact missing `GRANT` statement. **RLS is still required but is no longer sufficient on its own.**
 
 **Existing tables are unaffected.** Per Supabase's announcement, existing tables keep their current grants. The seven tables already in `public` (`profiles`, `elections`, `candidates`, `invites`, `ballots`, `results`, `election_voters`) need no backfill migration.
+
+`flip_searches` (migration 023) is the first table added since, and follows the template below: `select` to `anon` and `authenticated`, everything to `service_role`. A missed grant here fails silently rather than loudly — the client's stored-flip read degrades to the live search — so the grants are worth checking directly after any environment rebuild.
 
 **New tables must include explicit grants.** Use this template when adding a table in `public`:
 

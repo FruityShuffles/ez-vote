@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   usePublicBallots: vi.fn(),
   useSimulate: vi.fn(),
   useFlipSearch: vi.fn(),
+  useStoredFlip: vi.fn(),
 }))
 
 vi.mock('@/lib/elections', async (importOriginal) => ({
@@ -31,6 +32,7 @@ vi.mock('@/lib/counterfactual', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/counterfactual')>()),
   useSimulate: mocks.useSimulate,
   useFlipSearch: mocks.useFlipSearch,
+  useStoredFlip: mocks.useStoredFlip,
 }))
 
 const election: Election = {
@@ -137,6 +139,9 @@ beforeEach(() => {
     isFetching: false,
     refetch: vi.fn(),
   })
+  // Default: no precomputed row, so the existing tests keep exercising the
+  // user-initiated fallback path.
+  mocks.useStoredFlip.mockReturnValue({ data: null, isPending: false })
 })
 
 describe('counterfactual route containers', () => {
@@ -188,6 +193,62 @@ describe('counterfactual route containers', () => {
     expect(
       screen.getByRole('region', { name: 'Flip the outcome' }),
     ).toBeInTheDocument()
+  })
+
+  it('renders a precomputed flip search with no button press (#146)', () => {
+    mocks.useStoredFlip.mockReturnValue({
+      data: {
+        algorithms: [
+          {
+            algorithm: 'irv',
+            distance_metric: 'irv_adjacent_transposition',
+            baseline_winners: ['Ada'],
+            best: 'bo',
+            targets: [
+              {
+                candidate_id: 'bo',
+                candidate_name: 'Bo',
+                status: 'flipped',
+                k: 1,
+                proven: true,
+                winners: ['Bo'],
+                changes: [
+                  {
+                    voter_id: 'v1',
+                    payload: { irv: ['bo', 'ada', 'cy'] },
+                    distance: 1,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        tabulations_used: 5,
+        budget: 400,
+        budget_exhausted: false,
+      },
+      isPending: false,
+    })
+    renderRoutes('/election/e1/explore')
+
+    const panel = screen.getByRole('region', { name: 'Flip the outcome' })
+    expect(within(panel).getByText('As voted, Ada wins IRV.')).toBeVisible()
+    expect(
+      within(panel).getByText(/Change 1 ballot and Bo wins IRV/),
+    ).toBeVisible()
+    // The stored answer replaces the button entirely — that is the feature.
+    expect(
+      within(panel).queryByRole('button', { name: 'Run the search' }),
+    ).not.toBeInTheDocument()
+    expect(mocks.useFlipSearch).toHaveBeenCalledWith('e1', false)
+  })
+
+  it('falls back to the button when nothing is precomputed', () => {
+    renderRoutes('/election/e1/explore')
+    const panel = screen.getByRole('region', { name: 'Flip the outcome' })
+    expect(
+      within(panel).getByRole('button', { name: 'Run the search' }),
+    ).toBeVisible()
   })
 
   it('hides the flip search when the election is not tabulated with IRV', () => {

@@ -20,9 +20,13 @@ import type {
 // ledger's visual shape — the same chips, filled in by the server rather than
 // by hand.
 //
-// The search is user-initiated (a button, never automatic): it costs up to
-// ~500 ms of server compute, and most explorer sessions never need it. Its
-// copy follows the server's honesty contract — see `flipTargetHeadline`.
+// Since #146 the search is precomputed when the election closes and stored in
+// `flip_searches`, so the usual case is a `result` that is simply present on
+// first render — no button, no wait. The button is the fallback path only:
+// elections closed before #146, or ones whose owner enabled public_ballots
+// after closing, still pay ~500 ms of server compute, so there the search stays
+// user-initiated. Either way the copy follows the server's honesty contract —
+// see `flipTargetHeadline`.
 
 export interface FlipSearchPanelProps {
   result: FlipSearchResult | undefined
@@ -89,7 +93,7 @@ export function FlipSearchPanel({
         )}
       </div>
 
-      {unavailableReason == null && !requested && (
+      {unavailableReason == null && irv == null && !requested && (
         <p className="mt-1 text-xs text-muted-foreground">
           Searches for the smallest ballot changes it can find. Runs on the
           ballots as actually voted.

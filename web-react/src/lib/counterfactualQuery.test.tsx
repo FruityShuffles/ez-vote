@@ -8,15 +8,21 @@ import {
   SIMULATION_ACCESS_ERROR,
   useFlipSearch,
   useSimulate,
+  useStoredFlip,
   type BallotOverride,
   type SimulationResponse,
 } from '@/lib/counterfactual'
 import type { FlipSearchResult } from '@shared/flip'
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn() }))
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), maybeSingle: vi.fn() }))
 
 vi.mock('@/lib/supabase', () => ({
-  supabase: { functions: { invoke: mocks.invoke } },
+  supabase: {
+    functions: { invoke: mocks.invoke },
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: mocks.maybeSingle }) }),
+    }),
+  },
 }))
 
 const response: SimulationResponse = {
@@ -35,6 +41,7 @@ function wrapper(client: QueryClient) {
 
 beforeEach(() => {
   mocks.invoke.mockReset()
+  mocks.maybeSingle.mockReset()
 })
 
 afterEach(() => {
@@ -178,6 +185,58 @@ const flipResult: FlipSearchResult = {
   budget: 400,
   budget_exhausted: false,
 }
+
+describe('useStoredFlip', () => {
+  it('returns the precomputed row without any server search', async () => {
+    mocks.maybeSingle.mockResolvedValue({
+      data: { result: flipResult },
+      error: null,
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(() => useStoredFlip('e1'), {
+      wrapper: wrapper(client),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual(flipResult)
+    // The whole point of #146: no edge function invocation.
+    expect(mocks.invoke).not.toHaveBeenCalled()
+  })
+
+  it('resolves to null when the election has no stored row', async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: null })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(() => useStoredFlip('e1'), {
+      wrapper: wrapper(client),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toBeNull()
+  })
+
+  it('resolves to null rather than throwing when the read is refused', async () => {
+    // A denied read, a missing grant and an environment without migration 023
+    // all have to degrade to the live fallback, never to an error state.
+    mocks.maybeSingle.mockResolvedValue({
+      data: null,
+      error: { message: 'permission denied for table flip_searches' },
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(() => useStoredFlip('e1'), {
+      wrapper: wrapper(client),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toBeNull()
+    expect(result.current.isError).toBe(false)
+  })
+})
 
 describe('useFlipSearch', () => {
   it('does nothing until enabled, then sends find_flip with no overrides', async () => {

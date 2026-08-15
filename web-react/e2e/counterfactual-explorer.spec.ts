@@ -56,18 +56,29 @@ async function storedState(
   db: Awaited<ReturnType<typeof databaseClient>>,
   electionId: string,
 ) {
-  const [results, ballots] = await Promise.all([
+  const [results, ballots, flip] = await Promise.all([
     db
       .from('results')
       .select('algorithm,result_data')
       .eq('election_id', electionId)
       .order('algorithm'),
     db.rpc('get_public_ballots', { p_election_id: electionId }),
+    // The flip search precomputed at close (#146) is the third persisted
+    // surface simulate-counterfactual must not touch. Reading it here also
+    // doubles as a check that migration 023's grant and SELECT policy actually
+    // let a joined owner through.
+    db
+      .from('flip_searches')
+      .select('result')
+      .eq('election_id', electionId)
+      .maybeSingle(),
   ])
   if (results.error) throw results.error
   if (ballots.error) throw ballots.error
+  if (flip.error) throw flip.error
   return {
     results: results.data,
+    flip: flip.data,
     ballots: (ballots.data ?? [])
       .map(
         (ballot: {
@@ -223,14 +234,19 @@ test('a hypothetical algorithm edit stays isolated, undo restores baseline, and 
       page.getByRole('status', { name: 'Updating results' }),
     ).toBeHidden({ timeout: 20_000 })
 
-    // The flip search (#135): user-initiated, honest about k = 1 minimality,
-    // and applying an answer routes it through the normal simulate path.
+    // The flip search (#135), now precomputed at close (#146): this election
+    // was closed through compute-results, so the answer is already in
+    // `flip_searches` and renders with no button press. That makes the two
+    // assertions below the end-to-end proof that the edge function wrote the
+    // row and the client read it back — nothing else covers that path.
     const flipPanel = page.getByRole('region', { name: 'Flip the outcome' })
     await expect(flipPanel).toBeVisible()
-    await flipPanel.getByRole('button', { name: 'Run the search' }).click()
     await expect(flipPanel.getByText(/^As voted, /)).toBeVisible({
       timeout: 20_000,
     })
+    await expect(
+      flipPanel.getByRole('button', { name: 'Run the search' }),
+    ).toBeHidden()
     // Two ballots, three candidates: a single-ballot promotion always flips
     // some non-winner, and k = 1 is the one provably minimal case.
     await expect(
@@ -254,11 +270,13 @@ test('a hypothetical algorithm edit stays isolated, undo restores baseline, and 
       page.getByRole('status', { name: 'Updating results' }),
     ).toBeHidden({ timeout: 20_000 })
 
-    // The endpoint has no write credential: prove both persisted surfaces are
-    // byte-for-structure identical after simulation, undo, and the flip search.
+    // The endpoint has no write credential: prove all three persisted surfaces
+    // are byte-for-structure identical after simulation, undo, and applying a
+    // flip suggestion.
     const after = await storedState(db, electionId)
     expect(after.results).toEqual(before.results)
     expect(after.ballots).toEqual(before.ballots)
+    expect(after.flip).toEqual(before.flip)
   } finally {
     await db.auth.signOut({ scope: 'local' })
     await context2.close()
