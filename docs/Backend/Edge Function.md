@@ -46,26 +46,27 @@ Three properties are deliberate:
 
 - **Eligibility is `validateFlipInputs()` plus `public_ballots`** — the same gate `simulate-counterfactual` applies, so eligibility can never drift between the two paths, and the work is bounded before it starts rather than at the CPU ceiling. Most elections are ineligible and skip it entirely.
 - **It runs strictly last**, after the results upserts *and* the status flip, inside a `try/catch` that swallows everything. A failure costs a cache hit and nothing else.
-- **It uses `PRECOMPUTE_FLIP_MS` (1000 ms), not `MAX_FLIP_MS` (750 ms)** — a backstop, not a limiter. See the CPU budget below.
+- **It uses `PRECOMPUTE_FLIP_MS` (1500 ms), not `MAX_FLIP_MS` (750 ms)** — a generous backstop against an unbounded close, not a limiter on answer quality. See the CPU budget below.
 
 The realtime path (`close=false`) never precomputes: it can fire on every ballot submission, and the election is still open.
 
 ### The close-path CPU budget
 
-Measured at worst-case eligible size (500 ballots × 20 candidates), which is the largest input `validateFlipInputs` admits:
+Supabase caps a function at **2 s of CPU time**, hard — [documented](https://supabase.com/docs/guides/functions/limits) as "actual time spent on the CPU per request", explicitly *excluding* async I/O. The 400 s wall-clock limit is not what binds here. DB round trips are I/O and cost nothing against the CPU ceiling; the tabulation loops are pure compute and cost all of it.
+
+Measured at worst-case eligible size (500 ballots × 20 candidates), the largest input `validateFlipInputs` admits:
 
 | Phase | CPU |
 |---|---|
 | `tabulate()` over every algorithm + the FPTP row | ~5 ms |
 | Flip search, spending its full 400-tabulation count budget | ~720 ms |
-| **Total** | **~725 ms** against a ~2 s ceiling |
+| **Total** | **~725 ms** of the 2 s ceiling |
 
-DB round trips are I/O, not CPU, and don't count against the ceiling.
+Three consequences worth holding onto before changing anything here:
 
-Two consequences worth holding onto before adding work here:
-
-- **The count budget is the intended limiter; the deadline is insurance.** `PRECOMPUTE_FLIP_MS` sits at 1000 ms so it does not bind on normal hardware — a deadline set below ~720 ms silently truncates the search to a fraction of its tabulations, and does so on the largest elections, where the answer matters most. Tightening it is not a safe way to buy headroom; it just degrades stored answers.
-- **A tighter flip deadline does not bound anything else.** If future work adds real CPU to this path, the total grows regardless of what the search is allowed. The number to check against is the ~1.3 s of remaining headroom in the table above, re-measured — not the flip deadline. When it stops fitting, the fix is to move the precompute off the close request path (a separate invocation, or `EdgeRuntime.waitUntil`, which was considered and deferred because background CPU still counts against the same budget and it races the client's navigation to the explorer), not to keep shaving the search.
+- **The count budget is the limiter; the deadline is a backstop.** `PRECOMPUTE_FLIP_MS` sits at 1500 ms — roughly double what the count budget actually needs — so it is never reached on a sane isolate. A deadline set below ~720 ms silently truncates the search to a fraction of its tabulations, and does so on the largest elections, where the answer matters most. Tightening it is not a safe way to buy headroom; it just degrades stored answers.
+- **The deadline cannot be raised past the ceiling.** The search is pure compute with no awaits, so its wall-clock deadline is effectively CPU time. At or above ~2 s it can never fire: the platform kills the isolate first, and that kill is uncatchable — no `catch` runs and no response is sent, so the owner's close appears to fail on an election that is in fact already closed with correct results. A deadline past the ceiling removes this protection rather than relaxing it.
+- **The flip deadline bounds nothing but the flip search.** If future work adds real CPU to this path, the total grows regardless of what the search is allowed. The number to check against is the ~1.3 s of remaining headroom above, re-measured — not the flip deadline. When it stops fitting, the fix is to move the precompute off the close request path, not to keep shaving the search. (`EdgeRuntime.waitUntil` is *not* that fix: background work counts against the same CPU budget, and it races the client's navigation to the explorer.)
 
 If an owner ever reports a close that failed on an election that turns out to be closed with correct results, a CPU-ceiling kill here is the first thing to check — it is uncatchable, so the `try/catch` cannot report it.
 

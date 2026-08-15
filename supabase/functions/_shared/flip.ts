@@ -34,25 +34,28 @@ export const MAX_FLIP_TABULATIONS = 400;
 export const MAX_FLIP_MS = 750;
 /// Deadline for the precompute inside `compute-results` (#146).
 ///
-/// Sized to be a BACKSTOP, never the limiter. Measured at worst-case eligible
-/// size (500 ballots x 20 candidates): the full 400-tabulation count budget
-/// takes ~720 ms, and the tabulate() call compute-results makes before the
-/// search costs ~5 ms — about 1% of the search, not the meaningful head start
-/// it looks like. So the count budget is what should stop the search. This
-/// deadline exists only to catch an isolate slow enough that 400 tabulations
-/// would run into the ~2 s CPU ceiling, which is a hard kill: uncatchable, no
-/// `catch` runs and no response is sent, so the owner's close would appear to
-/// fail on an election that is in fact already closed with correct results.
+/// A GENEROUS BACKSTOP against a pathologically long close, nothing more. It is
+/// not a tuning knob for answer quality: the count budget above already caps
+/// the work at 400 tabulations, which measures ~720 ms at worst-case eligible
+/// size (500 ballots x 20 candidates), so on any sane isolate this deadline is
+/// never reached. Closing an election is a rare, owner-initiated action, so a
+/// slow one is worth tolerating — the only thing worth preventing is an
+/// unbounded wait.
 ///
-/// 1000 ms leaves ~40% headroom over that measured worst case, so it does not
-/// bind on normal hardware, while still stopping well short of the ceiling.
+/// Why not larger still: Supabase caps a function at **2 s of CPU time**, hard,
+/// and this search is pure compute with no awaits, so its wall-clock deadline
+/// is effectively CPU time. Anything at or above ~2 s can never fire — the
+/// platform kills the isolate first, and that kill is uncatchable (no `catch`
+/// runs, no response is sent), so the owner's close would appear to fail on an
+/// election that is in fact already closed with correct results. A deadline
+/// past the ceiling would therefore remove this protection, not relax it.
+/// 1500 ms is roughly double what the count budget actually needs and still
+/// leaves ~500 ms of CPU headroom to fire in.
 ///
-/// Deliberately LOOSER than MAX_FLIP_MS. The live search pays for two full
-/// tabulate() passes plus an RPC before it starts and runs once per visitor;
-/// this runs once per election, for an answer cached forever. Sizing it below
-/// the count budget would make the stored answer worse than the live one on
-/// exactly the elections the search works hardest on.
-export const PRECOMPUTE_FLIP_MS = 1000;
+/// Deliberately looser than MAX_FLIP_MS: the live search pays for two full
+/// tabulate() passes plus an RPC before it starts and runs once per visitor,
+/// whereas this runs once per election for an answer cached forever.
+export const PRECOMPUTE_FLIP_MS = 1500;
 // Equal to MAX_OVERRIDES so any reported change set is always replayable
 // through the existing overrides path of simulate-counterfactual.
 export const MAX_FLIP_BALLOTS = 500;
