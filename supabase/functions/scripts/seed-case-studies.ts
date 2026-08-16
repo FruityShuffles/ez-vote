@@ -42,10 +42,12 @@ import {
   candidateIdsFor,
   candidateRows,
   type CaseStudyFixture,
+  disagreeingAlgorithms,
   electionIdFor,
   loadFixtures,
   resolvePayload,
   voterEmailFor,
+  type WinnersByAlgorithm,
 } from "./case-study-fixture.ts";
 
 const HELP = `seed-case-studies — create/refresh the public Case Study elections
@@ -266,6 +268,25 @@ async function ensureAccount(
 
 // ---- Per-fixture seeding -------------------------------------------------
 
+/// Names the algorithm that disagreed, not just the winner — with four
+/// tabulations in play, "winner is X, fixture claims Y" is not enough to find
+/// the drift.
+function assertLesson(
+  what: string,
+  actual: WinnersByAlgorithm,
+  claimed: WinnersByAlgorithm,
+): void {
+  const drifted = disagreeingAlgorithms(actual, claimed);
+  if (drifted.length === 0) return;
+  const detail = drifted
+    .map((algorithm) =>
+      `${algorithm} produces "${(actual[algorithm] ?? []).join(", ")}", ` +
+      `fixture claims "${(claimed[algorithm] ?? []).join(", ")}"`
+    )
+    .join("; ");
+  throw new Error(`lesson mismatch: under ${what}, ${detail}`);
+}
+
 async function seedFixture(
   sb: SupabaseClient,
   fixture: CaseStudyFixture,
@@ -282,30 +303,28 @@ async function seedFixture(
   // before it becomes a published page.
   const names = new Map(fixture.voters.map((v) => [v.name, v.name]));
   const checkBallots = ballotRows(fixture, candidateIds, names);
-  const winners = (ballots: typeof checkBallots) =>
-    tabulate(fixture.algorithms, fixture.include_fptp, candidates, ballots)[0]
-      .result_data.winners as string[];
+  // Every algorithm, never just the first: a case study whose lesson is a
+  // disagreement between methods claims something about all of them at once.
+  const winners = (ballots: typeof checkBallots): WinnersByAlgorithm =>
+    Object.fromEntries(
+      tabulate(fixture.algorithms, fixture.include_fptp, candidates, ballots)
+        .map((r) => [r.algorithm, r.result_data.winners as string[]]),
+    );
   const lessonOverrides: BallotOverride[] = fixture.lesson.changes.map((c) => ({
     op: "replace",
     voter_id: c.voter,
     payload: resolvePayload(c.payload, candidateIds),
   }));
-  const baseline = winners(checkBallots).join(", ");
-  const simulated = winners(applyOverrides(checkBallots, lessonOverrides)).join(
-    ", ",
+  assertLesson(
+    "baseline",
+    winners(checkBallots),
+    fixture.lesson.baseline_winners,
   );
-  if (baseline !== fixture.lesson.baseline_winners.join(", ")) {
-    throw new Error(
-      `lesson mismatch: baseline winner is "${baseline}", fixture claims ` +
-        `"${fixture.lesson.baseline_winners.join(", ")}"`,
-    );
-  }
-  if (simulated !== fixture.lesson.expected_winners.join(", ")) {
-    throw new Error(
-      `lesson mismatch: the documented changes produce "${simulated}", ` +
-        `fixture claims "${fixture.lesson.expected_winners.join(", ")}"`,
-    );
-  }
+  assertLesson(
+    "the documented changes",
+    winners(applyOverrides(checkBallots, lessonOverrides)),
+    fixture.lesson.expected_winners,
+  );
 
   // --- Accounts -----------------------------------------------------------
   const ownerId = await ensureAccount(
@@ -699,7 +718,18 @@ async function seedFixture(
   }
 
   report.note(`election id ${electionId}`);
-  report.note(`winner ${baseline} → ${simulated} with the documented changes`);
+  // Names the methods the exercise moves. With four tabulations in play, "X → Y"
+  // on its own no longer says which page the reader is meant to watch.
+  const moved = disagreeingAlgorithms(
+    fixture.lesson.baseline_winners,
+    fixture.lesson.expected_winners,
+  )
+    .map((algorithm) =>
+      `${algorithm} ${(fixture.lesson.baseline_winners[algorithm] ?? []).join(", ")} → ` +
+      `${(fixture.lesson.expected_winners[algorithm] ?? []).join(", ")}`
+    )
+    .join("; ");
+  report.note(`the documented changes move ${moved}`);
   return report;
 }
 

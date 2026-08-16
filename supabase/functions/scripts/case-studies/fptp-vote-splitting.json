@@ -1,0 +1,179 @@
+{
+  "slug": "fptp-vote-splitting",
+  "title": "When the option most voters ranked last still wins",
+  "description": "Fifteen neighbors voted on what to build on a vacant lot. Nine of them ranked the parking lot last. It won anyway — on one of the four counts below, and only that one.\n\nApproval, instant-runoff and STAR all reach the same answer: the community garden. First past the post reaches a different one, because it is the only method here that keeps nothing but each voter's single favorite.\n\nThe garden voters and the skate-park voters want the same thing — something other than asphalt — and a single mark gives them no way to say so. Split across two options, they lose 6 to 5 to 4 to a bloc that is well under half the room.\n\nIn the what-ifs explorer, move Community Garden to the top of the four skate-park ballots. FPTP flips to the garden and all four methods agree. That is the fix choose-one voting offers: four people give up their real first choice, and nothing else about the election has to change.\n\nEvery method below reads the same ballots. Three of them found the option this group actually prefers. The one that asks for a single mark found the one most of them liked least.",
+  "algorithms": ["approval", "irv", "star"],
+  "include_fptp": true,
+  "candidates": ["Parking Lot", "Community Garden", "Skate Park"],
+  "voters": [
+    {
+      "name": "Rosa",
+      "payload": {
+        "star": { "Parking Lot": 5, "Community Garden": 1, "Skate Park": 0 },
+        "irv": ["Parking Lot", "Community Garden", "Skate Park"],
+        "approval": ["Parking Lot"]
+      }
+    },
+    {
+      "name": "Sam",
+      "payload": {
+        "star": { "Parking Lot": 5, "Community Garden": 1, "Skate Park": 0 },
+        "irv": ["Parking Lot", "Community Garden", "Skate Park"],
+        "approval": ["Parking Lot"]
+      }
+    },
+    {
+      "name": "Tariq",
+      "payload": {
+        "star": { "Parking Lot": 5, "Community Garden": 1, "Skate Park": 0 },
+        "irv": ["Parking Lot", "Community Garden", "Skate Park"],
+        "approval": ["Parking Lot"]
+      }
+    },
+    {
+      "name": "Ursula",
+      "payload": {
+        "star": { "Parking Lot": 5, "Community Garden": 1, "Skate Park": 0 },
+        "irv": ["Parking Lot", "Community Garden", "Skate Park"],
+        "approval": ["Parking Lot"]
+      }
+    },
+    {
+      "name": "Vikram",
+      "payload": {
+        "star": { "Parking Lot": 5, "Community Garden": 1, "Skate Park": 0 },
+        "irv": ["Parking Lot", "Community Garden", "Skate Park"],
+        "approval": ["Parking Lot"]
+      }
+    },
+    {
+      "name": "Wren",
+      "payload": {
+        "star": { "Parking Lot": 5, "Community Garden": 1, "Skate Park": 0 },
+        "irv": ["Parking Lot", "Community Garden", "Skate Park"],
+        "approval": ["Parking Lot"]
+      }
+    },
+    {
+      "name": "Xochitl",
+      "payload": {
+        "star": { "Community Garden": 5, "Skate Park": 3, "Parking Lot": 0 },
+        "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+        "approval": ["Community Garden"]
+      }
+    },
+    {
+      "name": "Yusuf",
+      "payload": {
+        "star": { "Community Garden": 5, "Skate Park": 3, "Parking Lot": 0 },
+        "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+        "approval": ["Community Garden"]
+      }
+    },
+    {
+      "name": "Zoe",
+      "payload": {
+        "star": { "Community Garden": 5, "Skate Park": 3, "Parking Lot": 0 },
+        "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+        "approval": ["Community Garden"]
+      }
+    },
+    {
+      "name": "Ravi",
+      "payload": {
+        "star": { "Community Garden": 5, "Skate Park": 3, "Parking Lot": 0 },
+        "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+        "approval": ["Community Garden"]
+      }
+    },
+    {
+      "name": "Simone",
+      "payload": {
+        "star": { "Community Garden": 5, "Skate Park": 3, "Parking Lot": 0 },
+        "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+        "approval": ["Community Garden"]
+      }
+    },
+    {
+      "name": "Theo",
+      "payload": {
+        "star": { "Skate Park": 5, "Community Garden": 4, "Parking Lot": 0 },
+        "irv": ["Skate Park", "Community Garden", "Parking Lot"],
+        "approval": ["Skate Park", "Community Garden"]
+      }
+    },
+    {
+      "name": "Uma",
+      "payload": {
+        "star": { "Skate Park": 5, "Community Garden": 4, "Parking Lot": 0 },
+        "irv": ["Skate Park", "Community Garden", "Parking Lot"],
+        "approval": ["Skate Park", "Community Garden"]
+      }
+    },
+    {
+      "name": "Vance",
+      "payload": {
+        "star": { "Skate Park": 5, "Community Garden": 4, "Parking Lot": 0 },
+        "irv": ["Skate Park", "Community Garden", "Parking Lot"],
+        "approval": ["Skate Park", "Community Garden"]
+      }
+    },
+    {
+      "name": "Willa",
+      "payload": {
+        "star": { "Skate Park": 5, "Community Garden": 4, "Parking Lot": 0 },
+        "irv": ["Skate Park", "Community Garden", "Parking Lot"],
+        "approval": ["Skate Park", "Community Garden"]
+      }
+    }
+  ],
+  "lesson": {
+    "summary": "Approval, IRV and STAR all elect the Community Garden. FPTP elects the Parking Lot — the option nine of the fifteen voters ranked last.",
+    "baseline_winners": {
+      "approval": ["Community Garden"],
+      "irv": ["Community Garden"],
+      "star": ["Community Garden"],
+      "fptp": ["Parking Lot"]
+    },
+    "changes": [
+      {
+        "voter": "Theo",
+        "payload": {
+          "star": { "Community Garden": 5, "Skate Park": 4, "Parking Lot": 0 },
+          "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+          "approval": ["Community Garden", "Skate Park"]
+        }
+      },
+      {
+        "voter": "Uma",
+        "payload": {
+          "star": { "Community Garden": 5, "Skate Park": 4, "Parking Lot": 0 },
+          "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+          "approval": ["Community Garden", "Skate Park"]
+        }
+      },
+      {
+        "voter": "Vance",
+        "payload": {
+          "star": { "Community Garden": 5, "Skate Park": 4, "Parking Lot": 0 },
+          "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+          "approval": ["Community Garden", "Skate Park"]
+        }
+      },
+      {
+        "voter": "Willa",
+        "payload": {
+          "star": { "Community Garden": 5, "Skate Park": 4, "Parking Lot": 0 },
+          "irv": ["Community Garden", "Skate Park", "Parking Lot"],
+          "approval": ["Community Garden", "Skate Park"]
+        }
+      }
+    ],
+    "expected_winners": {
+      "approval": ["Community Garden"],
+      "irv": ["Community Garden"],
+      "star": ["Community Garden"],
+      "fptp": ["Community Garden"]
+    }
+  }
+}

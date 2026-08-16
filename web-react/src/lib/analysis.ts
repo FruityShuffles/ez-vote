@@ -66,6 +66,15 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
 }
 
 /**
+ * "a", "a and b", "a, b and c". An election can enable three non-FPTP methods,
+ * so a plain `join(' and ')` reads as "Approval Voting and IRV and STAR Voting".
+ */
+function listJoin(items: string[]): string {
+  if (items.length <= 2) return items.join(' and ')
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
+/**
  * Generate cross-method comparison insights from computed results. Mirrors
  * `analyzeResults` in the Dart service: verdict (consensus) detection plus a set
  * of conditional educational insights.
@@ -151,10 +160,27 @@ export function analyzeResults(results: ElectionResult[]): ElectionAnalysis {
   let headline: string
   let summary: string
   switch (verdict) {
-    case 'allAgree':
-      headline = `Consensus: ${consensusWinner} wins across all methods`
-      summary = `${consensusWinner} won under every voting method, suggesting a strong, broadly supported choice.`
+    case 'allAgree': {
+      // The verdict is computed with FPTP excluded (step B), so "all methods"
+      // is only true when FPTP concurs. Saying otherwise puts a false headline
+      // directly above the FPTP-divergence insight that contradicts it — and
+      // that divergence is the whole point of the elections most likely to hit
+      // this branch.
+      const fptpWinners = winnersMap.fptp
+      const fptpDissents =
+        fptpWinners != null &&
+        fptpWinners.length > 0 &&
+        !fptpWinners.includes(consensusWinner as string)
+      if (fptpDissents) {
+        const methods = listJoin(nonFptpEntries.map(([algo]) => algoLabel(algo)))
+        headline = `Every method but FPTP chose ${consensusWinner}`
+        summary = `${consensusWinner} won under ${methods}. First Past The Post counted only first choices and chose ${fptpWinners[0]} instead.`
+      } else {
+        headline = `Consensus: ${consensusWinner} wins across all methods`
+        summary = `${consensusWinner} won under every voting method, suggesting a strong, broadly supported choice.`
+      }
       break
+    }
     case 'mostAgree':
       if (consensusWinner != null) {
         const agreeing = nonFptpEntries.filter(([, w]) =>
@@ -237,7 +263,7 @@ function tryFptpDiverges(
     (a, b) => b[1] - a[1],
   )[0][0]
 
-  const methodNames = Object.keys(nonFptp).map(algoLabel).join(' and ')
+  const methodNames = listJoin(Object.keys(nonFptp).map(algoLabel))
 
   insights.push({
     icon: 'compare-arrows',

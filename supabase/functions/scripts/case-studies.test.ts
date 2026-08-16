@@ -18,6 +18,7 @@ import { findMinimalFlips } from "../_shared/flip.ts";
 import {
   ballotRows,
   candidateIdsFor,
+  disagreeingAlgorithms,
   candidateRows,
   type CaseStudyFixture,
   electionIdFor,
@@ -26,6 +27,7 @@ import {
   uuidV5,
   validateFixture,
   voterEmailFor,
+  type WinnersByAlgorithm,
 } from "./case-study-fixture.ts";
 
 // loadFixtures() throws on a structurally invalid fixture, so reaching this
@@ -38,18 +40,23 @@ function voterIds(fixture: CaseStudyFixture): Map<string, string> {
   return new Map(fixture.voters.map((v) => [v.name, v.name]));
 }
 
-function winnersOf(
+/// Winners of **every** algorithm the fixture is tabulated with. A case study
+/// whose lesson is a disagreement between methods makes a claim about all of
+/// them at once, so nothing here may narrow to `results[0]`.
+function winnersByAlgorithm(
   fixture: CaseStudyFixture,
   candidates: ReturnType<typeof candidateRows>,
   ballots: ReturnType<typeof ballotRows>,
-): string[] {
+): WinnersByAlgorithm {
   const results = tabulate(
     fixture.algorithms,
     fixture.include_fptp,
     candidates,
     ballots,
   );
-  return results[0].result_data.winners as string[];
+  return Object.fromEntries(
+    results.map((r) => [r.algorithm, r.result_data.winners as string[]]),
+  );
 }
 
 Deno.test("at least one case study exists", () => {
@@ -77,7 +84,7 @@ for (const fixture of fixtures) {
 
   Deno.test(`${fixture.slug}: baseline produces the documented winner`, () => {
     assertEquals(
-      winnersOf(fixture, candidates, ballots),
+      winnersByAlgorithm(fixture, candidates, ballots),
       fixture.lesson.baseline_winners,
     );
   });
@@ -100,13 +107,15 @@ for (const fixture of fixtures) {
       "overrides must not add or drop ballots",
     );
     assertEquals(
-      winnersOf(fixture, candidates, simulated),
+      winnersByAlgorithm(fixture, candidates, simulated),
       fixture.lesson.expected_winners,
     );
     assert(
-      fixture.lesson.expected_winners.join() !==
-        fixture.lesson.baseline_winners.join(),
-      "the lesson's changes must actually change the outcome",
+      disagreeingAlgorithms(
+        fixture.lesson.baseline_winners,
+        fixture.lesson.expected_winners,
+      ).length > 0,
+      "the lesson's changes must actually change some method's outcome",
     );
   });
 
@@ -122,7 +131,7 @@ for (const fixture of fixtures) {
       const search = findMinimalFlips(candidates, ballots);
       const irv = search.algorithms[0];
       assert(!search.budget_exhausted, "flip search ran out of budget");
-      assertEquals(irv.baseline_winners, fixture.lesson.baseline_winners);
+      assertEquals(irv.baseline_winners, fixture.lesson.baseline_winners.irv);
       assert(irv.targets.length > 0, "no flip targets");
       for (const target of irv.targets) {
         assertEquals(
@@ -212,11 +221,52 @@ Deno.test("validateFixture rejects a broken fixture", () => {
     voters: [{ name: "V", payload: { irv: ["A", "Nope"] } }],
     lesson: {
       summary: "s",
-      baseline_winners: ["A"],
+      baseline_winners: { irv: ["A"] },
       changes: [{ voter: "V", payload: { irv: ["B", "A"] } }],
-      expected_winners: ["B"],
+      expected_winners: { irv: ["B"] },
     },
   });
   assertEquals(errors.length, 1);
   assert(errors[0].includes("Nope"), errors[0]);
+});
+
+Deno.test("validateFixture requires a winner for every tabulated algorithm", () => {
+  // Partial coverage is the failure mode this rule exists for: an FPTP-bearing
+  // fixture that declares only its ranked methods would publish an FPTP result
+  // no test ever looked at — on a page whose entire lesson is about FPTP.
+  const base = {
+    slug: "x",
+    title: "t",
+    description: "d",
+    algorithms: ["irv"],
+    include_fptp: true,
+    candidates: ["A", "B"],
+    voters: [{ name: "V", payload: { irv: ["A", "B"] } }],
+    changes: [{ voter: "V", payload: { irv: ["B", "A"] } }],
+  };
+
+  const missing = validateFixture({
+    ...base,
+    lesson: {
+      summary: "s",
+      baseline_winners: { irv: ["A"] },
+      changes: base.changes,
+      expected_winners: { irv: ["B"], fptp: ["B"] },
+    },
+  });
+  assertEquals(missing.length, 1);
+  assert(missing[0].includes("baseline_winners is missing fptp"), missing[0]);
+
+  const extra = validateFixture({
+    ...base,
+    include_fptp: false,
+    lesson: {
+      summary: "s",
+      baseline_winners: { irv: ["A"], star: ["A"] },
+      changes: base.changes,
+      expected_winners: { irv: ["B"] },
+    },
+  });
+  assertEquals(extra.length, 1);
+  assert(extra[0].includes("not tabulated by this fixture"), extra[0]);
 });

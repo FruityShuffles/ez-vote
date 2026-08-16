@@ -152,7 +152,7 @@ voters are named, never id'd; the script resolves names to the derived ids above
 | `title`        | Named for what it teaches, not for its topic (#139).                                                                                                                                                                         |
 | `description`  | Shown on the election. Lead with the human stake; the mechanism is the explanation.                                                                                                                                          |
 | `algorithms`   | e.g. `["irv"]`.                                                                                                                                                                                                              |
-| `include_fptp` | Usually `false` — a single-method case study keeps the lesson sharp.                                                                                                                                                         |
+| `include_fptp` | `false` when the lesson lives inside one method — a single-method case study keeps it sharp. `true` only when the comparison *is* the lesson, as in `fptp-vote-splitting`.                                                    |
 | `candidates`   | Names, in ballot display order.                                                                                                                                                                                              |
 | `voters`       | `{ name, payload }`. Payload keys are `irv` / `approval` / `star` / `fptp`, holding candidate **names**, and must match what the app would really store for the chosen `algorithms` (see [[Architecture/Ballot Templates]]). |
 | `lesson`       | See below.                                                                                                                                                                                                                   |
@@ -162,19 +162,35 @@ The `lesson` block is what the case study claims to teach, written so it can be 
 ```json
 "lesson": {
   "summary": "…",
-  "baseline_winners": ["Tacos"],
+  "baseline_winners": { "irv": ["Tacos"] },
   "changes": [{ "voter": "Gita", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } }],
-  "expected_winners": ["Sushi"]
+  "expected_winners": { "irv": ["Sushi"] }
 }
 ```
+
+`baseline_winners` and `expected_winners` are **algorithm → winner names**, keyed exactly
+as `tabulate()` labels its results: every entry of `algorithms`, plus `fptp` when
+`include_fptp`. Coverage must be total — `validateWinners` in `case-study-fixture.ts`
+rejects both a missing key and an unknown one. That is not pedantry:
+
+- A case study whose lesson *is* a disagreement between methods (`fptp-vote-splitting`)
+  cannot state its claim with a single winner list at all.
+- A partial map would publish a results card no test ever looked at.
+- In `expected_winners`, the methods the exercise leaves **unchanged** are half the lesson.
+  "FPTP flips and nothing else moves" is a claim, and full coverage is what asserts it.
 
 `changes` is deliberately shaped like the explorer's `replace` overrides, so it replays
 verbatim against `simulate-counterfactual`. `scripts/case-studies.test.ts` runs in
 `deno task test` and asserts that `tabulate()` reproduces `baseline_winners`, that
-applying `changes` produces `expected_winners`, that every ballot is attributable, and
-that the flip search finds a flip for every loser. That suite is the point: a case study
-is a **published claim**, and if the algorithm ever drifts the claim quietly becomes a lie
-on a page newcomers are pointed at. This makes that a red build instead.
+applying `changes` produces `expected_winners`, that at least one method's winner actually
+moved, that every ballot is attributable, and that the flip search finds a flip for every
+loser. The seed script re-checks the same two maps before it writes anything, naming the
+algorithm that drifted. That suite is the point: a case study is a **published claim**, and
+if the algorithm ever drifts the claim quietly becomes a lie on a page newcomers are
+pointed at. This makes that a red build instead.
+
+The flip-search assertions stay IRV-scoped — `findMinimalFlips` only answers for IRV — so
+they read `baseline_winners.irv`.
 
 ### Adding a case study
 
@@ -202,3 +218,28 @@ Seventeen coworkers rank three lunch spots (Tacos, Pizza, Sushi), IRV only.
 
 The profile is razor-thin by design: `find_flip` reports `k = 1, proven: true` for both
 losers, so the flip panel has something clean to say as well.
+
+### `fptp-vote-splitting` — "When the option most voters ranked last still wins"
+
+Fifteen neighbours choose what to build on a vacant lot (Parking Lot, Community Garden,
+Skate Park). The first multi-method case study: Approval + IRV + STAR with
+`include_fptp: true`, so the ballots are Template G — the ranking derives from the scores,
+approvals are the top-K of that ranking, and FPTP falls back to `payload.irv[0]`.
+
+Three blocs: 6 score Lot 5 / Garden 1 / Skate 0; 5 score Garden 5 / Skate 3 / Lot 0; 4
+score Skate 5 / Garden 4 / Lot 0.
+
+- **Baseline:** Approval (Garden 9), IRV (Skate eliminated, Garden 9–6) and STAR (Garden 47
+  by score, then 11–4 in the runoff) all elect the **Community Garden**. FPTP reads first
+  choices only — Lot 6, Garden 5, Skate 4 — and elects the **Parking Lot**, which nine of
+  the fifteen ranked last.
+- **The exercise:** move Community Garden to the top of the four skate-park ballots. FPTP
+  flips to the Garden and every method finally agrees, at the cost of four people
+  abandoning their real first choice.
+- **Why it bites:** the garden and skate blocs want the same thing and a single mark gives
+  them no way to say so. FPTP's answer here is an artifact of who else was on the ballot,
+  and the only remedy it offers the voter is to stop voting sincerely.
+
+This is the fixture the per-algorithm `lesson` maps exist for, and the first election on
+the site where `analysis.ts` sees three methods agree while FPTP dissents — see
+[[Features/Election Analysis]].

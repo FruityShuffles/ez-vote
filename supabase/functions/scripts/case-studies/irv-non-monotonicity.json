@@ -26,11 +26,11 @@
   ],
   "lesson": {
     "summary": "Two Pizza voters move Tacos from last to first. That is the only change, and it only helps Tacos — so Tacos loses to Sushi.",
-    "baseline_winners": ["Tacos"],
+    "baseline_winners": { "irv": ["Tacos"] },
     "changes": [
       { "voter": "Gita", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } },
       { "voter": "Hugo", "payload": { "irv": ["Tacos", "Pizza", "Sushi"] } }
     ],
-    "expected_winners": ["Sushi"]
+    "expected_winners": { "irv": ["Sushi"] }
   }
 }

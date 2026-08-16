@@ -66,8 +66,10 @@ describe('analyzeResults — verdict', () => {
     expect(a.headline).toBe('Each method chose a different winner')
   })
 
-  it('excludes FPTP from the consensus verdict', () => {
-    // Two non-FPTP methods agree on Alice; FPTP picks Bob → still consensus.
+  it('excludes FPTP from the consensus verdict, but never claims it agreed', () => {
+    // Two non-FPTP methods agree on Alice; FPTP picks Bob. FPTP is still out of
+    // the verdict — but "across all methods" would be a false headline sitting
+    // directly above the divergence insight that contradicts it.
     const a = analyzeResults([
       makeResult('approval', { winner: 'Alice', tallies: { Alice: 5, Bob: 4 } }),
       makeResult('irv', {
@@ -76,7 +78,32 @@ describe('analyzeResults — verdict', () => {
       }),
       makeResult('fptp', { winner: 'Bob', tallies: { Bob: 4, Alice: 3 } }),
     ])
-    expect(a.headline).toBe('Consensus: Alice wins across all methods')
+    expect(a.headline).toBe('Every method but FPTP chose Alice')
+    expect(a.summary).toBe(
+      'Alice won under Approval Voting and IRV. First Past The Post counted only first choices and chose Bob instead.',
+    )
+  })
+
+  it('names three agreeing methods with a readable list, not "a and b and c"', () => {
+    const a = analyzeResults([
+      makeResult('approval', { winner: 'Alice', tallies: { Alice: 9, Bob: 6 } }),
+      makeResult('irv', {
+        winner: 'Alice',
+        rounds: [{ counts: { Bob: 6, Alice: 5 } }],
+      }),
+      makeResult('star', { winner: 'Alice', scores: { Alice: 47, Bob: 30 } }),
+      makeResult('fptp', { winner: 'Bob', tallies: { Bob: 6, Alice: 5 } }),
+    ])
+    expect(a.headline).toBe('Every method but FPTP chose Alice')
+    expect(a.summary).toContain(
+      'won under Approval Voting, IRV and STAR Voting.',
+    )
+    const insight = a.insights.find(
+      (i) => i.title === 'Plurality chose a different winner',
+    )
+    expect(insight!.body).toContain(
+      'But Approval Voting, IRV and STAR Voting selected Alice instead.',
+    )
   })
 })
 

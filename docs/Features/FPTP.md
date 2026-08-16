@@ -26,6 +26,11 @@ FPTP is on by default, so it affects nearly every election and has to be underst
   2. *No jargon.* "Plurality" and "majority rule" are out; the copy says "the most marks", "one candidate", "split". A general reader is the audience.
   3. *Argue from cost to the voter, not from FPTP's pedigree.* Drafts that led on FPTP being undesigned/inherited were abstract, contestable, and cost the reader nothing. Following the Center for Election Science — who name the method "choose-one" after the restriction it imposes rather than after how the winner is picked — the verdict now turns on the single mark forcing voters to name a blocker instead of a favorite.
 
+- The worked example is the `fptp-vote-splitting` case study ([[Features/Case Studies]]):
+  a real, seeded election where Approval, IRV and STAR all elect one option and FPTP elects
+  the one most voters ranked last. Where the Learn tab argues the point, that page lets a
+  reader reproduce it.
+
 Standalone Learn tabs are selected by the `?algo=` query param (`approval` | `irv` | `star` | `fptp`), falling back to Approval on anything unrecognized, so any surface can deep link to a method. The form dialog uses the same keys under `?learn=` on `/create` or `/election/:id/edit`, and re-stamps its history-origin marker when the selected method changes. The dashboard embeds `LearnContent` uncontrolled and is unaffected.
 
 ## Per-Template Behavior

@@ -27,6 +27,14 @@ export interface CaseStudyChange {
   payload: Payload;
 }
 
+/// Winner names for every algorithm the fixture is tabulated with, keyed
+/// exactly as `tabulate()` labels its results — each entry of `algorithms`,
+/// plus "fptp" when `include_fptp`. A case study whose lesson *is* a
+/// disagreement between methods cannot state its claim with a single winner
+/// list, and stating only the first algorithm's would leave the rest of the
+/// published page unchecked.
+export type WinnersByAlgorithm = Record<string, string[]>;
+
 /// What the case study claims to teach, in a form the tests can execute:
 /// tabulating `voters` must produce `baseline_winners`, and re-tabulating with
 /// `changes` applied as `replace` overrides must produce `expected_winners`.
@@ -34,9 +42,9 @@ export interface CaseStudyChange {
 /// verbatim against simulate-counterfactual.
 export interface CaseStudyLesson {
   summary: string;
-  baseline_winners: string[];
+  baseline_winners: WinnersByAlgorithm;
   changes: CaseStudyChange[];
-  expected_winners: string[];
+  expected_winners: WinnersByAlgorithm;
 }
 
 export interface CaseStudyFixture {
@@ -48,6 +56,26 @@ export interface CaseStudyFixture {
   candidates: string[];
   voters: CaseStudyVoter[];
   lesson: CaseStudyLesson;
+}
+
+/// Algorithm names on which two winner maps disagree, union of both key sets so
+/// a missing entry counts as a disagreement. Shared by the lesson gate in
+/// `seed-case-studies.ts` and the assertions in `case-studies.test.ts` so both
+/// report a mismatch the same way.
+///
+/// Distinct from `diffWinners` in `_shared/counterfactual.ts`, which answers
+/// the same question for two `TabulationResult[]`; here one side is a fixture's
+/// declared claim and never has result_data to compare. Both compare winners
+/// **positionally**, since `result_data.winner` is `winners[0]`.
+export function disagreeingAlgorithms(
+  a: WinnersByAlgorithm,
+  b: WinnersByAlgorithm,
+): string[] {
+  const algorithms = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...algorithms].filter(
+    (algorithm) =>
+      (a[algorithm] ?? []).join(", ") !== (b[algorithm] ?? []).join(", "),
+  );
 }
 
 export const FIXTURE_DIR = new URL("./case-studies/", import.meta.url);
@@ -112,6 +140,16 @@ export async function candidateIdsFor(
 /// never route — there is no reset or magic-link path into these accounts.
 export function voterEmailFor(slug: string, voterName: string): string {
   return `${slug}.${slugify(voterName)}@case-studies.invalid`;
+}
+
+/// The algorithm keys `tabulate()` emits for a fixture, in the order it emits
+/// them. The single source of truth for which keys a `lesson`'s winner maps
+/// must cover.
+export function tabulatedAlgorithms(
+  algorithms: string[],
+  includeFptp: boolean,
+): string[] {
+  return includeFptp ? [...algorithms, "fptp"] : algorithms;
 }
 
 export function slugify(value: string): string {
@@ -266,7 +304,14 @@ export function validateFixture(raw: unknown): string[] {
     });
   }
 
-  errors.push(...validateLesson(f.lesson, names, voters));
+  const algorithms = Array.isArray(f.algorithms)
+    ? f.algorithms.filter((a): a is string => typeof a === "string")
+    : [];
+  const tabulated = new Set(
+    tabulatedAlgorithms(algorithms, f.include_fptp === true),
+  );
+
+  errors.push(...validateLesson(f.lesson, names, voters, tabulated));
   return errors;
 }
 
@@ -274,6 +319,7 @@ function validateLesson(
   raw: unknown,
   candidates: Set<string>,
   voters: Set<string>,
+  tabulated: Set<string>,
 ): string[] {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
     return ["lesson must be an object"];
@@ -286,13 +332,9 @@ function validateLesson(
   }
 
   for (const key of ["baseline_winners", "expected_winners"] as const) {
-    const winners = lesson[key];
-    if (
-      !Array.isArray(winners) || winners.length === 0 ||
-      !winners.every((w) => typeof w === "string" && candidates.has(w))
-    ) {
-      errors.push(`lesson.${key} must be a non-empty array of candidate names`);
-    }
+    errors.push(
+      ...validateWinners(lesson[key], candidates, tabulated, `lesson.${key}`),
+    );
   }
 
   if (!Array.isArray(lesson.changes) || lesson.changes.length === 0) {
@@ -314,6 +356,47 @@ function validateLesson(
     targeted.add(change.voter);
     errors.push(...validatePayload(change.payload, candidates, at));
   });
+
+  return errors;
+}
+
+/// An algorithm → winner-names map, checked for **full coverage** of what the
+/// fixture is tabulated with. A missing key is an error rather than "no claim
+/// made": in `baseline_winners` it would leave part of a published results page
+/// unasserted, and in `expected_winners` the untouched methods are half the
+/// point — a lesson that flips one method has to say the others held still.
+function validateWinners(
+  raw: unknown,
+  candidates: Set<string>,
+  tabulated: Set<string>,
+  at: string,
+): string[] {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return [`${at} must be an object of algorithm name → winner names`];
+  }
+  const errors: string[] = [];
+  const entries = Object.entries(raw as Record<string, unknown>);
+
+  for (const [algorithm, winners] of entries) {
+    if (!tabulated.has(algorithm)) {
+      errors.push(
+        `${at}: ${JSON.stringify(algorithm)} is not tabulated by this ` +
+          `fixture (expected one of ${[...tabulated].join(", ")})`,
+      );
+      continue;
+    }
+    if (
+      !Array.isArray(winners) || winners.length === 0 ||
+      !winners.every((w) => typeof w === "string" && candidates.has(w))
+    ) {
+      errors.push(`${at}.${algorithm} must be a non-empty array of candidate names`);
+    }
+  }
+
+  const declared = new Set(entries.map(([algorithm]) => algorithm));
+  for (const algorithm of tabulated) {
+    if (!declared.has(algorithm)) errors.push(`${at} is missing ${algorithm}`);
+  }
 
   return errors;
 }

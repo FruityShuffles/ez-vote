@@ -23,10 +23,11 @@ class ElectionAnalysis {
 ## Consensus Detection
 
 ```
-allWinners = results.map(r => r.winner).toSet()
+allWinners = results.map(r => r.winner).toSet()   // FPTP excluded
 
 If allWinners.length == 1:
   → "Consensus: All voting methods chose the same winner"
+  → but if FPTP dissents: "Every method but FPTP chose [winner]"
 
 Else if majority of methods agree:
   → "Partial agreement: [N] of [M] methods chose [winner]"
@@ -34,6 +35,18 @@ Else if majority of methods agree:
 Else:
   → "Methods disagree: [algorithm] chose [winner], [algorithm] chose [winner]"
 ```
+
+**FPTP is excluded from the verdict but never spoken for.** The consensus count drops
+`fptp` before comparing winners, which is deliberate — FPTP is the comparison baseline, not
+a method competing for the verdict. The headline still has to be true of the page it sits
+on: when the non-FPTP methods agree *and* FPTP picked someone else, the summary names the
+methods that agreed and says what FPTP chose instead. Claiming "across all methods" /
+"under every voting method" there would contradict the FPTP-divergence insight rendered
+immediately below it — which is precisely the shape of the `fptp-vote-splitting` case study
+([[Features/Case Studies]]).
+
+Method names in both that summary and the divergence insight are joined as
+`a` / `a and b` / `a, b and c`, since an election can enable three non-FPTP methods.
 
 ## Insights Generated
 
