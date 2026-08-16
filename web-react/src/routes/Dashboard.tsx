@@ -8,8 +8,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { H1, H2, Muted } from '@/components/ui/typography'
 import { Stack } from '@/components/ui/layout'
 import { cn } from '@/lib/utils'
-import { ElectionCard } from '@/components/elections/ElectionCard'
-import type { VoteStatus } from '@/components/elections/ElectionCard'
+import { ElectionTable } from '@/components/elections/ElectionTable'
+import type { VoteStatus } from '@/components/elections/ElectionTable'
 import { LearnContent } from '@/routes/Learn'
 import type { Election } from '@/lib/elections'
 import {
@@ -131,16 +131,15 @@ function CaseStudies() {
   }
 
   return (
-    <Stack gap={3}>
-      {studies.data.map((election) => (
-        <ElectionCard
-          key={election.id}
-          election={election}
-          owned={false}
-          voteStatus={null}
-        />
-      ))}
-    </Stack>
+    <ElectionTable
+      variant="case-studies"
+      label="Case studies"
+      rows={studies.data.map((election) => ({
+        election,
+        owned: false,
+        voteStatus: null,
+      }))}
+    />
   )
 }
 
@@ -219,16 +218,15 @@ function MyElections() {
   }
 
   return (
-    <Stack gap={3}>
-      {elections.map((e) => (
-        <ElectionCard
-          key={e.id}
-          election={e}
-          owned={e.owner_id === user?.id}
-          voteStatus={voteStatusKnown ? voteStatus(e, votedIds) : null}
-        />
-      ))}
-    </Stack>
+    <ElectionTable
+      variant="mine"
+      label="My elections"
+      rows={elections.map((e) => ({
+        election: e,
+        owned: e.owner_id === user?.id,
+        voteStatus: voteStatusKnown ? voteStatus(e, votedIds) : null,
+      }))}
+    />
   )
 }
 

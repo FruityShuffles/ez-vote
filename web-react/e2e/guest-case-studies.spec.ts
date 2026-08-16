@@ -19,8 +19,8 @@ test('a guest explores a Case Study and reaches account creation from the locked
   ).toBeVisible()
 
   await page
-    .getByRole('button', {
-      name: /When ranking a candidate higher makes them lose/,
+    .getByRole('link', {
+      name: 'When ranking a candidate higher makes them lose',
     })
     .click()
   await expect(

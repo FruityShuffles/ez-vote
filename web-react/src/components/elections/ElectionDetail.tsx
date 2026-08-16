@@ -1,14 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
-import {
-  CheckCircle2,
-  CircleCheck,
-  ListOrdered,
-  Star,
-  TriangleAlert,
-  User,
-  Vote,
-} from 'lucide-react'
+import { CircleCheck, TriangleAlert, Vote } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +11,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Stack } from '@/components/ui/layout'
 import { H1, H2, Muted } from '@/components/ui/typography'
 import { ResultsView } from '@/components/results/ResultsView'
+import { AlgorithmBadges } from '@/components/elections/AlgorithmBadges'
 import { StatusBadge } from '@/components/elections/StatusBadge'
 import { BallotCountRow } from '@/components/elections/BallotCountRow'
 import { PendingInviteesRow } from '@/components/elections/PendingInviteesRow'
@@ -142,7 +135,10 @@ export function ElectionDetailView({
         )}
       </Stack>
 
-      <AlgorithmChips algorithms={election.algorithms} />
+      <AlgorithmBadges
+        algorithms={election.algorithms}
+        includeFptp={election.include_fptp}
+      />
 
       {/* Results render above the candidate list on the detail surface (RES-06). */}
       {showResults && (
@@ -190,33 +186,6 @@ export function ElectionDetailView({
           <VoterControls election={election} ballot={ballot} />
         )}
     </Stack>
-  )
-}
-
-const ALGORITHM_META: Record<
-  string,
-  { label: string; Icon: typeof CheckCircle2 }
-> = {
-  approval: { label: 'Approval', Icon: CheckCircle2 },
-  irv: { label: 'IRV', Icon: ListOrdered },
-  star: { label: 'STAR', Icon: Star },
-  fptp: { label: 'FPTP', Icon: User },
-}
-
-function AlgorithmChips({ algorithms }: { algorithms: string[] }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {algorithms.map((algo) => {
-        const meta = ALGORITHM_META[algo] ?? { label: algo, Icon: Vote }
-        const { label, Icon } = meta
-        return (
-          <Badge key={algo} variant="secondary" className="gap-1">
-            <Icon className="size-3" aria-hidden />
-            {label}
-          </Badge>
-        )
-      })}
-    </div>
   )
 }
 

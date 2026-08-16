@@ -67,13 +67,11 @@ export function winnersOf(data: ResultData): string[] {
 }
 
 /**
- * Short winner summary for a closed election across its scored algorithms
- * ("Winner: Alice" / "Tied: Alice & Bob"), or null when nothing is decided.
- * FPTP is excluded — it's a reference comparison, not a scored method. Ported
- * from `_winnersLabel` in `lib/presentation/screens/home_screen.dart`; used on
- * the dashboard election cards.
+ * The names that won a closed election across its scored algorithms — one name
+ * outright, or every name sharing the lead. Empty when nothing is decided yet.
+ * FPTP is excluded: it's a reference comparison, not a scored method.
  */
-export function winnersLabel(results: ElectionResult[]): string | null {
+export function winnerNames(results: ElectionResult[]): string[] {
   const wins: Record<string, number> = {}
   for (const r of results) {
     if (r.algorithm === 'fptp') continue
@@ -82,9 +80,20 @@ export function winnersLabel(results: ElectionResult[]): string | null {
     }
   }
   const names = Object.keys(wins)
-  if (names.length === 0) return null
+  if (names.length === 0) return []
   const maxWins = Math.max(...names.map((n) => wins[n]))
-  const leaders = names.filter((n) => wins[n] === maxWins)
+  return names.filter((n) => wins[n] === maxWins)
+}
+
+/**
+ * Short winner summary for a closed election ("Winner: Alice" / "Tied: Alice &
+ * Bob"), or null when nothing is decided. Ported from `_winnersLabel` in
+ * `lib/presentation/screens/home_screen.dart`. The dashboard tables read
+ * `winnerNames` directly — their column header already says "Winner".
+ */
+export function winnersLabel(results: ElectionResult[]): string | null {
+  const leaders = winnerNames(results)
+  if (leaders.length === 0) return null
   return leaders.length === 1
     ? `Winner: ${leaders[0]}`
     : `Tied: ${leaders.join(' & ')}`

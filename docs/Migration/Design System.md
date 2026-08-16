@@ -70,7 +70,7 @@ Wherever a surface offers a primary action alongside a secondary or cancel one, 
 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end
 ```
 
-So the primary sits right-most on desktop and on *top* on mobile, where `flex-col-reverse` flips the visual order without touching DOM/tab order. This is baked into `DialogFooter` (`ui/dialog.tsx`) and repeated by hand where there is no dialog — `ElectionForm`'s submit row, `ElectionDetail`'s owner controls, `ElectionCard`'s delete confirmation, `Settings`' delete-account dialog.
+So the primary sits right-most on desktop and on *top* on mobile, where `flex-col-reverse` flips the visual order without touching DOM/tab order. This is baked into `DialogFooter` (`ui/dialog.tsx`) and repeated by hand where there is no dialog — `ElectionForm`'s submit row, `ElectionDetail`'s owner controls, `ElectionTable`'s delete confirmation, `Settings`' delete-account dialog.
 
 The desktop/mobile flip is deliberate (resolved in #117): reading order keeps the destructive/secondary choice first, while the thumb-reachable top slot on a phone goes to the action most people want. A lone action goes full-width (`w-full`) instead — see `Ballot.tsx`'s submit.
 

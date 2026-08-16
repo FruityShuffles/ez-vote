@@ -134,7 +134,7 @@ Production screen modules are route-lazy; only the root/app layouts, auth guard,
 | `Login.tsx`                       | Email/password sign-in + Google OAuth                                                                                     |
 | `Signup.tsx`                      | Email/password/display name + OTP verification                                                                            |
 | `ForgotPassword.tsx`              | Two-stage OTP password recovery                                                                                           |
-| `Dashboard.tsx`                   | 3-tab dashboard: My Elections (everything you own or were invited to, with owner/voted status icons), Learn, Case Studies |
+| `Dashboard.tsx`                   | 3-tab dashboard: My Elections (everything you own or were invited to), Learn, Case Studies. Both election lists render as `ElectionTable` |
 | `ElectionForm.tsx`                | Create or edit an election (algorithms, candidates, feature flags)                                                        |
 | `Ballot.tsx`                      | Vote interface — 7 templates                                                                                              |
 | `PublicBallot.tsx`                | Read-only view of another voter's ballot                                                                                  |
@@ -146,6 +146,8 @@ Production screen modules are route-lazy; only the root/app layouts, auth guard,
 | `Design.tsx`, `DesignExplore.tsx` | Internal design-system galleries                                                                                          |
 
 `ElectionDetail` (owner controls, participant view, candidate list, results) lives in `src/components/elections/ElectionDetail.tsx` and is routed directly. `ResultsView` (`src/components/results/ResultsView.tsx`) renders the algorithm-by-algorithm result cards plus the analysis card.
+
+Both dashboard election lists share `src/components/elections/ElectionTable.tsx`. Columns are Election · Winner · Methods · Ballots · Voted · Owner · Status · delete; the Case Studies variant drops the last four, since no viewer owns or is invited to a showcase election. The header row and each row are separate grid containers sharing one template per variant, so every track must be a fixed width or an `fr` share — a content-sized (`auto`/`max-content`) track resolves per row and breaks the alignment the table exists for. Below `md` the columns stack into title + status / methods / a meta line, and cells with nothing to say drop out rather than showing a placeholder dash. The header is `aria-hidden` because it disappears at that width; each cell names itself instead, via `sr-only` text or a tooltip label. The whole row is one stretched `<Link>`, so it is a single click target and a single tab stop, with the delete button and status icons stacked above it. Method chips come from `AlgorithmBadges.tsx`, shared with the detail surface, and include FPTP when `include_fptp` is set.
 
 ## CI and Release
 

@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   voted: [] as unknown[],
   invited: [] as unknown[],
   caseStudies: [] as unknown[],
+  ballotCount: undefined as number | undefined,
+  winners: [] as string[],
   ownedHook: vi.fn(),
   votedHook: vi.fn(),
   invitedHook: vi.fn(),
@@ -34,13 +36,15 @@ vi.mock('@/lib/elections', () => ({
     return { ...emptyList, data: mocks.invited }
   },
   useCaseStudies: () => ({ ...emptyList, data: mocks.caseStudies }),
-  useBallotCount: () => ({ data: undefined }),
+  useBallotCount: () => ({ data: mocks.ballotCount }),
   useDeleteElection: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
 vi.mock('@/lib/results', () => ({
-  useElectionResults: () => ({ data: undefined }),
+  useElectionResults: () => ({ data: [] }),
+  winnerNames: () => mocks.winners,
   winnersLabel: () => '',
+  RESULT_ALGORITHM_ORDER: ['approval', 'irv', 'star', 'fptp'],
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -96,6 +100,8 @@ function setLists(lists: Partial<typeof mocks>) {
   mocks.voted = lists.voted ?? []
   mocks.invited = lists.invited ?? []
   mocks.caseStudies = lists.caseStudies ?? []
+  mocks.ballotCount = lists.ballotCount
+  mocks.winners = lists.winners ?? []
 }
 
 beforeEach(() => {
@@ -287,6 +293,90 @@ describe('Dashboard', () => {
     expect(
       screen.getByRole('button', { name: 'Delete Retro' }),
     ).toBeInTheDocument()
+  })
+
+  it('labels every column on My Elections', () => {
+    setLists({
+      owned: [election({ id: 'e1', owner_id: 'me', title: 'Budget Vote' })],
+    })
+    renderDashboard()
+
+    expect(
+      screen.getByRole('list', { name: 'My elections' }),
+    ).toBeInTheDocument()
+    for (const label of [
+      'Election',
+      'Winner',
+      'Methods',
+      'Ballots',
+      'Voted',
+      'Owner',
+      'Status',
+    ]) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+  })
+
+  it('drops the viewer columns on Case Studies', () => {
+    setLists({
+      caseStudies: [election({ id: 's1', title: 'When More Support Hurts' })],
+    })
+    renderDashboard('/dashboard?tab=case-studies')
+
+    expect(
+      screen.getByRole('list', { name: 'Case studies' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Winner')).toBeInTheDocument()
+    expect(screen.queryByText('Voted')).not.toBeInTheDocument()
+    expect(screen.queryByText('Owner')).not.toBeInTheDocument()
+  })
+
+  it('tags each election with its voting methods in canonical order', () => {
+    setLists({
+      owned: [
+        election({
+          id: 'e1',
+          owner_id: 'me',
+          title: 'Budget Vote',
+          algorithms: ['star', 'approval'],
+          include_fptp: true,
+        }),
+      ],
+    })
+    renderDashboard()
+
+    const row = screen.getByRole('listitem')
+    const tags = within(row)
+      .getAllByText(/^(Approval|IRV|STAR|FPTP)$/)
+      .map((el) => el.textContent)
+    expect(tags).toEqual(['Approval', 'STAR', 'FPTP'])
+  })
+
+  it('gives the ballot count and winner their own cells, and drops the description', () => {
+    setLists({
+      owned: [
+        election({
+          id: 'e1',
+          owner_id: 'me',
+          title: 'Team Lunch',
+          description: 'Where we go on Friday',
+          status: 'closed',
+        }),
+      ],
+      ballotCount: 8,
+      winners: ['Ramen'],
+    })
+    renderDashboard()
+
+    // Value and unit are separate elements so the unit can go `sr-only` once
+    // the column header carries it.
+    expect(screen.getByText('8')).toBeInTheDocument()
+    expect(screen.getByText('ballots')).toBeInTheDocument()
+    expect(screen.getByText('Ramen')).toBeInTheDocument()
+    expect(screen.getByText('Winner:')).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Where we go on Friday/),
+    ).not.toBeInTheDocument()
   })
 
   it('orders the merged list newest first', () => {
