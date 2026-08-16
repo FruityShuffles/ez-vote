@@ -34,13 +34,17 @@ test('a guest explores a Case Study and reaches account creation from the locked
     page.getByRole('heading', { name: 'Explore what-ifs' }),
   ).toBeVisible()
 
-  // This calls the anonymous simulate-counterfactual flip search and applies
-  // its answer through the normal hypothetical-edit path.
+  // Since #146 the flip search is precomputed at election close and stored in
+  // `flip_searches`; the seed script writes that row for every IRV-tabulated
+  // case study, so a guest gets the answer on first render — no button, no
+  // wait. The live `simulate-counterfactual` search is the fallback path for
+  // elections closed before #146 and is not exercised here. The answer is then
+  // applied through the normal hypothetical-edit path.
   const flipPanel = page.getByRole('region', { name: 'Flip the outcome' })
-  await flipPanel.getByRole('button', { name: 'Run the search' }).click()
-  await expect(flipPanel.getByText(/^As voted, /)).toBeVisible({
-    timeout: 20_000,
-  })
+  await expect(flipPanel.getByText(/^As voted, /)).toBeVisible()
+  await expect(
+    flipPanel.getByRole('button', { name: 'Run the search' }),
+  ).toBeHidden()
   await flipPanel
     .getByRole('button', { name: 'Try these changes' })
     .first()
