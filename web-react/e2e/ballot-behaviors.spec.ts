@@ -4,7 +4,7 @@ import { TEST_USER_1 } from './test-users'
 
 test.use({ storageState: TEST_USER_1.storageStateFile })
 
-test('a ballot counter rises after a vote and the ballot Back button returns to the election', async ({
+test('a ballot counter rises after a vote and the ballot breadcrumb returns to the election', async ({
   page,
 }) => {
   const title = `E2E ballot counter ${Date.now()}`
@@ -17,9 +17,14 @@ test('a ballot counter rises after a vote and the ballot Back button returns to 
   await page.getByRole('button', { name: 'Cast Your Vote' }).click()
   await expect(page).toHaveURL(/\/vote$/)
 
-  // BAL-18: this must be a working in-app navigation affordance, not only a
-  // browser-history fallback.
-  await page.getByRole('button', { name: 'Back' }).click()
+  // BAL-18: leaving the ballot must be a working in-app navigation affordance,
+  // not only a browser-history fallback. There is deliberately no Back button —
+  // the breadcrumb (My Elections / <election> / Vote) is that affordance, so
+  // this exercises the election crumb.
+  await page
+    .getByRole('navigation', { name: 'Breadcrumb' })
+    .getByRole('link', { name: title })
+    .click()
   await expect(page).toHaveURL(/\/election\/[0-9a-f-]+$/)
 
   await castApprovalVote(page, 'Alice')
