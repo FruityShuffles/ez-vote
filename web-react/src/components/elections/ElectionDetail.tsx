@@ -28,6 +28,7 @@ import {
 } from '@/lib/elections'
 import type { Ballot, Candidate, Election } from '@/lib/elections'
 import { useElectionRealtime } from '@/lib/useElectionRealtime'
+import { useStoredSearches } from '@/lib/counterfactual'
 import { friendlyError } from '@/lib/errors'
 
 // Election detail surface (M9), ported from Flutter `ElectionDetailScreen`.
@@ -38,6 +39,43 @@ import { friendlyError } from '@/lib/errors'
 // is unit-testable without Supabase. Realtime auto-refresh (the Flutter 10s
 // poll) lives in the container via `useElectionRealtime` (M15, parity §9), which
 // keeps the view pure.
+
+/**
+ * The results-screen hook into the strategic voting search (#149): one line
+ * saying how many voters could have done better, linking into the explorer that
+ * shows how.
+ *
+ * Reads the PRECOMPUTED answer only, and renders nothing when there isn't one.
+ * A teaser must never cost a server-side search — this sits on a page every
+ * participant loads, whereas the live fallback is a deliberate click on the
+ * explorer. So elections closed before #149 simply show no teaser and still
+ * offer the full panel one navigation away.
+ *
+ * Counts distinct voters, not findings: one person with both an IRV and a STAR
+ * opportunity is one person who could have done better.
+ */
+function StrategyTeaser({ electionId }: { electionId: string }) {
+  const navigate = useNavigate()
+  const stored = useStoredSearches(electionId)
+  const opportunities = stored.data?.strategy?.opportunities ?? []
+  const voters = new Set(opportunities.map((o) => o.voter_id)).size
+  if (voters === 0) return null
+
+  return (
+    <Muted>
+      {voters === 1
+        ? '1 voter could have gotten a better result by voting differently. '
+        : `${voters} voters could have gotten a better result by voting differently. `}
+      <Button
+        variant="link"
+        className="h-auto p-0 align-baseline"
+        onClick={() => navigate(`/election/${electionId}/explore`)}
+      >
+        See how
+      </Button>
+    </Muted>
+  )
+}
 
 /** Route entry: resolves `:id`, fetches the election, owns loading/error. */
 export function ElectionDetail() {
@@ -160,6 +198,9 @@ export function ElectionDetailView({
               ) : undefined
             }
           />
+          {isClosed && election.public_ballots && (
+            <StrategyTeaser electionId={election.id} />
+          )}
           {isClosed && !election.public_ballots && isOwner && (
             <Muted>
               What-if exploration is unavailable because ballots were not made

@@ -74,6 +74,13 @@ When FPTP is collected, the ballot payload includes:
 
 The edge function reads this key directly. If absent (IRV-derived case), it falls back to `payload.irv[0]`. See [[Edge Function]] → FPTP algorithm.
 
+### The effective pick
+
+Because of that fallback, a ballot's FPTP vote is **`payload.fptp ?? payload.irv?.[0]`**, not `payload.fptp`. Anything reasoning about what a voter picked has to use the effective pick, and two places now do:
+
+- **The strategic voting search** ([[Features/Strategic Voting]]) writes an explicit `fptp` when trialling a different pick on a ranked ballot. The explicit key wins over the fallback, so this moves FPTP's count and leaves `irv` — and IRV's count — untouched, which is what lets the two methods be analyzed in isolation. It also works the other way: an IRV trial **pins** `fptp` to the honest effective pick, so rewriting the ranking does not drag the FPTP column along with it.
+- **`summarizeChange`** (the explorer's change chips) diffs the effective pick, so writing `fptp` onto a ranked ballot reads "picked Ada (was Cy)" rather than implying the voter previously had no pick. It is guarded on at least one side carrying an explicit key, so a plain ranking edit still says only what the ranking did.
+
 ## Migration
 
 Added in migration 017: `ALTER TABLE elections ADD COLUMN include_fptp boolean DEFAULT false`.

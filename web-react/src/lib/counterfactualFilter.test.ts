@@ -358,8 +358,39 @@ describe('summarizeChange', () => {
   })
 
   it('describes an explicit FPTP pick changing and being cleared', () => {
-    expect(summarizeChange({ fptp: 'ada' }, { fptp: 'bo' }, nameOf)).toEqual(['picked Bo'])
+    expect(summarizeChange({ fptp: 'ada' }, { fptp: 'bo' }, nameOf)).toEqual([
+      'picked Bo (was Ada)',
+    ])
     expect(summarizeChange({ fptp: 'ada' }, {}, nameOf)).toEqual(['cleared their pick'])
+  })
+
+  it('diffs FPTP against the effective pick, not the raw key (#149)', () => {
+    // FPTP reads irv[0] when no explicit pick is stored, so writing `fptp` onto
+    // a ranked ballot changes the pick FROM the first preference — the chip has
+    // to say so, or it reads as a pick appearing out of nowhere.
+    expect(
+      summarizeChange(
+        { irv: ['ada', 'bo'] },
+        { irv: ['ada', 'bo'], fptp: 'bo' },
+        nameOf,
+      ),
+    ).toEqual(['picked Bo (was Ada)'])
+
+    // Pinning the honest pick holds FPTP still while another method's key
+    // changes, so it is not a change and must not be described as one.
+    expect(
+      summarizeChange(
+        { irv: ['ada', 'bo'] },
+        { irv: ['ada', 'bo'], fptp: 'ada' },
+        nameOf,
+      ),
+    ).toEqual([])
+
+    // A plain reordering still says only what the ranking did, even though it
+    // moves the derived pick: there is no separate FPTP vote to report.
+    expect(
+      summarizeChange({ irv: ['ada', 'bo'] }, { irv: ['bo', 'ada'] }, nameOf),
+    ).toEqual(['Bo 2nd → 1st', 'Ada 1st → 2nd'])
   })
 
   it('reports every atomic change so the ledger can count them', () => {

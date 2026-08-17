@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react'
 
 import type { Payload } from '@shared/derive'
 import type { FlipSearchResult, FlipTarget } from '@shared/flip'
+import type {
+  StrategicOpportunity,
+  StrategicSearchResult,
+} from '@shared/strategy'
 
 import type { ResultData } from '@/lib/results'
 import { supabase } from '@/lib/supabase'
@@ -34,14 +38,25 @@ export interface SimulationResponse {
   applied: { replace: number; remove: number; add: number }
   /** IRV flip search (#120). Present only when the request set `find_flip`; `useFlipSearch` is the one caller that does. */
   flip?: FlipSearchResult
+  /** Strategic voting search (#149). Present only when the request set `find_strategy`; `useStrategySearch` is the one caller that does. */
+  strategy?: StrategicSearchResult
+}
+
+/** Both precomputed searches for one election, read from a single row. */
+export interface StoredSearches {
+  flip: FlipSearchResult | null
+  strategy: StrategicSearchResult | null
 }
 
 // Mirrors of MAX_FLIP_BALLOTS / MAX_FLIP_CANDIDATES in
-// `supabase/functions/_shared/flip.ts`. Kept as literals because `@shared/flip`
-// value-imports the shared tabulator, which is deliberately confined to lazy
-// routes — importing the constants would pull it into the entry bundle.
+// `supabase/functions/_shared/flip.ts`, and of MAX_STRATEGY_* in
+// `_shared/strategy.ts`. Kept as literals because both modules value-import the
+// shared tabulator, which is deliberately confined to lazy routes — importing
+// the constants would pull it into the entry bundle.
 export const FLIP_MAX_BALLOTS = 500
 export const FLIP_MAX_CANDIDATES = 20
+export const STRATEGY_MAX_BALLOTS = 500
+export const STRATEGY_MAX_CANDIDATES = 20
 
 export const SIMULATION_ACCESS_ERROR =
   'This election could not be found, or you are not a participant.'
@@ -114,34 +129,42 @@ export function useSimulate(
 }
 
 /**
- * The flip search precomputed at election close (#146) and stored in
- * `flip_searches`.
+ * Both searches precomputed at election close and stored in the one
+ * `flip_searches` row: the IRV flip search (#146) and the per-method strategic
+ * voting search (#149, migration 024).
  *
  * Cheap enough to run unconditionally on the explorer: one primary-key row
- * read. When it returns an answer the panel renders it immediately and never
- * offers the button — which is the whole point of the feature. RLS gates the
- * row on `public_ballots` plus the same owner / joined-voter / public-election
- * set as the ballots themselves (migration 023), so this can only return data
- * the caller could already read.
+ * read. When it returns an answer the panels render immediately and never offer
+ * a button — which is the whole point of both features. RLS gates the row on
+ * `public_ballots` plus the same owner / joined-voter / public-election set as
+ * the ballots themselves (migration 023), so this can only return data the
+ * caller could already read.
  *
- * Resolves to `null` rather than throwing on *any* failure. A missing row, a
- * denied read and an environment without migration 023 all mean the same thing
- * to the caller: fall back to the live `find_flip` search.
+ * `select('*')` rather than naming the columns: an environment without
+ * migration 024 then degrades to a missing `strategy` field instead of a query
+ * error that would take the *flip* answer down with it.
+ *
+ * Resolves both fields to `null` rather than throwing on *any* failure. A
+ * missing row, a denied read and a database behind on migrations all mean the
+ * same thing to the caller: fall back to the live search.
  */
-export function useStoredFlip(electionId: string, enabled = true) {
+export function useStoredSearches(electionId: string, enabled = true) {
   return useQuery({
-    queryKey: ['flip-search', 'stored', electionId],
+    queryKey: ['counterfactual-search', 'stored', electionId],
     enabled: enabled && electionId !== '',
     staleTime: Infinity,
     retry: false,
-    queryFn: async (): Promise<FlipSearchResult | null> => {
+    queryFn: async (): Promise<StoredSearches> => {
       const { data, error } = await supabase
         .from('flip_searches')
-        .select('result')
+        .select('*')
         .eq('election_id', electionId)
         .maybeSingle()
-      if (error) return null
-      return (data?.result as FlipSearchResult | undefined) ?? null
+      if (error) return { flip: null, strategy: null }
+      return {
+        flip: (data?.result as FlipSearchResult | undefined) ?? null,
+        strategy: (data?.strategy as StrategicSearchResult | undefined) ?? null,
+      }
     },
   })
 }
@@ -180,6 +203,75 @@ export function useFlipSearch(electionId: string, enabled: boolean) {
       return flip
     },
   })
+}
+
+/**
+ * The live strategic voting search — the **fallback** for elections with no
+ * precomputed row, exactly as `useFlipSearch` is for the flip answer: elections
+ * closed before #149, and those whose owner enabled `public_ballots` after
+ * closing.
+ *
+ * Unlike the flip search this has no algorithm requirement — every method has a
+ * strategy space — so the only gate is the input caps.
+ */
+export function useStrategySearch(electionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['strategy-search', 'live', electionId],
+    enabled: enabled && electionId !== '',
+    staleTime: Infinity,
+    retry: false,
+    queryFn: async (): Promise<StrategicSearchResult> => {
+      const { data, error } = await supabase.functions.invoke(
+        'simulate-counterfactual',
+        {
+          body: { election_id: electionId, overrides: [], find_strategy: true },
+        },
+      )
+      if (error) throw await simulationError(error)
+      const strategy = (data as SimulationResponse).strategy
+      if (strategy == null) {
+        throw new Error(
+          'Could not run the strategic voting search. Please try again.',
+        )
+      }
+      return strategy
+    },
+  })
+}
+
+/**
+ * The one-line answer for one strategic voting opportunity — the single place
+ * the search's honesty contract becomes copy, as `flipTargetHeadline` is for the
+ * flip search.
+ *
+ * Says only how the WINNER moved, because the winner is the only thing the
+ * search treats as an outcome. It deliberately does not name the strategy: the
+ * search proved that a different ballot would have served this voter better, not
+ * that they meant to be tactical. The ballot change itself is spelled out
+ * separately, by `summarizeChange`.
+ *
+ * Every one of these is a proven claim, so the phrasing is unhedged — the
+ * caveat belongs on *absence*, not on a finding.
+ */
+export function strategyHeadline(
+  opportunity: StrategicOpportunity,
+  voterName: string,
+): string {
+  const before = joinNames(opportunity.baseline_winners)
+  const after = joinNames(opportunity.winners)
+  const wasTie = opportunity.baseline_winners.length > 1
+  const isTie = opportunity.winners.length > 1
+
+  if (wasTie && isTie) {
+    return `${voterName} could have changed the tie from ${before} to ${after}.`
+  }
+  if (wasTie) {
+    return `${voterName} could have broken the tie between ${before} in ${after}'s favour.`
+  }
+  if (isTie) {
+    return `${voterName} could have turned ${before}'s win into a tie between ${after}.`
+  }
+  return `${voterName} could have made ${after} win instead of ${before}.`
 }
 
 /**

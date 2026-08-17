@@ -56,29 +56,31 @@ async function storedState(
   db: Awaited<ReturnType<typeof databaseClient>>,
   electionId: string,
 ) {
-  const [results, ballots, flip] = await Promise.all([
+  const [results, ballots, searches] = await Promise.all([
     db
       .from('results')
       .select('algorithm,result_data')
       .eq('election_id', electionId)
       .order('algorithm'),
     db.rpc('get_public_ballots', { p_election_id: electionId }),
-    // The flip search precomputed at close (#146) is the third persisted
-    // surface simulate-counterfactual must not touch. Reading it here also
-    // doubles as a check that migration 023's grant and SELECT policy actually
-    // let a joined owner through.
+    // The searches precomputed at close — the flip search (#146) and the
+    // strategic voting search (#149) — are the third persisted surface
+    // simulate-counterfactual must not touch. Both columns are read, so an
+    // endpoint that started writing either would fail the comparison below.
+    // Reading them here also doubles as a check that migrations 023/024's grant
+    // and SELECT policy actually let a joined owner through.
     db
       .from('flip_searches')
-      .select('result')
+      .select('result,strategy')
       .eq('election_id', electionId)
       .maybeSingle(),
   ])
   if (results.error) throw results.error
   if (ballots.error) throw ballots.error
-  if (flip.error) throw flip.error
+  if (searches.error) throw searches.error
   return {
     results: results.data,
-    flip: flip.data,
+    searches: searches.data,
     ballots: (ballots.data ?? [])
       .map(
         (ballot: {
@@ -234,6 +236,40 @@ test('a hypothetical algorithm edit stays isolated, undo restores baseline, and 
       page.getByRole('status', { name: 'Updating results' }),
     ).toBeHidden({ timeout: 20_000 })
 
+    // The strategic voting search (#149), precomputed at close alongside the
+    // flip search. Ordering is part of the contract: the issue asks for both
+    // searches above the ballot list with strategic voting first, so the DOM
+    // order is asserted rather than left to the reader's eye.
+    const strategyPanel = page.getByRole('region', { name: 'Strategic voting' })
+    await expect(strategyPanel).toBeVisible()
+    await expect(
+      strategyPanel.getByRole('button', { name: 'Run the search' }),
+    ).toBeHidden({ timeout: 20_000 })
+    const order = await page.evaluate(() => {
+      const region = (name: string) =>
+        document.querySelector(`[aria-label="${name}"]`)
+      const strategy = region('Strategic voting')
+      const flip = region('Flip the outcome')
+      const picker = document.querySelector(
+        '[aria-label="Show ballots whose top choice was"]',
+      )
+      if (!strategy || !flip || !picker) return null
+      return {
+        strategyBeforeFlip: Boolean(
+          strategy.compareDocumentPosition(flip) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+        flipBeforeBallots: Boolean(
+          flip.compareDocumentPosition(picker) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+      }
+    })
+    expect(order).toEqual({
+      strategyBeforeFlip: true,
+      flipBeforeBallots: true,
+    })
+
     // The flip search (#135), now precomputed at close (#146): this election
     // was closed through compute-results, so the answer is already in
     // `flip_searches` and renders with no button press. That makes the two
@@ -276,7 +312,7 @@ test('a hypothetical algorithm edit stays isolated, undo restores baseline, and 
     const after = await storedState(db, electionId)
     expect(after.results).toEqual(before.results)
     expect(after.ballots).toEqual(before.ballots)
-    expect(after.flip).toEqual(before.flip)
+    expect(after.searches).toEqual(before.searches)
   } finally {
     await db.auth.signOut({ scope: 'local' })
     await context2.close()

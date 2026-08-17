@@ -1,16 +1,15 @@
 import { Sparkles } from 'lucide-react'
 
+import { SuggestionChip } from '@/components/counterfactual/SuggestionChip'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Muted } from '@/components/ui/typography'
 import { payloadsEqual } from '@/lib/ballot'
 import { flipTargetHeadline, joinNames } from '@/lib/counterfactual'
-import { summarizeChange } from '@/lib/counterfactualFilter'
 import { cn } from '@/lib/utils'
 import type { Payload } from '@shared/derive'
 import type {
   FlipAlgorithmResult,
-  FlipChange,
   FlipSearchResult,
   FlipTarget,
 } from '@shared/flip'
@@ -279,11 +278,16 @@ function FlipTargetRow({
         <ul className="mt-2 flex flex-wrap gap-1.5">
           {changes.map((change) => (
             <li key={change.voter_id}>
-              <FlipChangeChip
-                change={change}
+              <SuggestionChip
                 original={originals.get(change.voter_id) ?? {}}
+                payload={change.payload}
                 nameOf={nameOf}
                 voterName={voterNameOf(change.voter_id)}
+                detail={
+                  change.distance === 1
+                    ? '1 swap'
+                    : `${change.distance} swaps`
+                }
               />
             </li>
           ))}
@@ -317,38 +321,5 @@ function FlipTargetRow({
         </div>
       )}
     </li>
-  )
-}
-
-/** The edit ledger's chip shape, filled in by the server: read-only, no undo. */
-function FlipChangeChip({
-  change,
-  original,
-  nameOf,
-  voterName,
-}: {
-  change: FlipChange
-  original: Payload
-  nameOf: (candidateId: string) => string
-  voterName: string
-}) {
-  const phrases = summarizeChange(original, change.payload, nameOf)
-  const summary = phrases[0] ?? 'edited'
-  const extra = Math.max(0, phrases.length - 1)
-
-  return (
-    <span className="inline-flex items-center rounded-4xl border border-dashed border-border bg-card px-2.5 py-0.5 text-xs">
-      <span className="max-w-[22rem] truncate">
-        <span className="font-medium">{voterName}</span>
-        <span className="text-muted-foreground"> · {summary}</span>
-        {extra > 0 && (
-          <span className="text-muted-foreground"> +{extra} more</span>
-        )}
-        <span className="text-muted-foreground">
-          {' '}
-          · {change.distance === 1 ? '1 swap' : `${change.distance} swaps`}
-        </span>
-      </span>
-    </span>
   )
 }

@@ -179,14 +179,14 @@ someone else the IRV winner?" via the server's `find_flip` search
   baseline ballots of a closed election, and both ballot write policies require
   `status = 'open'`. So `compute-results` computes it once when the election
   closes and stores it in `flip_searches` ([[Backend/Edge Function]]).
-  `useStoredFlip` reads that row unconditionally (one primary-key read) and the
-  panel renders the answer on first paint: no button, no wait.
+  `useStoredSearches` reads that row unconditionally (one primary-key read) and
+  the panel renders the answer on first paint: no button, no wait.
 - **The button is the fallback path only.** `useFlipSearch` still invokes
   `find_flip` live, but it is enabled only once the stored read has provably
   come back empty — elections closed before #146, and elections whose owner
-  enabled `public_ballots` after closing. `useStoredFlip` resolves to `null`
-  rather than throwing on *any* failure (missing row, denied read, missing
-  migration) precisely so all of those degrade to that fallback. The two hooks
+  enabled `public_ballots` after closing. `useStoredSearches` resolves each
+  answer to `null` rather than throwing on *any* failure (missing row, denied
+  read, missing migration) precisely so all of those degrade to that fallback. The two hooks
   keep distinct query keys so a fallback answer can never masquerade as a
   precomputed one. Both stay separate from `useSimulate`, whose debounce would
   otherwise rerun the search on every ballot edit.
@@ -231,6 +231,41 @@ One accepted rough edge: chip phrases diff the server payload against the
 canonicalised original, so a legacy non-canonical stored payload could produce
 spurious non-IRV phrases. Real ballots are built by `buildSubmitPayload`, so in
 practice the diff is IRV-only.
+
+## The strategic voting search (#149)
+
+`StrategicVotingPanel` answers the individual-voter question: *could this voter
+have gotten a better outcome by voting differently?* The full design lives in
+[[Features/Strategic Voting]]; what belongs here is how it sits on this screen.
+
+- **Both searches moved above the ballot list.** The issue asks for it, and the
+  reason holds up: the searches are the answers, and the ballot list is the tool
+  for exploring past them. Strategic voting leads because it is the sharper
+  question — what one named person could have done alone, rather than what the
+  electorate as a whole would have to do. The DOM order is asserted in both the
+  route test and the e2e spec, so a later refactor cannot quietly undo it.
+- **Visually more prominent than the flip panel**: a solid `border-border
+  bg-card` section against the flip panel's dashed `bg-muted/30` well. Amber
+  stays reserved for winner/tie and deltas stay off the red/green axis, per the
+  design language above.
+- **Same precompute-with-fallback shape** as the flip search, from the same row.
+  The results-screen teaser (`ElectionDetail`) reads the **stored** answer only
+  and renders nothing without one — it sits on a page every participant loads,
+  so it must never cost a server-side search.
+- **Grouped by method**, because findings are per method and combining them
+  would assert the combined-ballot frame the search exists to reject. A standing
+  note under the groups says each finding leaves the other methods as voted.
+- **Copy states only how the winner moved** (`strategyHeadline`) and never names
+  the strategy — the search proved a better ballot existed, not that the voter
+  intended anything. The change itself is spelled out by the shared
+  `SuggestionChip`, extracted from the flip panel so a suggested change reads
+  identically wherever it comes from.
+- **The empty state must not overclaim.** "No strategic voting opportunity
+  found. This search can't try every possible ballot, so one may still exist."
+  Absence is never proof of a strategy-proof election.
+- **Gating is the input caps only** (`STRATEGY_MAX_*`, literals for the same
+  bundle reason as `FLIP_MAX_*`). Unlike the flip panel it is not restricted to
+  IRV elections — every method has a strategy space.
 
 ## Two traps
 

@@ -8,11 +8,13 @@ import {
   SIMULATION_ACCESS_ERROR,
   useFlipSearch,
   useSimulate,
-  useStoredFlip,
+  useStoredSearches,
+  useStrategySearch,
   type BallotOverride,
   type SimulationResponse,
 } from '@/lib/counterfactual'
 import type { FlipSearchResult } from '@shared/flip'
+import type { StrategicSearchResult } from '@shared/strategy'
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), maybeSingle: vi.fn() }))
 
@@ -186,8 +188,50 @@ const flipResult: FlipSearchResult = {
   budget_exhausted: false,
 }
 
-describe('useStoredFlip', () => {
-  it('returns the precomputed row without any server search', async () => {
+const strategyResult: StrategicSearchResult = {
+  opportunities: [
+    {
+      algorithm: 'irv',
+      voter_id: 'v1',
+      payload: { irv: ['bo', 'ada'] },
+      baseline_winners: ['Ada'],
+      winners: ['Bo'],
+      shared_by: 1,
+    },
+  ],
+  algorithms_searched: ['irv'],
+  distinct_ballots: 3,
+  ballots_examined: 7,
+  tabulations_used: 12,
+  budget: 300,
+  budget_exhausted: false,
+}
+
+describe('useStoredSearches', () => {
+  it('returns both precomputed answers from one row read', async () => {
+    mocks.maybeSingle.mockResolvedValue({
+      data: { result: flipResult, strategy: strategyResult },
+      error: null,
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(() => useStoredSearches('e1'), {
+      wrapper: wrapper(client),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual({
+      flip: flipResult,
+      strategy: strategyResult,
+    })
+    // The whole point of #146/#149: no edge function invocation.
+    expect(mocks.invoke).not.toHaveBeenCalled()
+  })
+
+  it('degrades to a missing strategy on a database without migration 024', async () => {
+    // `select('*')` is what buys this: the flip answer survives even though the
+    // strategy column does not exist yet.
     mocks.maybeSingle.mockResolvedValue({
       data: { result: flipResult },
       error: null,
@@ -195,30 +239,28 @@ describe('useStoredFlip', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
-    const { result } = renderHook(() => useStoredFlip('e1'), {
+    const { result } = renderHook(() => useStoredSearches('e1'), {
       wrapper: wrapper(client),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toEqual(flipResult)
-    // The whole point of #146: no edge function invocation.
-    expect(mocks.invoke).not.toHaveBeenCalled()
+    expect(result.current.data).toEqual({ flip: flipResult, strategy: null })
   })
 
-  it('resolves to null when the election has no stored row', async () => {
+  it('resolves to nulls when the election has no stored row', async () => {
     mocks.maybeSingle.mockResolvedValue({ data: null, error: null })
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
-    const { result } = renderHook(() => useStoredFlip('e1'), {
+    const { result } = renderHook(() => useStoredSearches('e1'), {
       wrapper: wrapper(client),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBeNull()
+    expect(result.current.data).toEqual({ flip: null, strategy: null })
   })
 
-  it('resolves to null rather than throwing when the read is refused', async () => {
+  it('resolves to nulls rather than throwing when the read is refused', async () => {
     // A denied read, a missing grant and an environment without migration 023
     // all have to degrade to the live fallback, never to an error state.
     mocks.maybeSingle.mockResolvedValue({
@@ -228,13 +270,53 @@ describe('useStoredFlip', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
-    const { result } = renderHook(() => useStoredFlip('e1'), {
+    const { result } = renderHook(() => useStoredSearches('e1'), {
       wrapper: wrapper(client),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBeNull()
+    expect(result.current.data).toEqual({ flip: null, strategy: null })
     expect(result.current.isError).toBe(false)
+  })
+})
+
+describe('useStrategySearch', () => {
+  it('does nothing until enabled, then sends find_strategy with no overrides', async () => {
+    mocks.invoke.mockResolvedValue({
+      data: { ...response, strategy: strategyResult },
+      error: null,
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useStrategySearch('e1', enabled),
+      { initialProps: { enabled: false }, wrapper: wrapper(client) },
+    )
+
+    expect(mocks.invoke).not.toHaveBeenCalled()
+
+    rerender({ enabled: true })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mocks.invoke).toHaveBeenCalledExactlyOnceWith(
+      'simulate-counterfactual',
+      { body: { election_id: 'e1', overrides: [], find_strategy: true } },
+    )
+    expect(result.current.data).toEqual(strategyResult)
+  })
+
+  it('treats a response without a strategy block as an error', async () => {
+    mocks.invoke.mockResolvedValueOnce({ data: response, error: null })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result } = renderHook(() => useStrategySearch('e1', true), {
+      wrapper: wrapper(client),
+    })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.error?.message).toBe(
+      'Could not run the strategic voting search. Please try again.',
+    )
   })
 })
 

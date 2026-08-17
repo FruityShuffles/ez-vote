@@ -32,7 +32,8 @@ Two call paths:
 8. Upsert each entry into the results table
 9. If close=true:
      UPDATE elections SET status='closed' WHERE id=election_id
-     Best-effort: precompute the IRV flip search and upsert flip_searches
+     Best-effort: precompute the IRV flip search and the strategic
+       voting search, and upsert both into one flip_searches row
 10. Return { success: true, results: [...] }
 ```
 
@@ -50,23 +51,39 @@ Three properties are deliberate:
 
 The realtime path (`close=false`) never precomputes: it can fire on every ballot submission, and the election is still open.
 
+## Strategic-voting precompute (#149)
+
+On `close=true` only, and immediately after the flip precompute, the function also runs the per-method strategic voting search — *could any voter have gotten a better outcome by voting differently?* — and stores it in the same `flip_searches` row, under `strategy` (migration 024). See [[Features/Strategic Voting]].
+
+Four properties are deliberate:
+
+- **Eligibility is `validateStrategyInputs()` plus `public_ballots`** — the caps only. Unlike the flip search there is **no algorithm requirement**: every method has a strategy space, so any tabulated election is searchable. This is why the row's `result` column is nullable — an approval-only election has a strategy answer and no flip answer.
+- **It runs after the flip search, never before.** The flip answer is the shipped, exercised one; if the pair ever runs out of budget, the newer search is the one that should lose.
+- **Its deadline is clamped by what the flip search already spent.** Both are pure compute with no awaits, so their wall-clock deadlines are effectively CPU deadlines that *add up*. One clock spans both, and the strategic search gets `min(PRECOMPUTE_STRATEGY_MS, allowance − elapsed)`.
+- **Each search has its own `try/catch`, and the write has a third.** A failure in the newer search must not cost the flip answer, or vice versa.
+
+A row is written only when at least one search produced an answer. A row with both columns null is meaningless and is never stored.
+
 ### The close-path CPU budget
 
 Supabase caps a function at **2 s of CPU time**, hard — [documented](https://supabase.com/docs/guides/functions/limits) as "actual time spent on the CPU per request", explicitly *excluding* async I/O. The 400 s wall-clock limit is not what binds here. DB round trips are I/O and cost nothing against the CPU ceiling; the tabulation loops are pure compute and cost all of it.
 
-Measured at worst-case eligible size (500 ballots × 20 candidates), the largest input `validateFlipInputs` admits:
+Measured at worst-case eligible size (500 ballots × 20 candidates), the largest input the validators admit — re-measured for #149:
 
 | Phase | CPU |
 |---|---|
 | `tabulate()` over every algorithm + the FPTP row | ~5 ms |
-| Flip search, spending its full 400-tabulation count budget | ~720 ms |
-| **Total** | **~725 ms** of the 2 s ceiling |
+| Flip search, spending its full 400-tabulation count budget | ~596 ms |
+| Strategic voting search, spending its full 300-tabulation count budget | ~334 ms |
+| **Total** | **~935 ms** of the 2 s ceiling |
+
+Both searches spend their entire count budget at this size, so this is the ceiling, not a sample. About **1 s of headroom remains**.
 
 Three consequences worth holding onto before changing anything here:
 
 - **The count budget is the limiter; the deadline is a backstop.** `PRECOMPUTE_FLIP_MS` sits at 1500 ms — roughly double what the count budget actually needs — so it is never reached on a sane isolate. A deadline set below ~720 ms silently truncates the search to a fraction of its tabulations, and does so on the largest elections, where the answer matters most. Tightening it is not a safe way to buy headroom; it just degrades stored answers.
 - **The deadline cannot be raised past the ceiling.** The search is pure compute with no awaits, so its wall-clock deadline is effectively CPU time. At or above ~2 s it can never fire: the platform kills the isolate first, and that kill is uncatchable — no `catch` runs and no response is sent, so the owner's close appears to fail on an election that is in fact already closed with correct results. A deadline past the ceiling removes this protection rather than relaxing it.
-- **The flip deadline bounds nothing but the flip search.** If future work adds real CPU to this path, the total grows regardless of what the search is allowed. The number to check against is the ~1.3 s of remaining headroom above, re-measured — not the flip deadline. When it stops fitting, the fix is to move the precompute off the close request path, not to keep shaving the search. (`EdgeRuntime.waitUntil` is *not* that fix: background work counts against the same CPU budget, and it races the client's navigation to the explorer.)
+- **A per-search deadline bounds nothing but that search.** If future work adds real CPU to this path, the total grows regardless of what any one search is allowed. The number to check against is the ~1 s of remaining headroom above, re-measured — not a single search's deadline. #149 is the worked example: it added a second search, so it re-measured the table rather than trusting the flip search's own budget to hold the line. When it stops fitting, the fix is to move the precompute off the close request path, not to keep shaving the search. (`EdgeRuntime.waitUntil` is *not* that fix: background work counts against the same CPU budget, and it races the client's navigation to the explorer.)
 
 If an owner ever reports a close that failed on an election that turns out to be closed with correct results, a CPU-ceiling kill here is the first thing to check — it is uncatchable, so the `try/catch` cannot report it.
 

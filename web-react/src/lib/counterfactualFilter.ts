@@ -281,11 +281,28 @@ export function summarizeChange(
     if (!afterApproved.has(id)) phrases.push(`unapproved ${nameOf(id)}`)
   }
 
-  if (original.fptp !== next.fptp) {
+  // FPTP is diffed on the EFFECTIVE pick, not the raw key. `computeFPTP` falls
+  // back to `irv[0]` when no explicit pick is stored, and ranked ballots store
+  // none, so a change that writes `fptp` onto a ranked ballot is a change from
+  // the voter's first preference — not from nothing. Diffing the raw key would
+  // render it as "picked Ada" against a ballot that looks like it had no pick,
+  // and would also report a change where the strategic voting search merely
+  // pinned the honest pick to hold FPTP still (#149).
+  //
+  // Guarded on at least one side carrying an explicit key, so a plain ranking
+  // edit still says only "Ada 2nd → 1st". Where neither side has one there is
+  // no separate FPTP vote to describe — the ranking phrases above already are
+  // the whole change.
+  const beforePick = original.fptp ?? original.irv?.[0]
+  const afterPick = next.fptp ?? next.irv?.[0]
+  const hasExplicitPick = original.fptp != null || next.fptp != null
+  if (hasExplicitPick && beforePick !== afterPick) {
     phrases.push(
-      next.fptp == null
+      afterPick == null
         ? 'cleared their pick'
-        : `picked ${nameOf(next.fptp)}`,
+        : beforePick == null
+          ? `picked ${nameOf(afterPick)}`
+          : `picked ${nameOf(afterPick)} (was ${nameOf(beforePick)})`,
     )
   }
 

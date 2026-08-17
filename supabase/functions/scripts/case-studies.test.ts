@@ -15,6 +15,7 @@ import {
   type BallotOverride,
 } from "../_shared/counterfactual.ts";
 import { findMinimalFlips } from "../_shared/flip.ts";
+import { findStrategicOpportunities } from "../_shared/strategy.ts";
 import {
   ballotRows,
   candidateIdsFor,
@@ -176,6 +177,42 @@ for (const fixture of fixtures) {
       }
     });
   }
+
+  Deno.test(`${fixture.slug}: the stored strategic search is deterministic and real`, () => {
+    // The seed script writes this into `flip_searches.strategy` (#149) through
+    // the same read-diff-write chain as the flip answer, so it carries the same
+    // two obligations: byte-identical JSON on a re-run, or the row churns and
+    // the script's no-op invariant breaks; and real ballot voter_ids, or the
+    // panel renders "Unnamed voter" and nothing can be applied.
+    const limits = { timeLimitMs: Number.POSITIVE_INFINITY };
+    const search = findStrategicOpportunities(
+      fixture.algorithms,
+      fixture.include_fptp,
+      candidates,
+      ballots,
+      limits,
+    );
+    assertEquals(
+      JSON.stringify(search),
+      JSON.stringify(
+        findStrategicOpportunities(
+          fixture.algorithms,
+          fixture.include_fptp,
+          candidates,
+          ballots,
+          limits,
+        ),
+      ),
+    );
+
+    const attributable = new Set(ballots.map((b) => b.voter_id));
+    for (const opportunity of search.opportunities) {
+      assert(
+        attributable.has(opportunity.voter_id),
+        `unknown voter_id ${opportunity.voter_id}`,
+      );
+    }
+  });
 
   Deno.test(`${fixture.slug}: derived identities are stable`, async () => {
     // Pins the ids the seed script upserts by. A change here means a re-seed

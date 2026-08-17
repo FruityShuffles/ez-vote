@@ -82,6 +82,8 @@ Voter privacy: with `public_ballots = false`, no participant — including the o
 
 **Why this gate and not the `results` one.** `result` embeds whole ballot payloads — each reported change is a named voter's own ranking with the target candidate promoted. So the correct precedent is the *ballots* read set, not the looser `results` set (which also admits invite-accepted users and does not require `public_ballots`). The policy is `get_public_ballots()`'s gate restated as RLS, which means the table exposes nothing a caller could not already read through that RPC.
 
+**Migration 024 added `strategy` and no policy.** RLS in Postgres is row-level: one policy covers every column of the row, present and future. That is safe here rather than merely convenient, because the new column needs *exactly* the same gate — `strategy` embeds whole ballot payloads for the same reason `result` does (each reported opportunity is a named voter's own ballot with one method's key rewritten). A column whose sensitivity differed from the row's would need its own table, not a looser reading of this policy.
+
 The absence of write policies is deliberate and load-bearing, unlike the legacy `"Owners can insert/update results"` pair: `simulate-counterfactual` holds no service-role key and must never gain one, so there is no path by which a read-only endpoint could write here.
 
 ### `election_voters`

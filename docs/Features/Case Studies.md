@@ -119,27 +119,34 @@ Results are computed by importing `_shared/tabulate.ts` directly, not by calling
 moving part. Before writing anything, the script re-checks the fixture's `lesson` claims
 against that tabulator and aborts the fixture if they no longer hold.
 
-### Flip search
+### Precomputed counterfactual searches
 
 Because case studies are inserted already `closed`, they never pass through
 `compute-results`, so this script is also the writer for their precomputed flip search
-(#146) — same read-diff-write treatment as `results`, including the prune. Two details
-are load-bearing and easy to get wrong:
+(#146) and strategic voting search (#149) — same read-diff-write treatment as `results`,
+including the prune. Both live in the one `flip_searches` row. Two details are
+load-bearing and easy to get wrong:
 
 - **Real profile UUIDs, not the fixture's voter names.** `tabulate()` ignores
   `voter_id`, so the lesson gate and the `results` step get away with a name→name map.
-  The flip search does not: `FlipChange.voter_id` is what the explorer keys ballots,
-  chips and applied-suggestion matching on, so seeding from the name map would render
-  every suggestion as "Unnamed voter" and no "Try these changes" would ever apply.
-- **`timeLimitMs: Infinity`.** `findMinimalFlips` is bounded by a wall-clock deadline
-  as well as a tabulation count, so with the default the stored answer would depend on
-  how busy the machine was and a re-run could churn the row — breaking the no-op
-  invariant the whole script is built on. With only the count budget it is a pure
-  function of the fixture. `case-studies.test.ts` locks that determinism, and that
-  every reported change names a real ballot.
+  The searches do not: `FlipChange.voter_id` and `StrategicOpportunity.voter_id` are
+  what the explorer keys ballots, chips and applied-suggestion matching on, so seeding
+  from the name map would render every suggestion as "Unnamed voter" and no "Try these
+  changes" would ever apply.
+- **`timeLimitMs: Infinity`.** Both searches are bounded by a wall-clock deadline as
+  well as a tabulation count, so with the default a stored answer would depend on how
+  busy the machine was and a re-run could churn the row — breaking the no-op invariant
+  the whole script is built on. With only the count budget each is a pure function of
+  the fixture. `case-studies.test.ts` locks that determinism for both, and that every
+  reported change names a real ballot.
+
+**The two have different eligibility**, which is why the row's `result` column is
+nullable: the flip search requires IRV, the strategic search runs on any tabulated
+election. So an approval-only case study stores a strategy answer and a null `result`,
+and the row is pruned only when *neither* search applies.
 
 In a `--dry-run` before the placeholder accounts exist there are no UUIDs to key the
-search on, so the step reports `create flip search` and writes nothing.
+searches on, so the step reports `create counterfactual searches` and writes nothing.
 
 ## Fixture format
 

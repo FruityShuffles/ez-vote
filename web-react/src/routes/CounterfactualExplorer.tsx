@@ -11,6 +11,7 @@ import {
   type LedgerEntry,
 } from '@/components/counterfactual/EditLedger'
 import { FlipSearchPanel } from '@/components/counterfactual/FlipSearchPanel'
+import { StrategicVotingPanel } from '@/components/counterfactual/StrategicVotingPanel'
 import { CounterfactualBallotView } from '@/components/counterfactual/CounterfactualBallotView'
 import { useWorkspaceElection } from '@/lib/electionWorkspace'
 import { CenteredState } from '@/components/ui/centered-state'
@@ -20,10 +21,13 @@ import { H1, Muted } from '@/components/ui/typography'
 import {
   FLIP_MAX_BALLOTS,
   FLIP_MAX_CANDIDATES,
+  STRATEGY_MAX_BALLOTS,
+  STRATEGY_MAX_CANDIDATES,
   type BallotOverride,
   useFlipSearch,
   useSimulate,
-  useStoredFlip,
+  useStoredSearches,
+  useStrategySearch,
 } from '@/lib/counterfactual'
 import {
   summarizeChange,
@@ -165,7 +169,7 @@ function useLedger(electionId: string, data: ExplorerData | null) {
         op: 'replace',
         source:
           activeSuggestion != null && voterId in activeSuggestion
-            ? 'flip'
+            ? 'suggested'
             : undefined,
       })),
     [activeSuggestion, data?.ballots, edits, nameOf, originals],
@@ -219,17 +223,24 @@ export function CounterfactualPicker() {
     ledger.overrides,
     explorer.data != null,
   )
-  // The precomputed answer (#146) is one row read, so it runs unconditionally;
-  // `explorer.data != null` already implies closed + public_ballots, so it never
-  // fires on an ineligible election. The live search is the fallback, enabled
-  // only once the stored read has provably come back empty — otherwise a
-  // precomputed election could still pay for a second ~500 ms search.
-  const stored = useStoredFlip(electionId, explorer.data != null)
-  const storedFlip = stored.data ?? undefined
+  // The precomputed answers (#146, #149) come from one row read, so it runs
+  // unconditionally; `explorer.data != null` already implies closed +
+  // public_ballots, so it never fires on an ineligible election. The live
+  // searches are the fallback, each enabled only once the stored read has
+  // provably come back without that answer — otherwise a precomputed election
+  // could still pay for a second server-side search.
+  const stored = useStoredSearches(electionId, explorer.data != null)
+  const storedFlip = stored.data?.flip ?? undefined
+  const storedStrategy = stored.data?.strategy ?? undefined
   const [flipRequested, setFlipRequested] = useState(false)
+  const [strategyRequested, setStrategyRequested] = useState(false)
   const flip = useFlipSearch(
     electionId,
     flipRequested && !stored.isPending && storedFlip == null,
+  )
+  const strategy = useStrategySearch(
+    electionId,
+    strategyRequested && !stored.isPending && storedStrategy == null,
   )
 
   if (explorer.data == null) {
@@ -270,8 +281,26 @@ export function CounterfactualPicker() {
       : explorer.data.candidates.length > FLIP_MAX_CANDIDATES
         ? `This election is too large for the flip search (over ${FLIP_MAX_CANDIDATES} candidates).`
         : undefined
+  // The strategic search has no algorithm requirement — every method has a
+  // strategy space — so the input caps are the only gate.
+  const strategyUnavailableReason =
+    simulation.data.ballot_count.baseline > STRATEGY_MAX_BALLOTS
+      ? `This election is too large for the strategic voting search (over ${STRATEGY_MAX_BALLOTS} ballots).`
+      : explorer.data.candidates.length > STRATEGY_MAX_CANDIDATES
+        ? `This election is too large for the strategic voting search (over ${STRATEGY_MAX_CANDIDATES} candidates).`
+        : undefined
   const ballots = explorer.data.ballots
+  const voterNameOf = (voterId: string) =>
+    voterName(
+      ballots.find((ballot) => ballot.voter_id === voterId) ?? {
+        display_name: null,
+      },
+    )
 
+  // Both searches sit ABOVE the ballot grid (#149): they are the answers, and
+  // the ballot list is the tool for exploring past them. Strategic voting leads
+  // because it is the sharper question — what one named person could have done
+  // alone, rather than what the electorate as a whole would have to do.
   return (
     <Stack gap={4}>
       <div>
@@ -283,6 +312,44 @@ export function CounterfactualPicker() {
 
       {simulation.isError && (
         <Muted role="alert">{simulation.error.message}</Muted>
+      )}
+
+      <StrategicVotingPanel
+        result={storedStrategy ?? strategy.data}
+        pending={stored.isPending || strategy.isFetching}
+        error={strategy.error}
+        requested={strategyRequested || storedStrategy != null}
+        onSearch={() => {
+          setStrategyRequested(true)
+          if (strategy.isError) void strategy.refetch()
+        }}
+        originals={ledger.originals}
+        nameOf={ledger.nameOf}
+        voterNameOf={voterNameOf}
+        edits={ledger.edits}
+        activeSuggestion={ledger.activeSuggestion}
+        onApply={ledger.applySuggestion}
+        unavailableReason={strategyUnavailableReason}
+      />
+
+      {flipEligible && (
+        <FlipSearchPanel
+          result={storedFlip ?? flip.data}
+          pending={stored.isPending || flip.isFetching}
+          error={flip.error}
+          requested={flipRequested || storedFlip != null}
+          onSearch={() => {
+            setFlipRequested(true)
+            if (flip.isError) void flip.refetch()
+          }}
+          originals={ledger.originals}
+          nameOf={ledger.nameOf}
+          voterNameOf={voterNameOf}
+          edits={ledger.edits}
+          activeSuggestion={ledger.activeSuggestion}
+          onApply={ledger.applySuggestion}
+          unavailableReason={flipUnavailableReason}
+        />
       )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
@@ -306,32 +373,6 @@ export function CounterfactualPicker() {
           className="lg:sticky lg:top-4"
         />
       </div>
-
-      {flipEligible && (
-        <FlipSearchPanel
-          result={storedFlip ?? flip.data}
-          pending={stored.isPending || flip.isFetching}
-          error={flip.error}
-          requested={flipRequested || storedFlip != null}
-          onSearch={() => {
-            setFlipRequested(true)
-            if (flip.isError) void flip.refetch()
-          }}
-          originals={ledger.originals}
-          nameOf={ledger.nameOf}
-          voterNameOf={(voterId) =>
-            voterName(
-              ballots.find((ballot) => ballot.voter_id === voterId) ?? {
-                display_name: null,
-              },
-            )
-          }
-          edits={ledger.edits}
-          activeSuggestion={ledger.activeSuggestion}
-          onApply={ledger.applySuggestion}
-          unavailableReason={flipUnavailableReason}
-        />
-      )}
 
       <EditLedger
         entries={ledger.entries}

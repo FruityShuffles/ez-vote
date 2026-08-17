@@ -7,6 +7,12 @@ import {
   PRECOMPUTE_FLIP_MS,
   validateFlipInputs,
 } from "../_shared/flip.ts";
+import {
+  findStrategicOpportunities,
+  PRECOMPUTE_STRATEGY_MS,
+  type StrategicSearchResult,
+  validateStrategyInputs,
+} from "../_shared/strategy.ts";
 import type { SimulationBallot } from "../_shared/counterfactual.ts";
 
 const corsHeaders = {
@@ -55,6 +61,41 @@ function flipSearchFor(
   }
   return findMinimalFlips(candidates, ballots, {
     timeLimitMs: PRECOMPUTE_FLIP_MS,
+  });
+}
+
+/**
+ * Precompute and store the strategic voting search for a just-closed election
+ * (#149) — "could any voter have gotten a better outcome by voting
+ * differently?", asked per method.
+ *
+ * Same reasoning as `flipSearchFor` above: final answer, ballots frozen,
+ * gated on `public_ballots` because the stored payloads embed ballots.
+ * Unlike the flip search this has no algorithm requirement — every method has a
+ * strategy space, so any tabulated election is searchable.
+ *
+ * `remainingMs` is what makes the pair safe. Supabase kills a function at 2 s of
+ * CPU, hard and uncatchably, and both searches are pure compute with no awaits,
+ * so their wall-clock deadlines are effectively CPU deadlines that ADD UP. The
+ * flip search runs first and keeps its full budget; this one gets whatever is
+ * left of a fixed allowance. Measured worst case at maximum eligible size (500
+ * ballots x 20 candidates) is ~596 ms for the flip search and ~334 ms here, so
+ * the pair lands near 930 ms with about a second to spare — see
+ * `docs/Backend/Edge Function.md`, "The close-path CPU budget".
+ */
+function strategySearchFor(
+  election: { public_ballots?: boolean },
+  algorithms: string[],
+  includeFptp: boolean,
+  candidates: Candidate[],
+  ballots: SimulationBallot[],
+  remainingMs: number
+): StrategicSearchResult | null {
+  if (!election.public_ballots) return null;
+  if (remainingMs <= 0) return null;
+  if (validateStrategyInputs(candidates, ballots).length > 0) return null;
+  return findStrategicOpportunities(algorithms, includeFptp, candidates, ballots, {
+    timeLimitMs: Math.min(PRECOMPUTE_STRATEGY_MS, remainingMs),
   });
 }
 
@@ -159,26 +200,53 @@ serve(async (req: Request) => {
         .update({ status: "closed" })
         .eq("id", election_id);
 
+      // Both precomputes are pure compute with no awaits between them, so this
+      // one clock measures the CPU they jointly spend against the 2 s ceiling.
+      const precomputeStartedAt = Date.now();
+      let flip: FlipSearchResult | null = null;
+      let strategy: StrategicSearchResult | null = null;
+
+      // Separate try/catch blocks on purpose: the strategic search is the newer
+      // and less exercised of the two, and a failure in it must not cost the
+      // shipped flip answer (or vice versa).
       try {
-        const flip = flipSearchFor(
+        flip = flipSearchFor(election, algos, candidates ?? [], ballots ?? []);
+      } catch (flipError) {
+        // Never propagate: the close already succeeded.
+        console.error("flip precompute failed", flipError);
+      }
+
+      try {
+        strategy = strategySearchFor(
           election,
           algos,
+          election.include_fptp,
           candidates ?? [],
-          ballots ?? []
+          ballots ?? [],
+          PRECOMPUTE_FLIP_MS + PRECOMPUTE_STRATEGY_MS -
+            (Date.now() - precomputeStartedAt)
         );
-        if (flip) {
+      } catch (strategyError) {
+        console.error("strategy precompute failed", strategyError);
+      }
+
+      try {
+        // One row holds both answers (migration 024). A row with neither is
+        // meaningless, so an election eligible for no search stores nothing and
+        // falls back to the live path.
+        if (flip || strategy) {
           await adminClient.from("flip_searches").upsert(
             {
               election_id,
               result: flip,
+              strategy,
               computed_at: new Date().toISOString(),
             },
             { onConflict: "election_id" }
           );
         }
-      } catch (flipError) {
-        // Never propagate: the close already succeeded.
-        console.error("flip precompute failed", flipError);
+      } catch (writeError) {
+        console.error("counterfactual precompute write failed", writeError);
       }
     }
 

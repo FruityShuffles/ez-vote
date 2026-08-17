@@ -38,6 +38,10 @@ import {
 } from "../_shared/counterfactual.ts";
 import { findMinimalFlips, validateFlipInputs } from "../_shared/flip.ts";
 import {
+  findStrategicOpportunities,
+  validateStrategyInputs,
+} from "../_shared/strategy.ts";
+import {
   ballotRows,
   candidateIdsFor,
   candidateRows,
@@ -632,10 +636,16 @@ async function seedFixture(
     if (error) throw new Error(`results prune: ${error.message}`);
   }
 
-  // --- Flip search --------------------------------------------------------
+  // --- Precomputed counterfactual searches ---------------------------------
   // Case studies never pass through compute-results — they are inserted already
   // `closed` — so this script is the writer for their precomputed flip search
-  // (#146), exactly as it is for their `results`.
+  // (#146) and strategic voting search (#149), exactly as it is for their
+  // `results`. Both live in the one `flip_searches` row (migration 024).
+  //
+  // The two have different eligibility: the flip search requires IRV, the
+  // strategic search runs on any tabulated election. So an approval-only case
+  // study stores a strategy answer and a null `result`, and the row is deleted
+  // only when NEITHER search applies.
   //
   // Two details are load-bearing:
   //
@@ -646,75 +656,91 @@ async function seedFixture(
   //     ever apply. tabulate() ignores voter_id, which is why the results step
   //     above can get away with the name map and this one cannot.
   //
-  //   * `timeLimitMs: Infinity`. findMinimalFlips is bounded by a wall-clock
+  //   * `timeLimitMs: Infinity`. Both searches are bounded by a wall-clock
   //     deadline as well as a tabulation count, so with the default the stored
   //     answer would depend on how busy the machine was and a re-run could
   //     churn the row — breaking the no-op invariant this whole script is built
-  //     around. With only the count budget it is a pure function of the
-  //     fixture. Case studies are tiny; the budget is never approached.
+  //     around. With only the count budget each is a pure function of the
+  //     fixture. Case studies are tiny; the budgets are never approached.
   const seededVoterIds = new Map(
     [...voterIds.entries()].filter(
       (entry): entry is [string, string] => entry[1] !== null,
     ),
   );
-  const flipBallots = ballotRows(fixture, candidateIds, seededVoterIds);
+  const searchBallots = ballotRows(fixture, candidateIds, seededVoterIds);
   const flipEligible =
-    validateFlipInputs(fixture.algorithms, candidates, flipBallots).length ===
+    validateFlipInputs(fixture.algorithms, candidates, searchBallots).length ===
       0;
+  const strategyEligible =
+    validateStrategyInputs(candidates, searchBallots).length === 0;
   // In a dry run the placeholder accounts may not exist yet, so there are no
-  // uuids to key the search on. Report the intent and write nothing.
+  // uuids to key the searches on. Report the intent and write nothing.
   const votersReady = seededVoterIds.size === fixture.voters.length;
   const desiredFlip = flipEligible && votersReady
-    ? findMinimalFlips(candidates, flipBallots, {
+    ? findMinimalFlips(candidates, searchBallots, {
       timeLimitMs: Number.POSITIVE_INFINITY,
     })
     : null;
+  const desiredStrategy = strategyEligible && votersReady
+    ? findStrategicOpportunities(
+      fixture.algorithms,
+      fixture.include_fptp,
+      candidates,
+      searchBallots,
+      { timeLimitMs: Number.POSITIVE_INFINITY },
+    )
+    : null;
 
-  const { data: existingFlip, error: flipReadError } = await sb
+  const { data: existingSearch, error: searchReadError } = await sb
     .from("flip_searches")
-    .select("election_id, result")
+    .select("election_id, result, strategy")
     .eq("election_id", electionId)
     .maybeSingle();
-  if (flipReadError) throw new Error(flipReadError.message);
+  if (searchReadError) throw new Error(searchReadError.message);
 
-  if (!flipEligible) {
-    if (existingFlip) {
-      report.remove("flip search (fixture is not tabulated with IRV)");
+  const label = "counterfactual searches";
+  if (!flipEligible && !strategyEligible) {
+    if (existingSearch) {
+      report.remove(`${label} (fixture is eligible for neither)`);
       if (!dryRun) {
         const { error } = await sb
           .from("flip_searches")
           .delete()
           .eq("election_id", electionId);
-        if (error) throw new Error(`flip search prune: ${error.message}`);
+        if (error) throw new Error(`${label} prune: ${error.message}`);
       }
     }
   } else if (!votersReady) {
-    report.create("flip search");
-  } else if (!existingFlip) {
-    report.create("flip search");
+    report.create(label);
+  } else if (!existingSearch) {
+    report.create(label);
     if (!dryRun) {
-      const { error } = await sb
-        .from("flip_searches")
-        .insert({ election_id: electionId, result: desiredFlip });
-      if (error) throw new Error(`flip search: ${error.message}`);
+      const { error } = await sb.from("flip_searches").insert({
+        election_id: electionId,
+        result: desiredFlip,
+        strategy: desiredStrategy,
+      });
+      if (error) throw new Error(`${label}: ${error.message}`);
     }
   } else if (
-    stableStringify(existingFlip.result) !== stableStringify(desiredFlip)
+    stableStringify(existingSearch.result) !== stableStringify(desiredFlip) ||
+    stableStringify(existingSearch.strategy) !== stableStringify(desiredStrategy)
   ) {
-    report.update("flip search");
+    report.update(label);
     if (!dryRun) {
       const { error } = await sb
         .from("flip_searches")
         .update({
           result: desiredFlip,
+          strategy: desiredStrategy,
           computed_at: new Date().toISOString(),
         })
         .eq("election_id", electionId);
-      if (error) throw new Error(`flip search: ${error.message}`);
+      if (error) throw new Error(`${label}: ${error.message}`);
     }
   } else {
     // Deliberately does NOT touch computed_at — that would churn on every run.
-    report.same("flip search");
+    report.same(label);
   }
 
   report.note(`election id ${electionId}`);

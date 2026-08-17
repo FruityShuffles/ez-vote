@@ -80,15 +80,22 @@ Computed voting results. One row per (election, algorithm) pair.
 **Constraint:** unique(election_id, algorithm). Edge function upserts.
 
 ### `flip_searches`
-The IRV flip search precomputed when an election closes ([[Features/Counterfactual Explorer]]). One row per election, so the FK is the primary key — there is no surrogate `id`, unlike every other table here.
+Both counterfactual analyses precomputed when an election closes ([[Features/Counterfactual Explorer]], [[Features/Strategic Voting]]). One row per election, so the FK is the primary key — there is no surrogate `id`, unlike every other table here.
+
+**The name is narrower than the contents**, deliberately. Since migration 024 the row also holds the strategic voting search. Both are precomputed counterfactual analyses of the same election, keyed the same way, gated the same way, written by the same two service-role callers, and read together by the same explorer page — a second table would mean a second round trip for one screen and a second copy of the policy to keep in step. Renaming was judged not worth an already-deployed table.
 
 | Column | Type | Notes |
 |---|---|---|
 | election_id | uuid | FK → elections.id, PK, `on delete cascade` |
-| result | jsonb | A `FlipSearchResult` verbatim — the same JSON `simulate-counterfactual` returns under `find_flip` |
+| result | jsonb, **nullable** | A `FlipSearchResult` verbatim — the same JSON `simulate-counterfactual` returns under `find_flip`. Null when the election is not tabulated with IRV |
+| strategy | jsonb, nullable | A `StrategicSearchResult` verbatim — the same JSON returned under `find_strategy` (migration 024). Null when the input caps rule the search out |
 | computed_at | timestamptz | Default now(). Operator visibility only; nothing reads it for freshness |
 
+**Why `result` is nullable.** The two searches have different eligibility: the flip search requires IRV, the strategic search runs on any tabulated election. An approval-only election therefore has a strategy answer and no flip answer and must still get a row. A row with **both** columns null is meaningless and is deleted rather than stored.
+
 **No freshness check, by construction.** Both ballot write policies require `elections.status = 'open'`, so a closed election's ballots are immutable and a stored search can never disagree with a fresh one.
+
+The client reads this row with `select('*')` rather than naming columns, so a database behind on migrations degrades to a missing field instead of a query error that would take the other answer down with it.
 
 **Writers:** `compute-results` (on close) and the case-study seed script, both on the service role. There are deliberately no INSERT/UPDATE/DELETE policies — see [[Backend/RLS Policies]] for why the read gate mirrors `ballots` rather than `results`.
 
@@ -155,6 +162,7 @@ Derived fields (IRV from STAR scores, approval from cutoff/top-K) are computed c
 | 021       | Tightens `get_public_ballots()` to require `public_ballots = true` for *all* callers (including the owner)             |
 | 022       | Publicly viewable elections: `visibility` + `showcase` columns, `election_is_public()` helper, anyone-can-read policies on elections/candidates/results, owner write policies locked to private, anon-capable `get_public_ballots()`, gated `get_pending_invitees()`, cron purge excludes public elections |
 | 023       | `flip_searches` table for the flip search precomputed at close (#146); the first table carrying explicit Data API grants |
+| 024       | `flip_searches.strategy` for the strategic voting search precomputed at close (#149); makes `result` nullable, since the two searches have different eligibility. No new policy — RLS is row-level, so 023's gate already covers the column |
 
 ## Data API Access & Grants
 

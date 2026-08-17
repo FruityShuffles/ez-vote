@@ -69,7 +69,8 @@ This was accepted knowingly when M20 was built: the site had no active user traf
     { "op": "remove",  "voter_id": "uuid" },
     { "op": "add",     "payload": { /* hypothetical extra voter */ } }
   ],
-  "find_flip": false  // opt in to the flip search (below); defaults to false
+  "find_flip": false,     // opt in to the flip search (below); defaults to false
+  "find_strategy": false  // opt in to the strategic voting search; defaults to false
 }
 ```
 
@@ -94,6 +95,7 @@ Rejected with a 400 listing every problem found (not just the first). Rejecting 
 - STAR scores outside integer 0–5 (the bound the ballot UI clamps to)
 - more than 500 overrides
 - `find_flip` that isn't a boolean; `find_flip: true` on an election not tabulated with IRV, or with more than 500 ballots or 20 candidates (the flip-search caps)
+- `find_strategy` that isn't a boolean; `find_strategy: true` with more than 500 ballots or 20 candidates. There is deliberately **no algorithm requirement** — every method has a strategy space
 
 ## Response
 
@@ -105,6 +107,7 @@ Rejected with a 400 listing every problem found (not just the first). Rejecting 
   "changed":   { "irv": true, "star": false },
   "ballot_count": { "baseline": 12, "simulated": 13 },
   "applied": { "replace": 2, "remove": 0, "add": 1 }
+  // plus "flip" and/or "strategy" when the request opted into them
 }
 ```
 
@@ -166,8 +169,44 @@ Re-measured for #146: at worst-case size (500 ballots × 20 candidates) a single
 
 **Explorer handling.** The changes are raw payload edits to the `irv` key only and remain ready-made `replace` overrides — the round trip `flip.test.ts` guarantees. The explorer applies and edits the complete replacement payload verbatim rather than passing it through real-ballot derivation templates. This preserves an IRV-only suggestion even in a combined STAR+IRV election and gives future algorithm searches the same payload-authoritative path. See [[Features/Counterfactual Explorer]].
 
+## Strategic voting search (`find_strategy`) — also a fallback path
+
+The individual-voter counterpart to the flip search (#149): *given that everyone else voted as they did, could this voter have gotten a better outcome by submitting a different ballot?* Setting `find_strategy: true` runs a budgeted per-method search (`supabase/functions/_shared/strategy.ts`) and adds a `strategy` field to the response.
+
+The full design — the isolation rule, the utility model, the per-method trial generators, why truncation is excluded — lives in [[Features/Strategic Voting]]. What matters at this boundary:
+
+```jsonc
+"strategy": {
+  "opportunities": [{          // best first, by how much the voter gained
+    "algorithm": "irv",        // findings are PER METHOD and never combined
+    "voter_id": "uuid",
+    "payload": { "irv": ["cand-b", "cand-c", "cand-a"] },  // a ready-made replace override
+    "baseline_winners": ["Alice"],
+    "winners": ["Bob"],        // verified, not predicted
+    "shared_by": 3             // attributable ballots identical to this one
+  }],
+  "algorithms_searched": ["irv"],   // methods that survived the pivotality screen
+  "distinct_ballots": 4, "ballots_examined": 9,
+  "tabulations_used": 60, "budget": 300, "budget_exhausted": false
+}
+```
+
+**The honesty contract is the inverse of the flip search's**, and it is easy to read backwards. Every reported opportunity is **proven** — an existence claim, verified by re-tabulating with the trial ballot substituted in. **Absence is not proven**: an empty `opportunities` array never means the election was strategy-proof, only that a bounded set of trial ballots under a bounded budget turned up nothing.
+
+`algorithms_searched` is the one place the search can say something stronger. A method absent from it failed the pivotality screen, which means **no** single ballot could have moved that method's winners — a proof, not a heuristic.
+
+**No `voter_name`, deliberately.** The stored answer carries voter ids only, exactly like `flip.changes`, so a renamed account is never contradicted by a stale row. The client resolves names from the ballots it already has.
+
+**Since #149 shipped this is not the primary source**, on the same pattern as `find_flip`: the search is precomputed at close into `flip_searches.strategy` and the explorer reads that row. `find_strategy` remains for elections with no row — those closed before #149, and those whose owner enabled `public_ballots` after closing. The **mutation guarantee is unchanged**: this function still holds no service-role key and still writes nothing.
+
+**Budget.** Count budget `MAX_STRATEGY_TABULATIONS = 300`, backed by `MAX_STRATEGY_MS = 400`. Input caps `MAX_STRATEGY_BALLOTS = 500` (equal to the override cap, so any answer is replayable) and `MAX_STRATEGY_CANDIDATES = 20`. Exhaustion is never an error — every verified finding is retained and `budget_exhausted` says the gate tripped.
+
+**No new exposure, still.** Every `voter_id` in `strategy` comes from the same `get_public_ballots` rows this response already returned to this caller, and the search is pure compute over data already fetched.
+
 ## Tests
 
-`supabase/functions/_shared/counterfactual.test.ts` and `_shared/flip.test.ts`, run by `deno task test` and by the `Algorithm golden tests` CI workflow (which already triggers on any change under `supabase/functions/`).
+`supabase/functions/_shared/counterfactual.test.ts`, `_shared/flip.test.ts` and `_shared/strategy.test.ts`, run by `deno task test` and by the `Algorithm golden tests` CI workflow (which already triggers on any change under `supabase/functions/`).
 
 Plain unit tests rather than fixtures: the golden corpus exists to lock *algorithm* behavior, and these modules do not touch the algorithms. `counterfactual.test.ts` guards the substitution and validation rules — every rejection above, `applyOverrides` not mutating its input, a null-`voter_id` ballot counting but staying untargetable, and `diffWinners` across a flip, a no-op, and a win-becomes-tie. `flip.test.ts` guards the search contract, above all its honesty: every `flipped` answer must replay through the overrides path to a real flip, `no_flip_found` is locked against a profile where a flip exists but only via a move the greedy never tries, exhaustion at each phase keeps exactly what was verified, and the fixed-point minimization is locked against a profile where a single sweep returns a larger answer.
+
+`strategy.test.ts` guards two properties above all. **Round-trip honesty**: every reported opportunity replayed through `applyOverrides` must produce exactly the claimed winners. **Isolation**: a reported payload differs in exactly one method's key, and every *other* enabled method's winners are unchanged by it — the executable form of the rule that methods are analyzed alone. Around those sit crafted per-method profiles (including an election where FPTP is derived from `irv[0]`, and a STAR profile where one ballot changes who reaches the runoff), a landslide that is screened out before any trial runs, and dedupe and budget-exhaustion cases.

@@ -26,9 +26,9 @@
 // is needed here because identity was never the authority; the caller's role
 // is.
 //
-// The opt-in flip search (`find_flip`) is pure compute over the data already
-// fetched above — it adds no reads and no privileged key, so the property
-// holds for it too.
+// The opt-in searches (`find_flip`, `find_strategy`) are pure compute over the
+// data already fetched above — they add no reads and no privileged key, so the
+// property holds for them too.
 //
 // Deploy: supabase functions deploy simulate-counterfactual --no-verify-jwt
 // (--no-verify-jwt for the same reason as compute-results: the gateway rejects
@@ -49,6 +49,11 @@ import {
   type FlipSearchResult,
   validateFlipInputs,
 } from "../_shared/flip.ts";
+import {
+  findStrategicOpportunities,
+  type StrategicSearchResult,
+  validateStrategyInputs,
+} from "../_shared/strategy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,10 +95,18 @@ serve(async (req: Request) => {
       ? authedClient
       : createClient(supabaseUrl, supabaseAnonKey);
 
-    const { election_id, overrides = [], find_flip = false } = await req.json();
+    const {
+      election_id,
+      overrides = [],
+      find_flip = false,
+      find_strategy = false,
+    } = await req.json();
     if (!election_id) throw new Error("election_id required");
     if (typeof find_flip !== "boolean") {
       throw new Error("find_flip must be a boolean");
+    }
+    if (typeof find_strategy !== "boolean") {
+      throw new Error("find_strategy must be a boolean");
     }
 
     const { data: election, error: electionError } = await userClient
@@ -169,12 +182,36 @@ serve(async (req: Request) => {
       flip = findMinimalFlips(candidates ?? [], baselineBallots);
     }
 
+    // Same contract as the flip search: baseline ballots only, so every
+    // reported opportunity is a valid `replace` override against the live
+    // election, and any `overrides` in the same request are ignored here.
+    //
+    // The fallback for elections with no precomputed row (migration 024):
+    // everything closed before #149, plus anything whose owner enabled
+    // public_ballots after closing. Unlike `find_flip` there is no algorithm
+    // requirement — every method has a strategy space.
+    let strategy: StrategicSearchResult | undefined;
+    if (find_strategy) {
+      const strategyErrors = validateStrategyInputs(
+        candidates ?? [],
+        baselineBallots,
+      );
+      if (strategyErrors.length > 0) throw new Error(strategyErrors.join("; "));
+      strategy = findStrategicOpportunities(
+        algorithms,
+        election.include_fptp,
+        candidates ?? [],
+        baselineBallots,
+      );
+    }
+
     return new Response(
       JSON.stringify({
         election_id,
         baseline,
         simulated,
         ...(flip !== undefined && { flip }),
+        ...(strategy !== undefined && { strategy }),
         changed: diffWinners(baseline, simulated),
         ballot_count: {
           baseline: baselineBallots.length,

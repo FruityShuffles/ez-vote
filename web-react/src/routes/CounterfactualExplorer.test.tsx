@@ -18,7 +18,8 @@ const mocks = vi.hoisted(() => ({
   usePublicBallots: vi.fn(),
   useSimulate: vi.fn(),
   useFlipSearch: vi.fn(),
-  useStoredFlip: vi.fn(),
+  useStrategySearch: vi.fn(),
+  useStoredSearches: vi.fn(),
 }))
 
 vi.mock('@/lib/elections', async (importOriginal) => ({
@@ -32,7 +33,8 @@ vi.mock('@/lib/counterfactual', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/counterfactual')>()),
   useSimulate: mocks.useSimulate,
   useFlipSearch: mocks.useFlipSearch,
-  useStoredFlip: mocks.useStoredFlip,
+  useStrategySearch: mocks.useStrategySearch,
+  useStoredSearches: mocks.useStoredSearches,
 }))
 
 const election: Election = {
@@ -139,9 +141,19 @@ beforeEach(() => {
     isFetching: false,
     refetch: vi.fn(),
   })
+  mocks.useStrategySearch.mockReturnValue({
+    data: undefined,
+    error: null,
+    isError: false,
+    isFetching: false,
+    refetch: vi.fn(),
+  })
   // Default: no precomputed row, so the existing tests keep exercising the
   // user-initiated fallback path.
-  mocks.useStoredFlip.mockReturnValue({ data: null, isPending: false })
+  mocks.useStoredSearches.mockReturnValue({
+    data: { flip: null, strategy: null },
+    isPending: false,
+  })
 })
 
 describe('counterfactual route containers', () => {
@@ -195,9 +207,70 @@ describe('counterfactual route containers', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders a precomputed flip search with no button press (#146)', () => {
-    mocks.useStoredFlip.mockReturnValue({
+  it('puts both searches above the ballot list, strategy first (#149)', () => {
+    renderRoutes('/election/e1/explore')
+
+    const strategy = screen.getByRole('region', { name: 'Strategic voting' })
+    const flip = screen.getByRole('region', { name: 'Flip the outcome' })
+    const ballotList = screen.getByRole('button', { name: 'Priya' })
+
+    // Node.compareDocumentPosition: 4 = "the argument follows this node".
+    const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING
+    expect(strategy.compareDocumentPosition(flip) & FOLLOWING).toBeTruthy()
+    expect(flip.compareDocumentPosition(ballotList) & FOLLOWING).toBeTruthy()
+  })
+
+  it('renders a precomputed strategic search with no button press (#149)', () => {
+    mocks.useStoredSearches.mockReturnValue({
       data: {
+        flip: null,
+        strategy: {
+          opportunities: [
+            {
+              algorithm: 'irv',
+              voter_id: 'v1',
+              payload: { irv: ['bo', 'ada', 'cy'] },
+              baseline_winners: ['Ada'],
+              winners: ['Bo'],
+              shared_by: 1,
+            },
+          ],
+          algorithms_searched: ['irv'],
+          distinct_ballots: 2,
+          ballots_examined: 2,
+          tabulations_used: 9,
+          budget: 300,
+          budget_exhausted: false,
+        },
+      },
+      isPending: false,
+    })
+    renderRoutes('/election/e1/explore')
+
+    const panel = screen.getByRole('region', { name: 'Strategic voting' })
+    expect(
+      within(panel).getByText('Priya could have made Bo win instead of Ada.'),
+    ).toBeVisible()
+    // The stored answer replaces the button entirely — that is the feature.
+    expect(
+      within(panel).queryByRole('button', { name: 'Run the search' }),
+    ).not.toBeInTheDocument()
+    expect(mocks.useStrategySearch).toHaveBeenCalledWith('e1', false)
+  })
+
+  it('falls back to the strategy button when nothing is precomputed', () => {
+    renderRoutes('/election/e1/explore')
+    const panel = screen.getByRole('region', { name: 'Strategic voting' })
+    expect(
+      within(panel).getByRole('button', { name: 'Run the search' }),
+    ).toBeVisible()
+  })
+
+  it('renders a precomputed flip search with no button press (#146)', () => {
+    mocks.useStoredSearches.mockReturnValue({
+      data: {
+        strategy: null,
+        flip: {
         algorithms: [
           {
             algorithm: 'irv',
@@ -226,6 +299,7 @@ describe('counterfactual route containers', () => {
         tabulations_used: 5,
         budget: 400,
         budget_exhausted: false,
+        },
       },
       isPending: false,
     })
@@ -261,6 +335,10 @@ describe('counterfactual route containers', () => {
     expect(
       screen.queryByRole('region', { name: 'Flip the outcome' }),
     ).not.toBeInTheDocument()
+    // The strategic search has no algorithm requirement, so it stays (#149).
+    expect(
+      screen.getByRole('region', { name: 'Strategic voting' }),
+    ).toBeInTheDocument()
   })
 
   it('opens an applied IRV suggestion exactly and preserves it across a STAR edit', async () => {

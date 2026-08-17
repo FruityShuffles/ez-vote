@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 // It is what makes a counterfactual reversible and legible instead of a state
 // you can get lost in. Server-suggested changes from the "minimum changes to
 // flip the outcome" search (#120/#135) land here too — the same shape, filled
-// in by the server rather than by hand, marked `source: 'flip'`.
+// in by the server rather than by hand, marked `source: 'suggested'`.
 
 export interface LedgerEntry {
   voterId: string
@@ -16,8 +16,8 @@ export interface LedgerEntry {
   /** Short phrases from `summarizeChange`; empty for a removed ballot. */
   phrases: string[]
   op: 'replace' | 'remove'
-  /** `'flip'` when the change is a verbatim server flip-search suggestion. */
-  source?: 'flip'
+  /** `'suggested'` when the change came verbatim from a server search — the flip search (#120/#135) or the strategic voting search (#149). */
+  source?: 'suggested'
 }
 
 interface EditLedgerProps {
@@ -109,14 +109,14 @@ function ChipLabel({
 
   const text = (
     <>
-      {entry.source === 'flip' && (
+      {entry.source === 'suggested' && (
         <Sparkles
           className="mr-1 inline size-3 align-[-0.125em] text-muted-foreground"
           aria-hidden
         />
       )}
       <span className="font-medium">{entry.voterName}</span>
-      {entry.source === 'flip' && (
+      {entry.source === 'suggested' && (
         <span className="text-muted-foreground"> · suggested</span>
       )}
       <span className="text-muted-foreground"> · {summary}</span>
