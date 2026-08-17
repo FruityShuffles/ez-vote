@@ -246,14 +246,24 @@ test('a hypothetical algorithm edit stays isolated, undo restores baseline, and 
       strategyPanel.getByRole('button', { name: 'Run the search' }),
     ).toBeHidden({ timeout: 20_000 })
     const order = await page.evaluate(() => {
-      const region = (name: string) =>
+      const byLabel = (name: string) =>
         document.querySelector(`[aria-label="${name}"]`)
-      const strategy = region('Strategic voting')
-      const flip = region('Flip the outcome')
-      const picker = document.querySelector(
-        '[aria-label="Show ballots whose top choice was"]',
-      )
-      if (!strategy || !flip || !picker) return null
+      const strategy = byLabel('Strategic voting')
+      const flip = byLabel('Flip the outcome')
+      // The picker's own top-choice filter group is labelled by a caption
+      // element, not an aria-label, so anchor on its search box instead — the
+      // first thing inside the ballot picker either way.
+      const picker = byLabel('Search voters by name')
+      // Reported per element: a bare null would not say which one moved.
+      if (!strategy || !flip || !picker) {
+        return {
+          found: {
+            strategy: Boolean(strategy),
+            flip: Boolean(flip),
+            picker: Boolean(picker),
+          },
+        }
+      }
       return {
         strategyBeforeFlip: Boolean(
           strategy.compareDocumentPosition(flip) &
